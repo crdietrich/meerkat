@@ -11,8 +11,9 @@ def process_line(line):
 	print('Need to process line: {}'.format(line))
 
 def temperature_loop():
+	line = ""
 	while True:
-		data = ser.read()
+		data = temperature_ser.read()
 		if(data == "\r"):
 			process_line(line)
 			line = ""
