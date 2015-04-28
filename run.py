@@ -4,7 +4,7 @@ import threading
 print('Starting server...')
 
 temperature_usb = '/dev/ttyAMA0'
-BAUD_RATE = 9600
+BAUD_RATE = 38400
 temperature_ser = serial.Serial(temperature_usb, BAUD_RATE)
 
 def process_line(line):
