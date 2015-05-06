@@ -1,3 +1,4 @@
+import argparse
 import serial
 import threading
 from io import BufferedRWPair, TextIOWrapper
@@ -6,6 +7,11 @@ from time import sleep
 
 temp_usb = '/dev/ttyAMA0'
 BAUD_RATE = 9600
+parser = argparse.ArgumentParser()
+parser.add_argument('oxygen', help='The USB port of the oxygen sensor.')
+parser.add_argument('salinity', help='The USB port of the salinity sensor.')
+parser.add_argument('server_ip', help='The IP address of the lighthouse node.')
+parser.add_argument('port', help='The port of the lighthouse node.')
 
 
 def init_db():
@@ -81,10 +87,6 @@ def run_loop(oxy_usb, sal_usb, server_ip, server_port):
 
 if __name__ == '__main__':
 	# TODO: Create supervisord script to keep run.py running.
-	# TODO: Parse command line args for Salinity and Dissolved oxygen serial ports, append them to args array.
-	# TODO: Parse command line args for lighthouse ip address and port, append them to args array.
 	# TODO: Parse command line args for database connection info.
-	init_db()
-	args = []
-	temperature_thread = threading.Thread(target=run_loop, args=args)
-	temperature_thread.start()
+	args = parser.parse_args()
+	run_loop(args.oxygen, args.salinity, args.server_ip, args.port)
