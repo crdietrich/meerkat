@@ -58,24 +58,26 @@ def initialize_serial_connections(oxy_usb, sal_usb):
 
 
 def run_loop(oxy_usb, sal_usb, server_ip, server_port):
-	temp_conn, sal_conn, oxy_conn = initialize_serial_connections()
+	init_db()
+	temp_conn, sal_conn, oxy_conn = initialize_serial_connections(oxy_usb, sal_usb)
 
 	# TODO: Catch serial.serialutil.SerialException on read?
 	while True:
-		temp.write('R\r')
+		temp_conn.write('R\r')
 		temp = temp_conn.readline()
 
-		sal.write('R\r')
+		sal_conn.write('R\r')
 		sal = sal_conn.readline()
 		
 		# TODO: send temp and sal to oxy sensor first, then retrieve oxy value.
 		# oxy.write(<salinity command here>)
 		# oxy.write(<temp command here>)
-		oxy.write('R\r')
+
+		oxy_conn.write('R\r')
 		oxy = oxy_conn.readline()
 
 		print('Temperature: {}, Dissolved Oxygen: {}, Salinity: {}'.format(temp, oxy, sal))
-		
+
 		save_data(temp, oxy, sal)
 		push_data(temp, oxy, sal, server_ip, server_port)
 
