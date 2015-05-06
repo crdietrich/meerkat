@@ -45,8 +45,8 @@ def save_data(temperature, salinity, oxygen):
 
 
 def push_data(temperature, salinity, oxygen, server_ip, server_port):
+	payload = {'temperature': temperature, 'salinity': salinity, 'oxygen': oxygen}
 	# TODO push data to lighthouse node.
-	pass
 
 
 def initialize_serial_connections(oxy_usb, sal_usb):
