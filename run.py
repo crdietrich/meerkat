@@ -20,8 +20,9 @@ def init_db():
 
 
 def create_connection(usb_port):
+	print('Creating connection on {}'.format(usb_port))
 	ser = serial.Serial(usb_port, BAUD_RATE)
-	disable_continuous_mode(ser)
+	# disable_continuous_mode(ser)
 	return TextIOWrapper(BufferedRWPair(ser, ser), newline='\r', encoding='ascii', line_buffering=True)
 
 
@@ -29,11 +30,12 @@ def disable_continuous_mode(conn: serial.Serial):
 	# TODO: research if we need to send this command every time we connect to the sensors, or if it only
 	# needs to be sent once to disable continuous mode. If only once we should move this code into a
 	# separate python file.
-	
-	conn.write('E\r')
+	print('Disabling continuous mode...')
+	conn.write(bytes('E\r', 'ascii'))
 
 	if conn.inWaiting() > 0:
 		# clear the buffer if there is anything waiting.
+		print('Clearing buffer...')
 		conn.read(conn.inWaiting())
 
 
