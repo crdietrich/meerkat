@@ -54,10 +54,6 @@ def initialize_serial_connections(oxy_usb, sal_usb):
 	sal_conn = create_connection(sal_usb)
 	oxy_conn = create_connection(oxy_usb)
 
-	disable_continuous_mode(temp_conn)
-	disable_continuous_mode(sal_conn)
-	disable_continuous_mode(oxy_conn)
-
 	return temp_conn, sal_conn, oxy_conn
 
 
