@@ -4,6 +4,8 @@ import time
 import serial
 from io import BufferedRWPair, TextIOWrapper
 
+from cso_parser import CsoParser
+
 temp_usb = '/dev/ttyAMA0'
 BAUD_RATE = 9600
 parser = argparse.ArgumentParser()
@@ -38,13 +40,14 @@ def disable_continuous_mode(conn: serial.Serial):
         conn.read(conn.inWaiting())
 
 
-def save_data(temperature, salinity, oxygen):
+def save_data(temperature, salinity, oxygen, cso_now, cso_recent):
     # TODO save data to database (sqlite)
     pass
 
 
-def push_data(temperature, salinity, oxygen, server_ip, server_port):
-    payload = {'temperature': temperature, 'salinity': salinity, 'oxygen': oxygen}
+def push_data(temperature, salinity, oxygen, cso_now, cso_recent, server_ip, server_port):
+    payload = {'temperature': temperature, 'salinity': salinity, 'oxygen': oxygen, 'cso_now': cso_now,
+               'cso_recent': cso_recent}
 
 
 # TODO push data to lighthouse node.
@@ -60,6 +63,7 @@ def initialize_serial_connections(oxy_usb, sal_usb):
 
 def run_loop(oxy_usb, sal_usb, server_ip, server_port):
     init_db()
+    cso_parser = CsoParser()
     temp_conn, sal_conn, oxy_conn = initialize_serial_connections(oxy_usb, sal_usb)
 
     # TODO: Catch serial.serialutil.SerialException on read?
@@ -79,8 +83,8 @@ def run_loop(oxy_usb, sal_usb, server_ip, server_port):
 
         print('Temperature: {}, Dissolved Oxygen: {}, Salinity: {}'.format(temp, oxy, sal))
 
-        save_data(temp, oxy, sal)
-        push_data(temp, oxy, sal, server_ip, server_port)
+        save_data(temp, oxy, sal, cso_parser.now_count, cso_parser.recent_count)
+        push_data(temp, oxy, sal, server_ip, cso_parser.now_count, cso_parser.recent_count, server_port)
 
         # TODO: Determine how often we should be grabbing data from sensors and pushing to other pi node.
         time.sleep(5)
