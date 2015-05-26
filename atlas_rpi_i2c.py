@@ -7,7 +7,24 @@ Sensor default addresses are:
 0x63 : pH
 0x64 : Conductivity
 
+Data output
+-----------
+Dissolved Oxygen
+    Dissolved Oxygen : float, mg/L (% sat)
+    % Saturation : float, %
+
+Oxidation Reduction Potential = mV
+
+pH : float, pH units
+
+Conductivity
+    Conductivity, E.C. : float, micro Siemens
+    Total Dissolved Solids, TDS : float, mg/L
+    Salinity, SAL : float, PSS-78 (no defined units)
+    Specific Gravity, SG : float, Dimensionless unit
+
 RaspberryPi i2c
+---------------
 1. Assumes i2c bus has been enabled.
     easiest way is to bootstrap Raspbian  using the Adafruit tool:
     https://github.com/adafruit/Adafruit-Pi-Finder
@@ -45,6 +62,25 @@ class atlas_i2c:
         # initializes I2C to either a user specified or default address
         self.set_i2c_address(address)
 
+        self.name = None
+        self.get_name()
+
+    def get_name(self):
+
+        # for terminal printing and identification
+        names = {"DO": "Dissolved Oxygen", "ORP": "Oxidation Reduction",
+                 "EC": "Conductivity", "pH": "pH", }
+
+        while self.name is None:
+            try:
+                info = string.split(self.query("I")[1], ",")[1]
+                self.name = names[info]
+            except IndexError:
+                pass
+            except KeyError:
+                pass
+
+
     def set_i2c_address(self, addr):
         # set the I2C communications to the slave specified by the address
         # The commands for I2C dev using the ioctl functions are specified in
@@ -59,15 +95,27 @@ class atlas_i2c:
         self.file_write.write(string)
 
     def read(self, num_of_bytes = 31):
-        # reads a specified number of bytes from I2C, then parses and displays the result
+        """Read a specified number of bytes from I2C, then parses and displays the result
+
+        Parameters
+        ----------
+        num_of_bytes : int, number of bytes of data to read
+
+        Returns
+        -------
+        [boolean, characters] : Success/Error, values read from sensor
+        """
+
         res = self.file_read.read(num_of_bytes) # read from the board
         response = filter(lambda x: x != '\x00', res) # remove the null characters to get the response
         if(ord(response[0]) == 1): # if the response isn't an error
             char_list = map(lambda x: chr(ord(x) & ~0x80), list(response[1:])) # change MSB to 0 for all received characters except the first and get a list of characters
             # NOTE: having to change the MSB to 0 is a glitch in the raspberry pi, and you shouldn't have to do this!
-            return "Command succeeded " + ''.join(char_list) # convert the char list to a string and returns it
+            # return "Command succeeded " + ''.join(char_list) # convert the char list to a string and returns it
+            return [True, ''.join(char_list)] # convert the char list to a string and returns it
         else:
-            return "Error " + str(ord(response[0]))
+            # return "Error " + str(ord(response[0]))
+            return [False, "Error " + str(ord(response[0]))]
 
     def query(self, string):
         # write a command to the board, wait the correct timeout, and read the response

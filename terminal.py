@@ -85,9 +85,6 @@ while True:
                       "setting polling time to %0.2f" %  device.long_timeout)
                 delay_time =  device.long_timeout
 
-            # get the information of the board you're polling
-            info = string.split(device.query("I"), ",")[1]
-
             # handle optional 4th burst command
             burst = False
             if len(command) == 4:
@@ -102,13 +99,13 @@ while True:
                       "$ help for details.")
 
             print("Response >> Polling %s sensor every %0.2f seconds, "
-                  "press ctrl-c to stop polling" % (info, delay_time))
+                  "press ctrl-c to stop polling" % (device.name, delay_time))
 
             # continuously poll the sensor
             try:
                 c = 0
                 while True:
-                    print(device.query("R"))
+                    print(device.name + ": " + device.query("R")[1])
                     time.sleep(delay_time - device.long_timeout)
 
                     # if a limited number of samples were requested
