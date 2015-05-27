@@ -10,7 +10,7 @@ except ImportError:
 import time
 
 import atlas_rpi_i2c
-
+import MCP9808
 
 class AtlasI2C(object):
     """Connect to Atlas Scientific sensors and poll them regularly"""
@@ -50,6 +50,11 @@ class AtlasI2C(object):
         # polling attributes
         self.sample_rate = sample_rate
 
+        # temperature sensor MCP9808
+        self.temp = MCP9808.MCP9808()
+        self.temp.begin()
+
+
     def connect(self):
         """Instance each sensor on the i2c bus"""
         self.do = atlas_rpi_i2c.atlas_i2c(address=0x61, bus=0)
@@ -58,11 +63,12 @@ class AtlasI2C(object):
         self.ec = atlas_rpi_i2c.atlas_i2c(address=0x64, bus=0)
 
     def query_all(self):
-        """Get all sensor values and return them in a list
+        """Get all sensor values and return them in a list. Doesn't attempt
+        to pass dependent values between sensors.
 
         Returns
         -------
-        list of floats, in format [unix_time,do,ox,ph,ec,tds,sal,sg]
+        list of floats, in format [unix_time,t,do,ox,ph,ec,tds,sal,sg]
         """
 
         try:
@@ -95,7 +101,13 @@ class AtlasI2C(object):
                 ec_all = [float(n) for n in ec_all.split(",")]
         except:
             ec_all = [-1,-1,-1,-1]
-        all = [time.time()] + do + ox + ph + ec_all
+
+        try:
+            t = [self.temp.readTempC()]
+        except:
+            t = [-1]
+
+        all = [time.time()] + t + do + ox + ph + ec_all
         return all
 
 
