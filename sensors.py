@@ -13,7 +13,8 @@ import atlas_rpi_i2c
 import MCP9808
 
 class AtlasI2C(object):
-    """Connect to Atlas Scientific sensors and poll them regularly"""
+    """Connect to Atlas Scientific sensors and poll them regularly.
+    All sensors return -1 if there's an error."""
 
     def __init__(self, sample_rate=5):
         """Initalize i2c sensors
@@ -27,15 +28,16 @@ class AtlasI2C(object):
 
         # default i2c addresses, override if there's a conflict
         self.do_default_address = 0x61
+        # self.ox_default_address = 0x62
         self.ph_default_address = 0x63
         self.ec_default_address = 0x64
 
         # default i2c bus, different versions of RPi are on 0 or 1
-        self.i2c_bus = 0
+        self.i2c_bus = 1
 
         # instance i2c bus controller classes
         self.do = None
-        self.ox = None
+        # self.ox = None
         self.ph = None
         self.ec = None
         self.connect()
@@ -46,6 +48,7 @@ class AtlasI2C(object):
 
         # flags
         self.poll_flag = False
+        self.temp_error = False
 
         # polling attributes
         self.sample_rate = sample_rate
@@ -57,10 +60,10 @@ class AtlasI2C(object):
 
     def connect(self):
         """Instance each sensor on the i2c bus"""
-        self.do = atlas_rpi_i2c.atlas_i2c(address=0x61, bus=0)
-        # self.ox = atlas_rpi_i2c.atlas_i2c(address=0x62, bus=0)
-        self.ph = atlas_rpi_i2c.atlas_i2c(address=0x63, bus=0)
-        self.ec = atlas_rpi_i2c.atlas_i2c(address=0x64, bus=0)
+        self.do = atlas_rpi_i2c.atlas_i2c(address=0x61, bus=self.i2c_bus)
+        # self.ox = atlas_rpi_i2c.atlas_i2c(address=0x62, bus=self.i2c_bus)
+        self.ph = atlas_rpi_i2c.atlas_i2c(address=0x63, bus=self.i2c_bus)
+        self.ec = atlas_rpi_i2c.atlas_i2c(address=0x64, bus=self.i2c_bus)
 
     def query_all(self):
         """Get all sensor values and return them in a list. Doesn't attempt
@@ -71,45 +74,104 @@ class AtlasI2C(object):
         list of floats, in format [unix_time,t,do,ox,ph,ec,tds,sal,sg]
         """
 
+        # keep track of errors
+        status = ""
+
+        # 0 : Get the current temperature from the MCP9808
+        try:
+            t = [self.temp.readTempC()]
+            self.temp_error = False
+            status += "1"
+        except:
+            self.temp_error = True
+            t = [-1]
+            status += "0"
+
+        # if there's an error getting the temperature, default to 23.0 C
+        if self.temp_error:
+            temp_temp = "23.0"
+        else:
+            temp_temp = "{:.2f}".format(t[0])
+
+        # 1 : Dissolved Oxygen Temperature Compensation
+        try:
+            self.do.query("T," + temp_temp)
+            status += "1"
+        except:
+            status += "0"
+
+        # 2 : Oxidation Reduction Potential Temperature Compensation
+        # try:
+        #     self.ox.query("T," + temp_temp)
+        #     status += "1"
+        # except:
+        #     status += "0"
+        status += "0"
+
+        # 3 : pH Temperature Compensation
+        try:
+            self.ph.query("T," + temp_temp)
+            status += "1"
+        except:
+            status += "0"
+
+        # 4 : Conductivity Temperature Compensation
+        try:
+            self.ec.query("T," + temp_temp)
+            status += "1"
+        except:
+            status += "0"
+
+        # 5 : Dissolved Oxygen Reading
         try:
             dor = self.do.query("R")
             if dor[0]:
                 do = [float(dor[1])]
+            status += "1"
         except:
+            status += "0"
             do = [-1]
 
+        # 5 : Oxidation Reduction Potential Reading
         # try:
         #     oxr = self.ox.query("R")
         #     if oxr[0]:
         #         ox = [float(oxr[1])]
         # except:
         #     ox = [-1]
-
         ox = [-1]
+        status += "0"
 
+        # 6 : pH Reading
         try:
             phr = self.ph.query("R")
             if phr[0]:
                 ph = [float(phr[1])]
+            status += "1"
         except:
             ph = [-1]
+            status += "0"
 
+        # 7 : Electrical Conductivity Reading
         try:
             ecr = self.ec.query("R")
             if ecr[0]:
                 ec_all = ecr[1]
                 ec_all = [float(n) for n in ec_all.split(",")]
+                status += "1"
         except:
             ec_all = [-1,-1,-1,-1]
+            status += "0"
 
-        try:
-            t = [self.temp.readTempC()]
-        except:
-            t = [-1]
+        # try:
+        #     t = [self.temp.readTempC()]
+        # except:
+        #     t = [-1]
 
-        all = [time.time()] + t + do + ox + ph + ec_all
+        status = [status]
+
+        all = [time.time()] + t + do + ox + ph + ec_all + status
         return all
-
 
     def poll(self):
         """Poll the sensors at regular intervals and put them in the queue.
@@ -118,8 +180,11 @@ class AtlasI2C(object):
 
         self.poll_flag = True
         while self.poll_flag:
+            t0 = time.time()
             self.q.put(self.query_all(), block=True, timeout=10)  # note 10s
-            time.sleep(self.sample_rate-1.5*3)
+            t_total = time.time() - t0
+            if t_total < self.sample_rate:
+                time.sleep(self.sample_rate - t_total)
 
     def poll_print_queue(self):
         """Poll the sensors at regular intervals using the queue and
@@ -128,9 +193,12 @@ class AtlasI2C(object):
         """
         self.poll_flag = True
         while self.poll_flag:
+            t0 = time.time()
             self.q.put(self.query_all(), block=True, timeout=10)  # note 10s
             print(self.q.get(block=True, timeout=10))
-            time.sleep(self.sample_rate-1.5*3)
+            t_total = time.time() - t0
+            if t_total < self.sample_rate:
+                time.sleep(self.sample_rate - t_total)
 
     def poll_sensors(self):
         """Poll the sensors at regular intervals, but make it look
