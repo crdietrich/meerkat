@@ -1,8 +1,8 @@
 import argparse
+import json
 import time
-
-import serial
-from io import BufferedRWPair, TextIOWrapper
+import traceback
+import requests
 
 from cso_parser import CsoParser
 from sensors import AtlasI2C
@@ -19,27 +19,29 @@ def init_db():
     # TODO: initialize the sqlite database.
     pass
 
-def save_data(temperature, salinity, oxygen, cso_now, cso_recent):
+
+def save_data(temperature, oxygen, ph, cso_now, cso_recent):
     # TODO save data to database (sqlite)
     pass
 
 
-def push_data(temperature, salinity, oxygen, cso_now, cso_recent, server_ip, server_port):
-    payload = {'temperature': temperature, 'salinity': salinity, 'oxygen': oxygen, 'cso_now': cso_now,
+def push_data(temperature, oxygen, ph, cso_now, cso_recent, url):
+    payload = {'temperature': temperature, 'ph': ph, 'oxygen': oxygen, 'cso_now': cso_now,
                'cso_recent': cso_recent}
+    print('POSTING to {} with data: {}'.format(url, payload))
+    try:
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        requests.post(url, data=json.dumps(payload), headers=headers)
+    except Exception:
+        traceback.print_exc()
 
 
-# TODO push data to lighthouse node.
-
-# def run_loop(oxy_usb, sal_usb, server_ip, server_port):
 def run_loop(server_ip, server_port):
-
+    url = 'http://{}:{}/data'.format(server_ip, server_port)
     init_db()
     cso_parser = CsoParser()
-    #temp_conn, sal_conn, oxy_conn = initialize_serial_connections(oxy_usb, sal_usb)
 
     while True:
-
         s = ai2c.query_all()
         temp = s[1]
         do = s[2]
@@ -49,7 +51,7 @@ def run_loop(server_ip, server_port):
         print(s)
 
         save_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
-        push_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
+        push_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count, url)
 
         # TODO: Determine how often we should be grabbing data from sensors and pushing to other pi node.
         time.sleep(5)
@@ -58,5 +60,4 @@ if __name__ == '__main__':
     # TODO: Create supervisord script to keep run.py running.
     # TODO: Parse command line args for database connection info.
     args = parser.parse_args()
-    # run_loop(args.oxygen, args.salinity, args.server_ip, args.port)
     run_loop(args.server_ip, args.port)
