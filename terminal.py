@@ -10,10 +10,10 @@ import atlas_rpi_i2c
 
 
 # instance all sensors, not particularly safe, no checks done...
-do = atlas_rpi_i2c.atlas_i2c(address=0x61, bus=0)
-# ox = atlas_rpi_i2c.atlas_i2c(address=0x62, bus=0)
-ph = atlas_rpi_i2c.atlas_i2c(address=0x63, bus=0)
-ec = atlas_rpi_i2c.atlas_i2c(address=0x64, bus=0)
+do = atlas_rpi_i2c.atlas_i2c(address=0x61, bus=1)
+# ox = atlas_rpi_i2c.atlas_i2c(address=0x62, bus=1)
+ph = atlas_rpi_i2c.atlas_i2c(address=0x63, bus=1)
+ec = atlas_rpi_i2c.atlas_i2c(address=0x64, bus=1)
 
 def help():
     """Overly verbose help string printing"""

@@ -163,11 +163,6 @@ class AtlasI2C(object):
             ec_all = [-1,-1,-1,-1]
             status += "0"
 
-        # try:
-        #     t = [self.temp.readTempC()]
-        # except:
-        #     t = [-1]
-
         status = [status]
 
         all = [time.time()] + t + do + ox + ph + ec_all + status

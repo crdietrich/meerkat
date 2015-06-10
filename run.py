@@ -4,6 +4,7 @@ import time
 import traceback
 import requests
 
+import gforms
 from cso_parser import CsoParser
 from sensors import AtlasI2C
 
@@ -20,7 +21,7 @@ def init_db():
     pass
 
 
-def save_data(temperature, oxygen, ph, cso_now, cso_recent):
+def save_data():
     # TODO save data to database (sqlite)
     pass
 
@@ -32,6 +33,7 @@ def push_data(temperature, oxygen, ph, cso_now, cso_recent, url):
     try:
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         requests.post(url, data=json.dumps(payload), headers=headers)
+        print("=== POST Success ===")
     except Exception:
         traceback.print_exc()
 
@@ -47,10 +49,14 @@ def run_loop(server_ip, server_port):
         do = s[2]
         ph = s[3]
 
-        print("Time,Temp,DO,pH,EC,TDS,SAL,SG,Status")
+        # save data to google drive
+        print("POSTING to Gforms...")
+        print("Time,Temp,DO,OR,pH,EC,TDS,SAL,SG,Status")
         print(s)
+        gforms.submit(s)
+        print("=== Gform POST Success ===")
 
-        save_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
+        # save_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
         push_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count, url)
 
         # TODO: Determine how often we should be grabbing data from sensors and pushing to other pi node.
@@ -59,5 +65,9 @@ def run_loop(server_ip, server_port):
 if __name__ == '__main__':
     # TODO: Create supervisord script to keep run.py running.
     # TODO: Parse command line args for database connection info.
-    args = parser.parse_args()
-    run_loop(args.server_ip, args.port)
+    # args = parser.parse_args()
+    # run_loop(args.server_ip, args.port)
+    #
+    ip = "25.16.55.200"
+    port = "8080"
+    run_loop(server_ip=ip, server_port=port)
