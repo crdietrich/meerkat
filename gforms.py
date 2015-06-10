@@ -19,17 +19,20 @@ def submit(data):
     print("POST to: ", url)
 
     payload = {
-    "entry.1572910906": data[0],     # Sensor_Time
-        "entry.439473034": data[1],          # Temp
-        "entry.41883386": data[2],            # DO
-        "entry.1859154242": data[3],          # OR
-        "entry.2101029771": data[4],          # pH
-        "entry.758465889": data[5],           # EC
-        "entry.85226853": data[6],           # TDS
-        "entry.75712232": data[7],            # SAL
-        "entry.1168665858": data[8],             # SG
-        "entry.788526394": str(data[9]),       # Status
+    "entry.1572910906": data[0],        # Sensor_Time
+    "entry.439473034": data[1],         # Temp
+    "entry.41883386": data[2],          # DO
+    "entry.1859154242": data[3],        # OR
+    "entry.2101029771": data[4],        # pH
+    "entry.758465889": data[5],         # EC
+    "entry.85226853": data[6],          # TDS
+    "entry.75712232": data[7],          # SAL
+    "entry.1168665858": data[8],        # SG
+    "entry.788526394": str(data[9]),    # Status
+    "entry.1224600998": data[10],       # CSO_now
+    "entry.2060957626": data[11]        # CSO_recent
     }
+
     r = requests.post(url=url, data=payload)
     print("Server Response: ", r)
     return r

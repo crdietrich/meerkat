@@ -15,13 +15,13 @@ Dissolved Oxygen
 
 Oxidation Reduction Potential = mV
 
-pH : float, pH units
+pH : float, pH units (negative logarithm of hydrogen ion)
 
 Conductivity
     Conductivity, E.C. : float, micro Siemens
     Total Dissolved Solids, TDS : float, mg/L
-    Salinity, SAL : float, PSS-78 (no defined units)
-    Specific Gravity, SG : float, Dimensionless unit
+    Salinity, SAL : float, PSS-78 (no defined units, amount of dissolved salts)
+    Specific Gravity, SG : float, Dimensionless unit (density ratio to pure water)
 
 RaspberryPi i2c
 ---------------

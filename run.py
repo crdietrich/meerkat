@@ -45,29 +45,40 @@ def run_loop(server_ip, server_port):
 
     while True:
         s = ai2c.query_all()
-        temp = s[1]
-        do = s[2]
-        ph = s[3]
+        s = s + [cso_parser.now_count, cso_parser.recent_count]
 
         # save data to google drive
         print("POSTING to Gforms...")
-        print("Time,Temp,DO,OR,pH,EC,TDS,SAL,SG,Status")
+        print("Time,Temp,DO,OR,pH,EC,TDS,SAL,SG,Status,cso_now,cso_recent")
         print(s)
         gforms.submit(s)
         print("=== Gform POST Success ===")
 
-        # save_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
+        # push data to the lighthouse pi
+        temp = s[1]
+        do = s[2]
+        ph = s[3]
+
         push_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count, url)
 
+        # save data locally
+        # save_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
+
         # TODO: Determine how often we should be grabbing data from sensors and pushing to other pi node.
-        time.sleep(5)
+        time.sleep(60*60)
 
 if __name__ == '__main__':
     # TODO: Create supervisord script to keep run.py running.
     # TODO: Parse command line args for database connection info.
     # args = parser.parse_args()
     # run_loop(args.server_ip, args.port)
-    #
-    ip = "25.16.55.200"
-    port = "8080"
+
+    # # lighthouse pi in the field
+    # ip = "25.16.55.200"
+    # port = "8080"
+
+    # Luke's pi for testing
+    ip = "25.112.184.183"
+    port = "7000"
+
     run_loop(server_ip=ip, server_port=port)
