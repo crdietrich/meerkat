@@ -14,6 +14,31 @@ parser = argparse.ArgumentParser()
 parser.add_argument('server_ip', help='The IP address of the lighthouse node.')
 parser.add_argument('port', help='The port of the lighthouse node.')
 
+URL = None
+TEMP_BUFFER = []
+OXYGEN_BUFFER = []
+PH_BUFFER = []
+CSO_NOW = None
+CSO_RECENT = None
+
+
+def get_temp():
+    if len(TEMP_BUFFER):
+        return sum(TEMP_BUFFER) / len(TEMP_BUFFER)
+    else:
+        return 0
+
+def get_oxygen():
+    if len(OXYGEN_BUFFER):
+        return sum(OXYGEN_BUFFER) / len(OXYGEN_BUFFER)
+    else:
+        return 0
+
+def get_ph():
+    if len(PH_BUFFER) > 0:
+        return sum(PH_BUFFER) / len(PH_BUFFER)
+    else:
+        return 0
 
 def init_db():
     # TODO: initialize the sqlite database.
@@ -36,8 +61,7 @@ def push_data(temperature, oxygen, ph, cso_now, cso_recent, url):
         traceback.print_exc()
 
 
-def run_loop(server_ip, server_port):
-    url = 'http://{}:{}/data'.format(server_ip, server_port)
+def run_loop():
     init_db()
     cso_parser = CsoParser()
 
@@ -51,13 +75,13 @@ def run_loop(server_ip, server_port):
         print(s)
 
         save_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count)
-        push_data(temp, do, ph, cso_parser.now_count, cso_parser.recent_count, url)
 
-        # TODO: Determine how often we should be grabbing data from sensors and pushing to other pi node.
-        time.sleep(5)
+        # Collect data once an hour.
+        time.sleep(60 * 60)
 
 if __name__ == '__main__':
     # TODO: Create supervisord script to keep run.py running.
     # TODO: Parse command line args for database connection info.
     args = parser.parse_args()
-    run_loop(args.server_ip, args.port)
+    URL = 'http://{}:{}/data'.format(args.server_ip, args.port)
+    run_loop()
