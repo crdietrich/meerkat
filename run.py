@@ -2,6 +2,8 @@ import argparse
 import json
 import time
 import traceback
+from apscheduler.schedulers.background import BackgroundScheduler
+from pytz import timezone
 import requests
 
 from cso_parser import CsoParser
@@ -21,6 +23,8 @@ PH_BUFFER = []
 CSO_NOW = None
 CSO_RECENT = None
 
+scheduler = BackgroundScheduler()
+scheduler.configure(timezone=timezone('US/Pacific'))
 
 def get_temp():
     if len(TEMP_BUFFER):
@@ -44,21 +48,30 @@ def init_db():
     # TODO: initialize the sqlite database.
     pass
 
-
 def save_data(temperature, oxygen, ph, cso_now, cso_recent):
     # TODO save data to database (sqlite)
-    pass
+    TEMP_BUFFER.append(temperature)
+    OXYGEN_BUFFER.append(oxygen)
+    PH_BUFFER.append(ph)
+    CSO_NOW = cso_now
+    CSO_RECENT = cso_recent
 
 
-def push_data(temperature, oxygen, ph, cso_now, cso_recent, url):
-    payload = {'temperature': temperature, 'ph': ph, 'oxygen': oxygen, 'cso_now': cso_now,
-               'cso_recent': cso_recent}
-    print('POSTING to {} with data: {}'.format(url, payload))
+# Push the data at 11:05
+@scheduler.scheduled_job(trigger='cron', hour=21, minute=5)
+def push_data():
+    payload = {'temperature': get_temp(), 'ph': get_ph(), 'oxygen': get_oxygen(), 'cso_now': CSO_NOW,
+               'cso_recent': CSO_RECENT}
+    print('POSTING to {} with data: {}'.format(URL, payload))
     try:
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-        requests.post(url, data=json.dumps(payload), headers=headers)
+        requests.post(URL, data=json.dumps(payload), headers=headers)
     except Exception:
         traceback.print_exc()
+    else:
+        TEMP_BUFFER = []
+        OXYGEN_BUFFER = []
+        PH_BUFFER = []
 
 
 def run_loop():
@@ -79,9 +92,11 @@ def run_loop():
         # Collect data once an hour.
         time.sleep(60 * 60)
 
+
 if __name__ == '__main__':
     # TODO: Create supervisord script to keep run.py running.
     # TODO: Parse command line args for database connection info.
     args = parser.parse_args()
+    scheduler.start()
     URL = 'http://{}:{}/data'.format(args.server_ip, args.port)
     run_loop()
