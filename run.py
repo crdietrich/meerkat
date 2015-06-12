@@ -6,6 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from pytz import timezone
 import requests
 
+import gforms
 from cso_parser import CsoParser
 from sensors import AtlasI2C
 
@@ -48,6 +49,7 @@ def init_db():
     # TODO: initialize the sqlite database.
     pass
 
+
 def save_data(temperature, oxygen, ph, cso_now, cso_recent):
     # TODO save data to database (sqlite)
     TEMP_BUFFER.append(temperature)
@@ -66,6 +68,7 @@ def push_data():
     try:
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         requests.post(URL, data=json.dumps(payload), headers=headers)
+        print("=== POST Success ===")
     except Exception:
         traceback.print_exc()
     else:
@@ -80,6 +83,16 @@ def run_loop():
 
     while True:
         s = ai2c.query_all()
+        s = s + [cso_parser.now_count, cso_parser.recent_count]
+
+        # save data to google drive
+        print("POSTING to Gforms...")
+        print("Time,Temp,DO,OR,pH,EC,TDS,SAL,SG,Status,cso_now,cso_recent")
+        print(s)
+        gforms.submit(s)
+        print("=== Gform POST Success ===")
+
+        # push data to the lighthouse pi
         temp = s[1]
         do = s[2]
         ph = s[3]
@@ -96,7 +109,17 @@ def run_loop():
 if __name__ == '__main__':
     # TODO: Create supervisord script to keep run.py running.
     # TODO: Parse command line args for database connection info.
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    # run_loop(args.server_ip, args.port)
+
+    # # lighthouse pi in the field
+    # ip = "25.16.55.200"
+    # port = "8080"
+
+    # Luke's pi for testing
+    ip = "25.112.184.183"
+    port = "7000"
+    URL = 'http://{}:{}/data'.format(ip, port)
+    
     scheduler.start()
-    URL = 'http://{}:{}/data'.format(args.server_ip, args.port)
     run_loop()

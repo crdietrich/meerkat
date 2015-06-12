@@ -71,21 +71,48 @@ class AtlasI2C(object):
 
         Returns
         -------
-        list of floats, in format [unix_time,t,do,ox,ph,ec,tds,sal,sg]
+        list of floats and ints, in format:
+            [unix_time,t,do,ox,ph,ec,tds,sal,sg,status]
+            where:
+            unix_time : float, seconds since the epoch
+            t : float, temperature in degrees C
+            do : float, dissolved oxygen in mg/L (% sat)
+            ox : float, oxidation reduction potential in mV
+            pH : float, pH units (negative logarithm of hydrogen ion)c
+            ec : float, micro Siemens
+            tds : float, mg/L
+            sal : float, PSS-78 (no defined units, amount of dissolved salts)
+            sg : float, Dimensionless unit (density ratio to pure water)
+
+            All the following status variables follow
+                0 = failure, 1 = success
+            Read temperature sensor query
+            tq : int, temperature sensor query
+            Temperature Compensation
+            dotc : int, dissolved oxygen temperature compensation command
+            oxtc : int, oxydation reduction temperature compensation command
+            phtc : int, dissolved oxygen temperature compensation command
+            ectc : int, dissolved oxygen temperature compensation command
+            Read sensor query
+            doq : int, dissolved oxygen sensor query
+            oxq : int, oxidation reduction potential sensor query
+            phq : int, pH sensor query
+            ecq : int, electrical conductivity sensor query
+
         """
 
         # keep track of errors
-        status = ""
+        status = []
 
         # 0 : Get the current temperature from the MCP9808
         try:
             t = [self.temp.readTempC()]
             self.temp_error = False
-            status += "1"
+            status += [1]
         except:
             self.temp_error = True
             t = [-1]
-            status += "0"
+            status += [0]
 
         # if there's an error getting the temperature, default to 23.0 C
         if self.temp_error:
@@ -96,40 +123,40 @@ class AtlasI2C(object):
         # 1 : Dissolved Oxygen Temperature Compensation
         try:
             self.do.query("T," + temp_temp)
-            status += "1"
+            status += [1]
         except:
-            status += "0"
+            status += [0]
 
         # 2 : Oxidation Reduction Potential Temperature Compensation
         # try:
         #     self.ox.query("T," + temp_temp)
-        #     status += "1"
+        #     status += [1]
         # except:
-        #     status += "0"
-        status += "0"
+        #     status += [0]
+        status += [0]
 
         # 3 : pH Temperature Compensation
         try:
             self.ph.query("T," + temp_temp)
-            status += "1"
+            status += [1]
         except:
-            status += "0"
+            status += [0]
 
         # 4 : Conductivity Temperature Compensation
         try:
             self.ec.query("T," + temp_temp)
-            status += "1"
+            status += [1]
         except:
-            status += "0"
+            status += [0]
 
         # 5 : Dissolved Oxygen Reading
         try:
             dor = self.do.query("R")
-            if dor[0]:
-                do = [float(dor[1])]
-            status += "1"
+            # if dor[0]:
+            do = [float(dor[1])]
+            status += [1]
         except:
-            status += "0"
+            status += [0]
             do = [-1]
 
         # 5 : Oxidation Reduction Potential Reading
@@ -140,35 +167,31 @@ class AtlasI2C(object):
         # except:
         #     ox = [-1]
         ox = [-1]
-        status += "0"
+        status += [0]
 
         # 6 : pH Reading
         try:
             phr = self.ph.query("R")
-            if phr[0]:
-                ph = [float(phr[1])]
-            status += "1"
+            # if phr[0]:
+            ph = [float(phr[1])]
+            status += [1]
         except:
             ph = [-1]
-            status += "0"
+            status += [0]
 
         # 7 : Electrical Conductivity Reading
         try:
             ecr = self.ec.query("R")
-            if ecr[0]:
-                ec_all = ecr[1]
-                ec_all = [float(n) for n in ec_all.split(",")]
-                status += "1"
+            # if ecr[0]:
+            ec_all = ecr[1]
+            ec_all = [float(n) for n in ec_all.split(",")]
+            status += [1]
         except:
             ec_all = [-1,-1,-1,-1]
-            status += "0"
+            status += [0]
 
-        # try:
-        #     t = [self.temp.readTempC()]
-        # except:
-        #     t = [-1]
-
-        status = [status]
+        # could go either way here, back to string for now
+        status = [("").join([str(_) for _ in status])]
 
         all = [time.time()] + t + do + ox + ph + ec_all + status
         return all
