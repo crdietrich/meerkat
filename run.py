@@ -149,6 +149,7 @@ def run_loop():
 
             # save the data to local disk
             data += [GFORM_STATUS]
+            data = [time.strftime("%Y/%m/%d %H:%M:%S")] + data
             save_data(data_type="dsensor", data=(",").join([str(s) for s in data]))
 
             now = time.strftime("%Y/%m/%d %H:%M:%S")

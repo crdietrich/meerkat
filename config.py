@@ -7,7 +7,7 @@ sensor_dt = 60
 data_directory = "/home/pi/data"
 
 # header for local data savig
-header = ("Time,Temp,DO,OR,pH,EC,TDS,SAL,SG,sensor_status,"
+header = ("Time,unix_time,Temp,DO,OR,pH,EC,TDS,SAL,SG,sensor_status,"
          +"CSO_now,CSO_recent,CSO_status,push_status,gform_status")
 
 # in case a specific os target requires something specific
