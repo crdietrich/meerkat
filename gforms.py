@@ -11,12 +11,11 @@ import requests
 
 def submit(data):
 
+    # could put in config file, but too project specific
     formkey = "100Qn1AFWNQvxoRt-4MTNm2IfwXpYhsd6X8dZ23SDRo0"
     post_url = "https://docs.google.com/forms/d/"
     post_url_suffix = "/formResponse"
     url = post_url + formkey + post_url_suffix
-
-    print("POST to: ", url)
 
     payload = {
     "entry.1572910906": data[0],        # Sensor_Time
@@ -30,10 +29,11 @@ def submit(data):
     "entry.1168665858": data[8],        # SG
     "entry.788526394": str(data[9]),    # Status
     "entry.1224600998": data[10],       # CSO_now
-    "entry.2060957626": data[11]        # CSO_recent
+    "entry.2060957626": data[11],       # CSO_recent
+    "entry.417012738": data[12],        # CSO_status
+    "entry.1508779644": data[13]        # push_status
     }
 
     r = requests.post(url=url, data=payload)
-    print("Server Response: ", r)
     return r
 

@@ -40,6 +40,7 @@ class CsoParser:
         self.not_count = 0
         self.not_real_time_count = 0
         self.thread = None
+        self.status = 1
 
     def _get_csv(self):
         logger.info('Retrieving CSV file.')
@@ -100,15 +101,19 @@ class CsoParser:
     def _run_loop(self):
         while self.is_running:
             try:
+                self.status = 1
                 self._get_csv()
             except Exception:
+                self.status = 0
                 logger.exception('Error retrieving CSV!')
                 traceback.print_exc()
             else:
                 # Only parse the csv if we successfully retrieve it.
                 try:
+                    self.status = 1
                     self._parse_csv()
                 except Exception:
+                    self.status = 0
                     logger.exception('Error parsing CSV!')
                     traceback.print_exc()
 
