@@ -3,14 +3,12 @@ import json
 import time
 import traceback
 import requests
-import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from pytz import timezone
 from os.path import sep, isfile
 
 import config
 import gforms
-from cso_parser import CsoParser
 from sensors import AtlasI2C
 
 # sensor class, preconfigured for Pi B+ v2
@@ -24,19 +22,14 @@ URL = None
 TEMP_BUFFER = []
 OXYGEN_BUFFER = []
 PH_BUFFER = []
-CSO_NOW = None
-CSO_RECENT = None
 PUSH_STATUS = 1
 GFORM_STATUS = 1
-
-cso_parser = CsoParser()
 
 scheduler = BackgroundScheduler()
 scheduler.configure(timezone=timezone('US/Pacific'))
 JOB = None
 RUN = True
 
-atexit.register(quit)
 
 def get_temp():
     if len(TEMP_BUFFER):
@@ -44,17 +37,20 @@ def get_temp():
     else:
         return 0
 
+
 def get_oxygen():
     if len(OXYGEN_BUFFER):
         return sum(OXYGEN_BUFFER) / len(OXYGEN_BUFFER)
     else:
         return 0
 
+
 def get_ph():
     if len(PH_BUFFER) > 0:
         return sum(PH_BUFFER) / len(PH_BUFFER)
     else:
         return 0
+
 
 def buffer_data(data):
     """Put collected data into a buffer for pushing.
@@ -63,9 +59,8 @@ def buffer_data(data):
     TEMP_BUFFER.append(data[1])
     OXYGEN_BUFFER.append(data[2])
     PH_BUFFER.append(data[3])
-    CSO_NOW = data[10]
-    CSO_RECENT = data[11]
     print("buffer_data >> Success")
+
 
 def gform_data(data):
     """Push the data to a Google Form for online saving"""
@@ -78,6 +73,7 @@ def gform_data(data):
         GFORM_STATUS = 0
         print("gform_data >> " + str(r.reason) + " " + str(r.status_code))
 
+
 def record(path_filename, data):
     """Write data to file at the specified location.  open() will make the file
     if the called file does not exist - no need to check time or file creation
@@ -87,6 +83,7 @@ def record(path_filename, data):
     data = str(data)
     f.write(data)
     f.close()
+
 
 def save_data(data_type, data):
     """Accepts a string for the data type (stream, tjson, anything)
@@ -99,13 +96,13 @@ def save_data(data_type, data):
         record(path_filename, config.header + config.newline)
     record(path_filename, str(data) + config.newline)
 
+
 # Push the data currently set to 11:05, see config.py
 @scheduler.scheduled_job(trigger='cron', **config.push_data_kwargs)
 def push_data():
     """Push data to the lighthouse pi"""
 
-    payload = {'temperature': get_temp(), 'ph': get_ph(), 'oxygen': get_oxygen(), 'cso_now': CSO_NOW,
-               'cso_recent': CSO_RECENT}
+    payload = {'temperature': get_temp(), 'ph': get_ph(), 'oxygen': get_oxygen()}
     print("push_data >> POSTING to {} with data: {}".format(URL, payload))
     try:
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
@@ -122,23 +119,20 @@ def push_data():
         PH_BUFFER = []
         print("push_data >> Sensor Buffers Cleared")
 
-def quit():
-    """Stop everything, likely keyboard interrupt"""
-    cso_parser.stop()
 
 def run_loop():
-    """Collect sensor & cso data, push to multiple locations"""
+    """Collect sensor data, push to multiple locations"""
 
     JOB = scheduler.start()
+
     try:
         while RUN:
             print("="*40)
             now = time.strftime("%Y/%m/%d %H:%M:%S")
             print("run_loop >> Begin Sensor Polling at " + now)
 
-            # get sensor and CSO data
+            # get sensor data
             data = ai2c.query_all()
-            data += [cso_parser.now_count, cso_parser.recent_count, cso_parser.status]
 
             # put the sensor data into a local buffer for pushing to the lighthouse
             buffer_data(data)
