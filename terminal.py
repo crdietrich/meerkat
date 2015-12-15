@@ -1,5 +1,18 @@
-"""Command line tool for collecting data from the TI INA219 ic2 chip
-"""
+# Command line tool for the TI INA219 current/power measurement chip
+# Copyright (c) 2015 Colin Dietrich
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ina219 import INA219
 
@@ -13,9 +26,6 @@ from atexit import register
 # get relevant commands
 args_in = sys.argv[1:]
 
-# instance ina219 class
-i = INA219()
-
 # terminal use defaults
 inf = False
 dt = 1.0
@@ -25,7 +35,10 @@ print_dt = ""
 pn = ""
 file_path = ""
 f = None
+fp = None
 f_save = False
+instanced = False
+extras = ""
 
 
 def usage():
@@ -49,7 +62,9 @@ def print_help():
           " -i --interval <t>  Time in seconds between samples [default: 1.0]\n"
           " -u --units <y>     Units to report [default: 'J']\n"
           "                        available: 'J', 'Wh', 'kW'\n"
-          " -s --save <name>   Save data to specified directory.\n")
+          " -s --save <name>   Save data to specified directory.\n"
+          " -a --address <b>   I2C/IIC address of INA219 on bus.\n"
+          "                        [default: 0x40]\n")
 
 
 def save_start(d):
@@ -59,21 +74,15 @@ def save_start(d):
     """
 
     global f
+    global fp
     global f_save
 
     fp = strftime('%Y_%m_%d_%H_%M_%S')
     fp = d + "/" + fp + "_INA219.csv"
     fp = os.path.normpath(fp)
-    print(fp)
 
     f_save = True
     f = open(fp, 'w')
-    return True
-
-    # if not os.path.exists(d): # and os.access(os.path.dirname(d), os.W_OK):
-    #     f_save = True
-    #     f = open(fp, 'w')
-    #     return True
 
 
 def save_end():
@@ -89,8 +98,9 @@ register(save_end)
 # handle command arguments
 try:
     opts, args = getopt(args_in,
-                        "hn:i:u:s:",
-                        ["help", "number", "interval", "units", "save"])
+                        "hn:i:u:s:a:",
+                        ["help", "number", "interval",
+                         "units", "save", "address"])
 except GetoptError:
     print("unknown argument passed")
     usage()
@@ -121,27 +131,39 @@ for opt, arg in opts:
             usage()
             sys.exit()
         if arg < min_dt:
-            print("sample interval %s seconds too low" % arg)
+            print("Sample interval %s seconds too low" % arg)
             usage()
             sys.exit()
         else:
             dt = arg
 
+    elif opt in ("-a", "--address"):
+        # non-default address used, instance ina219 class
+        # tested only by passing default "0x40" as arg
+        _address = int(arg, 16)
+        i = INA219(address=_address)
+        instanced = True
+        extras += "Using I2C address %s\n" % hex(_address)
+
     elif opt in ("-u", "--units"):
         if arg in i.available_units:
             i.set_energy_units(arg)
         else:
-            print("unknown unit passed")
+            print("Unknown unit passed")
             usage()
             sys.exit()
 
     elif opt in ("-s", "--save"):
-        print("save = %s" % arg)
         save_start(arg)
         if not f_save:
             usage()
             sys.exit()
-        print("saving to = %s" % arg)
+        # print("Saving to = %s" % _fp)
+
+# no address given, instance ina219 at default
+if not instanced:
+    i = INA219()
+    extras += "Using default I2C address 0x40\n"
 
 # print data header
 if inf:
@@ -151,13 +173,16 @@ else:
     pn = n
     pdt = "Energy use over " + str(dt*n) + " seconds\n"
 
+if fp is not None:
+    extras += "Saving to: %s\n" % fp
+
 header0 = ("INA219 Voltage, Power & Energy Measurement\n"
-           "Number of samples = %s\n"
+           "%sNumber of samples = %s\n"
            "Sample interval = %s\n"
            "Energy units = %s\n"
            "%s"
            "------------------------------------------"
-           % (pn, dt, i.units, pdt))
+           % (extras, pn, dt, i.units, pdt))
 header1 = ("unix time (s),elapsed time (s),"
            "bus voltage (V),shunt current (A),"
            "power (W),sample_energy (%s),total_energy (%s)"
@@ -190,4 +215,3 @@ while True:
         print(s)
     except KeyboardInterrupt:
         break
-
