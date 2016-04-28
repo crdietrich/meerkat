@@ -38,6 +38,8 @@ f = None
 fp = None
 f_save = False
 instanced = False
+port_monitor = False
+data = ""
 extras = ""
 
 
@@ -99,8 +101,8 @@ register(save_end)
 try:
     opts, args = getopt(args_in,
                         "hn:i:u:s:a:",
-                        ["help", "number", "interval",
-                         "units", "save", "address"])
+                        ["help=", "number=", "interval=",
+                         "units=", "save=", "address="])
 except GetoptError:
     print("unknown argument passed")
     usage()
@@ -144,6 +146,15 @@ for opt, arg in opts:
         i = INA219(address=_address)
         instanced = True
         extras += "Using I2C address %s\n" % hex(_address)
+
+    elif opt in ("-p", "--port"):
+        # connect to a serial port for power profiling
+        for opt2, arg2 in opts:
+            if opt2 in ("-b", "--baud"):
+                import serial
+                port = serial.Serial(port=opt, baudrate=opt2)
+                port_monitor = True
+                extras += "Port to open: %s @ %s baud" % (arg, arg2)
 
     elif opt in ("-u", "--units"):
         if arg in i.available_units:
@@ -202,12 +213,17 @@ while True:
             if _n > n:
                 break
         _n += 1
-        sleep(dt)
+        if port_monitor:
+            data = port.readline().decode("utf-8").strip()
+        else:
+            sleep(dt)
         i.get_energy_simple()
         t = time()
         t_elapsed = t - t0
         s = ("%s,%0.3f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f"
              % (t, t_elapsed, i.bus_voltage, i.i, i.p, i.e, i.e_total))
+        if port_monitor:
+            s = data + " || " + s
         if f_save:
             if _n == 2:
                 f.write(header1 + "\n")
