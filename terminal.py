@@ -39,6 +39,10 @@ fp = None
 f_save = False
 instanced = False
 port_monitor = False
+port = None
+baud = None
+port_tx = False
+serial_port = False
 data = ""
 extras = ""
 
@@ -87,22 +91,28 @@ def save_start(d):
     f = open(fp, 'w')
 
 
-def save_end():
+def end():
     """Close open files"""
     try:
         f.close()
     except AttributeError:
         pass
 
+    try:
+        serial_port.close()
+    except:
+        pass
+
 # register file close
-register(save_end)
+register(end)
 
 # handle command arguments
 try:
     opts, args = getopt(args_in,
-                        "hn:i:u:s:a:",
+                        "hn:i:u:s:a:p:b:t:",
                         ["help=", "number=", "interval=",
-                         "units=", "save=", "address="])
+                         "units=", "save=", "address=",
+                         "port=", "baud=", "tx="])
 except GetoptError:
     print("unknown argument passed")
     usage()
@@ -152,9 +162,14 @@ for opt, arg in opts:
         for opt2, arg2 in opts:
             if opt2 in ("-b", "--baud"):
                 import serial
-                port = serial.Serial(port=opt, baudrate=opt2)
+                port = opt
+                baud = opt2
+                serial_port = serial.Serial(port=port, baudrate=baud)
                 port_monitor = True
-                extras += "Port to open: %s @ %s baud" % (arg, arg2)
+                dt = "as received on serial port"
+
+    elif opt in ("-t", "--tx"):
+        port_tx = arg
 
     elif opt in ("-u", "--units"):
         if arg in i.available_units:
@@ -187,6 +202,12 @@ else:
 if fp is not None:
     extras += "Saving to: %s\n" % fp
 
+if port_monitor:
+    extras += "Serial port open: %s @ %s kbps\n" % (port, baud)
+
+if port_tx:
+    extras += "Sending serial port command: %s\n" % port_tx
+
 header0 = ("INA219 Voltage, Power & Energy Measurement\n"
            "%sNumber of samples = %s\n"
            "Sample interval = %s\n"
@@ -214,7 +235,9 @@ while True:
                 break
         _n += 1
         if port_monitor:
-            data = port.readline().decode("utf-8").strip()
+            if port_tx:
+                serial_port.write(port_tx)
+            data = serial_port.readline().decode("utf-8").strip()
         else:
             sleep(dt)
         i.get_energy_simple()
@@ -223,7 +246,7 @@ while True:
         s = ("%s,%0.3f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f"
              % (t, t_elapsed, i.bus_voltage, i.i, i.p, i.e, i.e_total))
         if port_monitor:
-            s = data + " || " + s
+            s = s + " || " + data
         if f_save:
             if _n == 2:
                 f.write(header1 + "\n")
