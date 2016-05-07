@@ -150,7 +150,8 @@ for opt, arg in opts:
             dt = arg
 
     elif opt in ("-a", "--address"):
-        # non-default address used, instance ina219 class
+        # for a non-default i2c address
+        # TODO: second ina219 at different address,
         # tested only by passing default "0x40" as arg
         _address = int(arg, 16)
         i = INA219(address=_address)
@@ -158,17 +159,20 @@ for opt, arg in opts:
         extras += "Using I2C address %s\n" % hex(_address)
 
     elif opt in ("-p", "--port"):
-        # connect to a serial port for power profiling
+        # serial port power profiling
+        # note: no error checking
         for opt2, arg2 in opts:
             if opt2 in ("-b", "--baud"):
                 import serial
-                port = opt
-                baud = opt2
+                port = arg
+                baud = arg2
                 serial_port = serial.Serial(port=port, baudrate=baud)
                 port_monitor = True
-                dt = "as received on serial port"
+                # dt = "as received on serial port"
+                # print("opening serial port TEST")
 
     elif opt in ("-t", "--tx"):
+        # command to send to serial port
         port_tx = arg
 
     elif opt in ("-u", "--units"):
@@ -195,6 +199,7 @@ if not instanced:
 if inf:
     pn = "infinity"
     pdt = ""
+
 else:
     pn = n
     pdt = "Energy use over " + str(dt*n) + " seconds\n"
@@ -204,6 +209,8 @@ if fp is not None:
 
 if port_monitor:
     extras += "Serial port open: %s @ %s kbps\n" % (port, baud)
+    dt = "as received from serial port"
+    pdt = ""
 
 if port_tx:
     extras += "Sending serial port command: %s\n" % port_tx
@@ -225,32 +232,36 @@ print(header1)
 # take initial measurements
 i.get_energy_simple()
 t0 = time()
-_n = 1
+_n = 0
 
 # begin regular sampling
 while True:
     try:
         if not inf:
-            if _n > n:
+            if _n == n:
                 break
-        _n += 1
+
         if port_monitor:
             if port_tx:
                 serial_port.write(port_tx)
-            data = serial_port.readline().decode("utf-8").strip()
+            try:
+                data = serial_port.readline().decode("utf-8").strip()
+            except UnicodeDecodeError:
+                continue
         else:
             sleep(dt)
         i.get_energy_simple()
         t = time()
         t_elapsed = t - t0
-        s = ("%s,%0.3f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f"
+        s = ("%0.3f,%0.3f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f"
              % (t, t_elapsed, i.bus_voltage, i.i, i.p, i.e, i.e_total))
         if port_monitor:
             s = s + " || " + data
         if f_save:
-            if _n == 2:
+            if _n == 0:
                 f.write(header1 + "\n")
             f.write(s + "\n")
         print(s)
+        _n += 1
     except KeyboardInterrupt:
         break
