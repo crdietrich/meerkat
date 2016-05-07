@@ -70,7 +70,10 @@ def print_help():
           "                        available: 'J', 'Wh', 'kW'\n"
           " -s --save <name>   Save data to specified directory.\n"
           " -a --address <b>   I2C/IIC address of INA219 on bus.\n"
-          "                        [default: 0x40]\n")
+          "                        [default: 0x40]\n"
+          " -p --port <name>   Serial port address to open.\n"
+          "                        [note Raspberry Pi hardware port is: /dev/ttyAMA0]\n"
+          " -b --baud <c>      Serial port baud rate in kbps\n")
 
 
 def save_start(d):
