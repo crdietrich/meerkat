@@ -119,7 +119,7 @@ parser.add_argument("-i", "--interval", help="Time in seconds between samples [d
 parser.add_argument("-u", "--units", help="Units to report [default: 'J'] available: 'J', 'Wh', 'kWh'")
 parser.add_argument("-s", "--save", help="Save data to specified directory")
 parser.add_argument("-a", "--address", help="I2C/IIC address of INA219 on bus. [default: 0x40]")
-parser.add_argument("-p", "--port", help="Serial port address to open. [note Raspberry Pi hardware port is: /dev/ttyAMA0]")
+parser.add_argument("-p", "--port", help="Serial port address to open. [Raspberry Pi hardware port is: /dev/ttyAMA0]")
 parser.add_argument("-b", "--baud", help="Serial port baud rate in kbps")
 parser.add_argument("-tx", "--tx", help="Commands to send for serial response")
 parser.add_argument("-g", "--graph", help="Append a simple bar plot to terminal output with scale from zero to <d>")
@@ -170,11 +170,13 @@ if args.port and args.baud:
     # serial port power profiling
     # note: no error checking
     import serial
-    serial_port = serial.Serial(port=args.port, baudrate=args.baud)
+    port = args.port
+    baud = args.baud
+    serial_port = serial.Serial(port=port, baudrate=baud)
     port_monitor = True
 
 if args.tx:
-    # command to send to serial port
+    # TODO: command to send to serial port
     port_tx = args.tx
 
 if args.units:
@@ -237,13 +239,12 @@ header_common = ("INA219 Voltage, Power & Energy Measurement\n" +
 print(header_common)
 print(header_terminal)
 
-# take initial measurements
-# i.get_energy_simple()
+# begin sampling
 t0 = 0
 _n = 0
 i_power = 0
+t_elapsed = 0.0
 
-# begin regular sampling
 while True:
     try:
         if not inf:
@@ -264,9 +265,7 @@ while True:
         t = time()
         if _n == 0:
             t0 = t
-            t_elapsed = 0.0
         else:
-            # t = time()
             t_elapsed = t - t0
 
         s = "{:.3f}".format(t)
