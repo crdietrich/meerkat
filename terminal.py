@@ -19,13 +19,9 @@ from ina219 import INA219
 import os
 import sys
 import argparse
-from getopt import getopt, GetoptError
 from time import time, sleep, strftime
 from atexit import register
 
-
-# get relevant commands
-args_in = sys.argv[1:]
 
 # terminal use defaults
 inf = False
@@ -56,32 +52,6 @@ def usage():
     print("use command argument -h or --help for details")
 
 
-def print_help():
-    """Print to screen help commands"""
-    print("Tool for collecting electrical current data from the\n"
-          " TI INA219 ic2 chip\n"
-          "\n"
-          "Usage:\n"
-          " terminal.py -n 20 -i 0.5 -u 'kW' -s 'test_file.txt'\n"
-          " terminal.py -n inf -s 'test_file.csv'\n"
-          "\n"
-          "Options:\n"
-          " -h --help          This help screen.\n"
-          " -n --number <x>    Number of samples to take,\n"
-          "                        int or 'inf' [default: 4].\n"
-          " -i --interval <t>  Time in seconds between samples [default: 1.0]\n"
-          " -u --units <y>     Units to report [default: 'J']\n"
-          "                        available: 'J', 'Wh', 'kW'\n"
-          " -s --save <name>   Save data to specified directory.\n"
-          " -a --address <b>   I2C/IIC address of INA219 on bus.\n"
-          "                        [default: 0x40]\n"
-          " -p --port <name>   Serial port address to open.\n"
-          "                        [note Raspberry Pi hardware port is: /dev/ttyAMA0]\n"
-          " -b --baud <c>      Serial port baud rate in kbps\n"
-          " -g --graph <d>     Append a simple bar plot to terminal output with\n"
-          "                         scale from zero to <d>")
-
-
 def plotter(x, x_max, x_min=0.0, chars=10, plot_char="="):
     """Make an ascii plot of 1d data
 
@@ -98,9 +68,15 @@ def plotter(x, x_max, x_min=0.0, chars=10, plot_char="="):
     str, of length chars
     """
 
+    x_max = float(x_max)
+    x_min = float(x_min)
+
     if x > x_max:
-        return "#" * x_max
-    a = int(((x - x_min) / (x_max - x_min)) * chars)
+        return "#" * int(round(x_max))
+    if x <= 0:
+        a = 0
+    else:
+        a = int(((x - x_min) / (x_max - x_min)) * chars)
     return plot_char * a + " " * (chars - a)
 
 
@@ -137,103 +113,87 @@ def end():
 # register file close
 register(end)
 
-# handle command arguments
-try:
-    opts, args = getopt(args_in,
-                        "hn:i:u:s:a:p:b:t:g:",
-                        ["help=", "number=", "interval=",
-                         "units=", "save=", "address=",
-                         "port=", "baud=", "tx=", "g="])
-except GetoptError:
-    print("unknown argument passed")
-    usage()
-    sys.exit()
+parser = argparse.ArgumentParser(description="pi_INA219 Terminal")
+parser.add_argument("-n", "--number", help="Number of samples to take, int or 'inf' [default: 4]")
+parser.add_argument("-i", "--interval", help="Time in seconds between samples [default: 1.0]")
+parser.add_argument("-u", "--units", help="Units to report [default: 'J'] available: 'J', 'Wh', 'kWh'")
+parser.add_argument("-s", "--save", help="Save data to specified directory")
+parser.add_argument("-a", "--address", help="I2C/IIC address of INA219 on bus. [default: 0x40]")
+parser.add_argument("-p", "--port", help="Serial port address to open. [note Raspberry Pi hardware port is: /dev/ttyAMA0]")
+parser.add_argument("-b", "--baud", help="Serial port baud rate in kbps")
+parser.add_argument("-tx", "--tx", help="Commands to send for serial response")
+parser.add_argument("-g", "--graph", help="Append a simple bar plot to terminal output with scale from zero to <d>")
+args = parser.parse_args()
 
-for opt, arg in opts:
-
-    if opt in ("-h", "--help"):
-        print_help()
-        sys.exit()
-
-    elif opt in ("-n", "--number"):
-        if arg == "inf":
-            inf = True
-        else:
-            try:
-                n = int(arg)
-            except ValueError:
-                usage()
-                sys.exit()
-            if n < 1:
-                inf = True
-
-    elif opt in ("-i", "--interval"):
-        try:
-            arg = float(arg)
-        except ValueError:
-            usage()
-            sys.exit()
-        if arg < min_dt:
-            print("Sample interval %s seconds too low" % arg)
-            usage()
-            sys.exit()
-        else:
-            dt = arg
-
-    elif opt in ("-a", "--address"):
-        # for a non-default i2c address
-        # TODO: test second ina219 at different address
-        # so far tested only by passing default "0x40" as arg
-        _address = int(arg, 16)
-        i = INA219(address=_address)
-        instanced = True
-        extras += "Using I2C address %s\n" % hex(_address)
-
-    elif opt in ("-g", "--graph"):
-        graph = True
-        graph_max = float(arg)
-
-    elif opt in ("-p", "--port"):
-        # serial port power profiling
-        # note: no error checking
-        for opt2, arg2 in opts:
-            if opt2 in ("-b", "--baud"):
-                import serial
-
-                port = arg
-                baud = arg2
-                serial_port = serial.Serial(port=port, baudrate=baud)
-                port_monitor = True
-                # dt = "as received on serial port"
-                # print("opening serial port TEST")
-
-    elif opt in ("-t", "--tx"):
-        # command to send to serial port
-        port_tx = arg
-
-    elif opt in ("-u", "--units"):
-        if arg in i.available_units:
-            i.set_energy_units(arg)
-        else:
-            print("Unknown unit passed")
-            usage()
-            sys.exit()
-
-    elif opt in ("-s", "--save"):
-        save_start(arg)
-        if not f_save:
-            usage()
-            sys.exit()
-            # print("Saving to = %s" % _fp)
-
-# no address given, instance ina219 at default
-if not instanced:
+if args.address:
+    # for a non-default i2c address
+    # TODO: test second ina219 at different address
+    # so far tested only by passing default "0x40" as arg
+    _address = int(args.address, 16)
+    i = INA219(address=_address)
+    instanced = True
+    extras += "Using I2C address %s\n" % hex(_address)
+else:
     i = INA219()
     extras += "Using default I2C address 0x40\n"
 
+if args.number:
+    if args.number == "inf":
+        inf = True
+    else:
+        try:
+            n = int(args.number)
+        except ValueError:
+            usage()
+            sys.exit()
+        if n < 1:
+            inf = True
+
+if args.interval:
+    try:
+        arg = float(args.interval)
+    except ValueError:
+        usage()
+        sys.exit()
+    if arg < min_dt:
+        print("Sample interval %s seconds too low" % arg)
+        usage()
+        sys.exit()
+    else:
+        dt = arg
+
+if args.graph:
+    graph = True
+    graph_max = float(args.graph)
+
+if args.port and args.baud:
+    # serial port power profiling
+    # note: no error checking
+    import serial
+    serial_port = serial.Serial(port=args.port, baudrate=args.baud)
+    port_monitor = True
+
+if args.tx:
+    # command to send to serial port
+    port_tx = args.tx
+
+if args.units:
+    if args.units in i.available_units:
+        i.set_energy_units(args.units)
+    else:
+        print("Unknown unit passed")
+        usage()
+        sys.exit()
+
+if args.save:
+    save_start(args.save)
+    if not f_save:
+        usage()
+        sys.exit()
+        # print("Saving to = %s" % _fp)
+
 dt_header = "Sample interval = " + str(dt) + " s\n"
 
-# print data header
 if inf:
     pn = "infinity"
     t_total = ""
@@ -278,9 +238,10 @@ print(header_common)
 print(header_terminal)
 
 # take initial measurements
-i.get_energy_simple()
-t0 = time()
+# i.get_energy_simple()
+t0 = 0
 _n = 0
+i_power = 0
 
 # begin regular sampling
 while True:
@@ -298,16 +259,26 @@ while True:
                 continue
         else:
             sleep(dt)
+
         i.get_energy_simple()
         t = time()
-        t_elapsed = t - t0
+        if _n == 0:
+            t0 = t
+            t_elapsed = 0.0
+        else:
+            # t = time()
+            t_elapsed = t - t0
 
         s = "{:.3f}".format(t)
         for _item in [t_elapsed, i.bus_voltage, i.i, i.p, i.e, i.e_total]:
             s = s + "{:10.3f}".format(_item)
 
         if graph:
-            s = s + " | " + plotter(x=i.p, x_max=graph_max, x_min=1.0, chars=graph_size)
+            if _n == 0:
+                i_power = 0
+            else:
+                i_power = i.p
+            s = s + " | " + plotter(x=i_power, x_max=graph_max, x_min=1.0, chars=graph_size)
 
         if port_monitor:
             s = s + " || " + data
