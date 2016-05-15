@@ -114,15 +114,17 @@ def end():
 register(end)
 
 parser = argparse.ArgumentParser(description="pi_INA219 Terminal")
-parser.add_argument("-n", "--number", help="Number of samples to take, int or 'inf' [default: 4]")
-parser.add_argument("-i", "--interval", help="Time in seconds between samples [default: 1.0]")
-parser.add_argument("-u", "--units", help="Units to report [default: 'J'] available: 'J', 'Wh', 'kWh'")
-parser.add_argument("-s", "--save", help="Save data to specified directory")
-parser.add_argument("-a", "--address", help="I2C/IIC address of INA219 on bus. [default: 0x40]")
-parser.add_argument("-p", "--port", help="Serial port address to open. [Raspberry Pi hardware port is: /dev/ttyAMA0]")
+parser.add_argument("-n", "--number", help=("Number of samples to take, int for number or 'inf' for an infinite"
+                                            " / continuous collection [default: 4]"))
+parser.add_argument("-i", "--interval", help="Time between samples in seconds [default: 1.0]")
+parser.add_argument("-u", "--units", help="Units to report, available: 'J', 'Wh', 'kWh' [default: 'J']")
+parser.add_argument("-s", "--save", help="Directory to save data to")
+parser.add_argument("-a", "--address", help="I2C address of INA219 on bus. [default: 0x40]")
+parser.add_argument("-p", "--port", help="Serial port address to open [Raspberry Pi hardware port is: /dev/ttyAMA0]")
 parser.add_argument("-b", "--baud", help="Serial port baud rate in kbps")
-parser.add_argument("-tx", "--tx", help="Commands to send for serial response")
-parser.add_argument("-g", "--graph", help="Append a simple bar plot to terminal output with scale from zero to <d>")
+# parser.add_argument("-tx", "--tx", help="Commands to send for serial response")
+parser.add_argument("-g", "--graph", help=("Append a simple bar plot of power to the terminal output with scale from"
+                                           "zero to the number GRAPH in Watts"))
 args = parser.parse_args()
 
 if args.address:
