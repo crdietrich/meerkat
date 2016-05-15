@@ -177,9 +177,9 @@ if args.port and args.baud:
     serial_port = serial.Serial(port=port, baudrate=baud)
     port_monitor = True
 
-if args.tx:
-    # TODO: command to send to serial port
-    port_tx = args.tx
+# if args.tx:
+#     # TODO: command to send to serial port
+#     port_tx = args.tx
 
 if args.units:
     if args.units in i.available_units:
