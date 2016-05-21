@@ -1,9 +1,58 @@
 # pi_INA219
-Python TI INA219 current/power sensor
 
-Requires Adafruit_GPIO for i2c access, not tested with pure python version.
+A Python class for accessing the TI INA219 current/power sensor via i2c.
 
-Terminal usage:
+Need to know how much power your project consumes?  Tracking energy use is important for many small projects and especially battery powered ones.  The TI INA219 provides a simple package to track consumption, this package provides tools to get the bus voltage, current, power and energy use over time.
+
+Measurements are made when polled and stored locally, energy measurements are the latest power measurement multiplied by the time since the last measurement.  In that respect it is a Right Integration, higher accuracy is achieved by increased sample size.  The target use cases are probably 10Hz and below sample rates.
+
+```
+Python 2.7.3 (default, Mar 18 2014, 05:13:23)
+>>> from ina219 import INA219
+>>> device = INA219()
+>>> device.get_energy_simple()
+>>> device.bus_voltage
+4.984
+>>> device.bus_voltage, device.i, device.p  # Volts, Amps, Watts
+(4.984, 0.2855, 1.4229319999999999)
+>>> device.units  # Units of energy reported
+'J'
+>>> device.e  # energy consumed since last measurement
+0
+>>> device.get_energy_simple()
+>>> device.e
+94.7875849419462
+>>> device.e_total
+94.7875849419462
+>>> device.get_energy_simple()
+>>> device.e
+41.283171379789536
+>>> device.e_total
+136.07075632173576
+```
+
+A command line script is available for stand alone power profiling via shell or ssh, with all measurements time stamped with the system local time.  See below for examples.
+
+Details:
+
+- Tested with RaspberryPi
+- Requires Adafruit_GPIO for i2c access, not tested with their pure python version
+
+Possible extensions:
+
+- Chip power calculation
+- Beaglebone support/testing
+- Wipy or similar MicroPython support/testing
+
+*Extra Warning:
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  This code should not be used in any life-critical systems.*
+
+
+## Terminal Use Examples
+
 ```
 $ python terminal.py -h
 usage: terminal.py [-h] [-n NUMBER] [-i INTERVAL] [-u UNITS] [-s SAVE]
@@ -32,9 +81,8 @@ optional arguments:
                         output with scale fromzero to the number GRAPH in
                         Watts
 ```
-## Terminal Use Examples
 
-###Unlimited samples at 0.5 second interval and print to the terminal:
+#### Unlimited samples at 0.5 second interval and print to the terminal:
 ```
 $ python terminal.py -n inf -i 0.5
 
@@ -44,49 +92,51 @@ Number of samples = infinity
 Sample interval = 0.5 s
 Energy units = J
 --------------------------------------------------------------------------
-   unix time s elapsed s     bus V   shunt A   power W instant J   total J
-1463339655.433     0.000     1.000     0.000     0.000     0.000     0.000
-1463339655.935     0.502     4.996     0.261     1.305     0.654     0.654
-1463339656.438     1.005     5.000     0.252     1.260     0.633     1.287
-1463339656.940     1.507     4.980     0.319     1.590     0.798     2.085
-1463339657.442     2.009     4.976     0.325     1.618     0.812     2.897
-
+   unix time s elapsed s     bus V   shunt A   power W  energy J   total J
+1463846421.602     0.000     4.984     0.325     1.618     0.000     0.000
+1463846422.104     0.502     4.948     0.383     1.894     0.951     0.951
+1463846422.607     1.005     4.988     0.310     1.545     0.776     1.728
+1463846423.109     1.507     4.976     0.316     1.571     0.789     2.517
+1463846423.611     2.010     4.996     0.264     1.318     0.662     3.179
+1463846424.113     2.512     5.000     0.267     1.334     0.670     3.849
+1463846424.616     3.014     4.996     0.264     1.321     0.663     4.512
+...
 ```
 
-###3 samples at 10 second interval and saved to directory /home/pi/data/:
+#### 3 samples at 10 second interval and saved to directory /home/pi/data/:
 ```
-$ python terminal.py -i 10 -n 3 -s /home/pi/data
+ $ python terminal.py -i 10 -n 3 -s /home/pi/data
 
 INA219 Voltage, Power & Energy Measurement
 Using default I2C address 0x40
-Saving to: /home/pi/data/2016_05_15_19_21_02_INA219.csv
+Saving to: /home/pi/data/2016_05_21_16_02_34_INA219.csv
 Number of samples = 3
 Sample interval = 10.0 s
 Samples collected in 30.0 s
 Energy units = J
 --------------------------------------------------------------------------
-   unix time s elapsed s     bus V   shunt A   power W instant J   total J
-1463340072.019     0.000     1.000     0.000     0.000     0.000     0.000
-1463340082.031    10.012     4.984     0.337     1.680    16.819    16.819
-1463340092.034    20.015     4.952     0.405     2.007    20.072    36.891
+   unix time s elapsed s     bus V   shunt A   power W  energy J   total J
+1463846564.537     0.000     4.984     0.305     1.520     0.000     0.000
+1463846574.549    10.012     4.996     0.274     1.367    13.685    13.685
+1463846584.561    20.024     4.988     0.313     1.561    15.626    29.312
 ```
 Data is saved to .csv format:
 ```
 INA219 Voltage, Power & Energy Measurement
 Using default I2C address 0x40
-Saving to: /home/pi/data/2016_05_15_19_21_02_INA219.csv
+Saving to: /home/pi/data/2016_05_21_16_02_34_INA219.csv
 Number of samples = 3
 Sample interval = 10.0 s
 Samples collected in 30.0 s
 Energy units = J
 --------------------------------------------------------------------------
 unix_time_s,elapsed_time_s,bus_voltage_V,shunt_current_A,power_W,sample_energy_Jtotal_energy_J
-1463340072.019,0.000,1.00000,0.00000,0.00000,0.00000,0.00000
-1463340082.031,10.012,4.98400,0.33710,1.68011,16.81891,16.81891
-1463340092.034,20.015,4.95200,0.40520,2.00655,20.07200,36.89091
+1463846564.537,0.000,4.98400,0.30500,1.52012,0.00000,0.00000
+1463846574.549,10.012,4.99600,0.27360,1.36691,13.68549,13.68549
+1463846584.561,20.024,4.98800,0.31290,1.56075,15.62608,29.31157
 ```
 
-###5 samples at 10 second interval using watt-hours for energy:
+#### 5 samples at 10 second interval using watt-hours for energy:
 ```
 $ python terminal.py -n 5 -i 10 -u Wh
 
@@ -97,18 +147,17 @@ Sample interval = 10.0 s
 Samples collected in 50.0 s
 Energy units = Wh
 --------------------------------------------------------------------------
-   unix time s elapsed s     bus V   shunt A   power Winstant Wh  total Wh
-1463346048.001     0.000     1.000     0.000     0.000     0.000     0.000
-1463346058.013    10.012     4.992     0.316     1.576     0.004     0.004
-1463346068.025    20.024     5.004     0.270     1.349     0.004     0.008
-1463346078.034    30.033     4.988     0.308     1.538     0.004     0.012
-1463346088.046    40.045     4.996     0.262     1.311     0.004     0.016
+   unix time s elapsed s     bus V   shunt A   power W energy Wh  total Wh
+1463846723.493     0.000     4.992     0.264     1.316     0.000     0.000
+1463846733.504    10.012     4.996     0.257     1.284     0.004     0.004
+1463846743.516    20.023     4.996     0.272     1.360     0.004     0.007
+1463846753.528    30.035     4.992     0.267     1.333     0.004     0.011
+1463846763.540    40.047     5.000     0.266     1.331     0.004     0.015
 ```
 
-###Default sample number, 4, at 4 Hz and graph from 0 to 1.8 W:
+#### Default sample number, 4, at 4 Hz and graph from 0 to 1.8 W:
 ```
 $ python terminal.py -i 0.25 -g 1.8
-
 INA219 Voltage, Power & Energy Measurement
 Using default I2C address 0x40
 Number of samples = 4
@@ -116,17 +165,18 @@ Sample interval = 0.25 s
 Samples collected in 1.0 s
 Energy units = J
 --------------------------------------------------------------------------
-   unix time s elapsed s     bus V   shunt A   power W instant J   total J
-1463346562.679     0.000     1.000     0.000     0.000     0.000     0.000 |
-1463346562.931     0.252     5.000     0.268     1.339     0.335     0.335 | ====
-1463346563.183     0.504     5.000     0.266     1.329     0.335     0.670 | ====
-1463346563.435     0.756     4.980     0.321     1.599     0.403     1.073 | =======
+   unix time s elapsed s     bus V   shunt A   power W  energy J   total J
+1463846919.658     0.000     5.000     0.263     1.314     0.000     0.000 |
+1463846919.910     0.252     4.996     0.259     1.294     0.326     0.326 | ===
+1463846920.163     0.504     4.996     0.254     1.268     0.320     0.646 | ===
+1463846920.415     0.756     4.996     0.265     1.324     0.334     0.980 | ====
 ```
 
-###Measurement when a line of data is read from the serial port:
+#### Measurement when a line of data is read from the serial port:
+Wiring diagram and Arduino example sketch are in the [ArduinoSerialCounter](/ArduinoSerialCounter/) folder.
+
 ```
 $ python terminal.py -p /dev/ttyAMA0 -b 9600
-
 INA219 Voltage, Power & Energy Measurement
 Using default I2C address 0x40
 Serial port open: /dev/ttyAMA0 @ 9600 kbps
@@ -134,18 +184,18 @@ Number of samples = 4
 Sample interval = as received from serial port
 Energy units = J
 --------------------------------------------------------------------------
-   unix time s elapsed s     bus V   shunt A   power W instant J   total J
-1463354221.460     0.000     1.000     0.000     0.000     0.000     0.000 || Arduino>>8
-1463354221.711     0.252     5.004     0.281     1.405     0.352     0.352 || Arduino>>9
-1463354221.962     0.502     5.004     0.268     1.342     0.336     0.688 || Arduino>>0
-1463354222.212     0.753     4.992     0.264     1.318     0.330     1.018 || Arduino>>1
+   unix time s elapsed s     bus V   shunt A   power W  energy J   total J
+1463846974.601     0.000     4.972     0.309     1.538     0.000     0.000 || Arduino>>6
+1463846974.852     0.250     4.976     0.305     1.519     0.381     0.381 || Arduino>>7
+1463846975.102     0.501     4.988     0.318     1.586     0.397     0.778 || Arduino>>8
+1463846975.353     0.752     4.984     0.330     1.643     0.412     1.190 || Arduino>>9
 ```
 Using ArduinoSerialCounter.ino on an Arduino Mega 2560 connected to a Raspberry Pi on Serial1.
 
-###Measurement when a line of data is read from the serial port and graph from 0 to 1.8 W:
+#### Measurement when a line of data is read from the serial port and graph from 0 to 1.8 W:
+
 ```
 $ python terminal.py -p /dev/ttyAMA0 -b 9600 -g 1.8
-
 INA219 Voltage, Power & Energy Measurement
 Using default I2C address 0x40
 Serial port open: /dev/ttyAMA0 @ 9600 kbps
@@ -153,10 +203,9 @@ Number of samples = 4
 Sample interval = as received from serial port
 Energy units = J
 --------------------------------------------------------------------------
-   unix time s elapsed s     bus V   shunt A   power W instant J   total J
-1463356311.459     0.000     1.000     0.000     0.000     0.000     0.000 |            || Arduino>>0
-1463356311.711     0.252     4.996     0.278     1.389     0.348     0.348 | ====       || Arduino>>1
-1463356311.961     0.502     4.996     0.278     1.387     0.348     0.696 | ====       || Arduino>>2
-1463356312.212     0.753     5.004     0.268     1.341     0.336     1.032 | ====       || Arduino>>3
+   unix time s elapsed s     bus V   shunt A   power W  energy J   total J
+1463847014.188     0.000     4.984     0.319     1.592     0.000     0.000 |            || Arduino>>4
+1463847014.439     0.251     4.968     0.349     1.735     0.435     0.435 | =========  || Arduino>>5
+1463847014.689     0.501     4.976     0.309     1.538     0.385     0.820 | ======     || Arduino>>6
+1463847014.939     0.752     4.972     0.317     1.578     0.396     1.216 | =======    || Arduino>>7
 ```
-
