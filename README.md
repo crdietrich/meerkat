@@ -1,4 +1,4 @@
-# pi_INA219
+# pyINA219
 
 A Python class for accessing the TI INA219 current/power sensor via i2c.
 
