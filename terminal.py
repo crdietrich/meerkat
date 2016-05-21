@@ -132,11 +132,11 @@ if args.address:
     # TODO: test second ina219 at different address
     # so far tested only by passing default "0x40" as arg
     _address = int(args.address, 16)
-    i = INA219(address=_address)
+    device = INA219(address=_address)
     instanced = True
     extras += "Using I2C address %s\n" % hex(_address)
 else:
-    i = INA219()
+    device = INA219()
     extras += "Using default I2C address 0x40\n"
 
 if args.number:
@@ -182,8 +182,8 @@ if args.port and args.baud:
 #     port_tx = args.tx
 
 if args.units:
-    if args.units in i.available_units:
-        i.set_energy_units(args.units)
+    if args.units in device.available_units:
+        device.set_energy_units(args.units)
     else:
         print("Unknown unit passed")
         usage()
@@ -214,13 +214,13 @@ header_terminal = ("unix time s".rjust(14) +
                    "bus V".rjust(10) +
                    "shunt A".rjust(10) +
                    "power W".rjust(10) +
-                   ("instant " + i.units).rjust(10) +
-                   ("total " + i.units).rjust(10))
+                   ("energy " + device.units).rjust(10) +
+                   ("total " + device.units).rjust(10))
 
 header_save = ("unix_time_s,elapsed_time_s,"
                "bus_voltage_V,shunt_current_A,"
-               "power_W,sample_energy_" + i.units +
-               "total_energy_" + i.units)
+               "power_W,sample_energy_" + device.units +
+               "total_energy_" + device.units)
 
 if port_monitor:
     extras += "Serial port open: %s @ %s kbps\n" % (port, baud)
@@ -235,7 +235,7 @@ header_common = ("INA219 Voltage, Power & Energy Measurement\n" +
                  "Number of samples = " + str(pn) + "\n" +
                  dt_header +
                  t_total +
-                 "Energy units = " + i.units + "\n" +
+                 "Energy units = " + device.units + "\n" +
                  "-" * len(header_terminal))
 
 print(header_common)
@@ -263,7 +263,7 @@ while True:
         else:
             sleep(dt)
 
-        i.get_energy_simple()
+        device.get_energy_simple()
         t = time()
         if _n == 0:
             t0 = t
@@ -271,14 +271,14 @@ while True:
             t_elapsed = t - t0
 
         s = "{:.3f}".format(t)
-        for _item in [t_elapsed, i.bus_voltage, i.i, i.p, i.e, i.e_total]:
+        for _item in [t_elapsed, device.bus_voltage, device.i, device.p, device.e, device.e_total]:
             s = s + "{:10.3f}".format(_item)
 
         if graph:
             if _n == 0:
                 i_power = 0
             else:
-                i_power = i.p
+                i_power = device.p
             s = s + " | " + plotter(x=i_power, x_max=graph_max, x_min=1.0, chars=graph_size)
 
         if port_monitor:
@@ -292,7 +292,7 @@ while True:
                 f.write(header_save + "\n")
 
             s = ("%0.3f,%0.3f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f"
-                 % (t, t_elapsed, i.bus_voltage, i.i, i.p, i.e, i.e_total))
+                 % (t, t_elapsed, device.bus_voltage, device.i, device.p, device.e, device.e_total))
             if port_monitor:
                 s = s + " || " + data
             f.write(s + "\n")
