@@ -4,7 +4,7 @@ A Python class for accessing the TI INA219 current/power sensor via i2c.
 
 Need to know how much power your project consumes?  Tracking energy use is important for many small projects and especially battery powered ones.  The TI INA219 provides a simple package to track consumption, this package provides tools to get the bus voltage, current, power and energy use over time.
 
-Measurements are made when polled and stored locally, energy measurements are the latest power measurement multiplied by the time since the last measurement.  In that respect it is a Right Integration, higher accuracy is achieved by increased sample size.  The target use cases are probably 10Hz and below sample rates.
+Measurements are made when polled and stored locally, energy measurements are the latest power measurement multiplied by the time since the last measurement.  In that respect it is a Right Integration, higher accuracy is achieved by increased sample number.  The target use case sample rates are probably 10Hz and below.
 
 ```
 Python 2.7.3 (default, Mar 18 2014, 05:13:23)
@@ -35,7 +35,7 @@ A command line script is available for stand alone power profiling via shell or 
 
 Details:
 
-- Tested with RaspberryPi
+- Tested with RaspberryPi, default Python 2.7 in Raspbian Wheezy
 - Requires Adafruit_GPIO for i2c access, not tested with their pure python version
 
 Possible extensions:
@@ -44,9 +44,9 @@ Possible extensions:
 - Beaglebone support/testing
 - Wipy or similar MicroPython support/testing
 
-*Extra Warning:
+*Extra Warning:*
 
-This program is distributed in the hope that it will be useful,
+*This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  This code should not be used in any life-critical systems.*
 
