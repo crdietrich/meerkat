@@ -394,12 +394,11 @@ class INA219(object):
         """
 
         _t = time.time()
-
+        self.get_power_simple()
         if self.t0 == 0:
             self.t0 = _t
             self.t_last = _t
         else:
-            self.get_power_simple()
             # energy = power x time (J = W * s)
             self.e = self.p * (_t - self.t_last) * self.e_unit_convert
             self.e_total += self.e
