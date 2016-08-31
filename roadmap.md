@@ -7,9 +7,9 @@ embedded systems running MicroPython and other devices.
 1. Numpy Docstring style - if we want to keep company with the SciPy stack, act like it
 1. Base attribute class for all devices, exposing common information and methods
 1. Class attributes identical within a type of measurement - allowing hardware swapping without refactor
-1. Serialization of data based on device class
-1. Parser to Pandas for serialized device data
-1. ???
+1. Serialization of data based on device class - json, xml, ?
+1. Parser to Pandas for serialized device data - see pandas.DataFrame.to_json, pandas.read_json
+1. Parent Class methods for direct visualization - see Vega project http://vega.github.io/
 
 ## TODOs and Thoughts
 1. MicroPython includes links to a few devices, check licenses and fork?
