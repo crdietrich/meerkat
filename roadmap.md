@@ -21,9 +21,9 @@ embedded systems running MicroPython and other devices.
 
 ## Devices to consider
 1. All on MicroPython website
-1. INA21x current chips
-1. Atlas scientific
-1. General NMEA gps
+1. INA21x current chips - fork ina21x and refactor
+1. Atlas scientific - fork and refactor lighthouse i2c repos
+1. General NMEA gps - fork (pynmea2)[https://github.com/Knio/pynmea2] library
 1. CO2 sensors
 1. More specific using ADC
 
