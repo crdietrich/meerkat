@@ -3,6 +3,11 @@
 The overall goal of Meerkat is to streamline hardware use in MicroPython, enabling rapid reliable deployment of
 embedded systems running MicroPython and other devices.
 
+## Priorities
+1. Spatial and temporal data: GPS and Time.  All IoT data must be space and time stamped, so GPS and RTC must be available first.
+1. Power measurement.  INA219 and related, as well as adc + resistor method for simple power profiling.  When implementing new senors, if similar enough but one is more power efficient, the lower power sensor should be implemented first.
+1. Preference on bus based sensors for flexibility and common electrical connections.  Analog sensors only where no digitial version is available - if so, electrical circuit implementation must be included in code source.
+
 ## General Concepts
 1. Numpy Docstring style - if we want to keep company with the SciPy stack, act like it
 1. Base attribute class for all devices, exposing common information and methods
