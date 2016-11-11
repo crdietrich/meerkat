@@ -3,6 +3,7 @@ Colin Dietrich 2016"""
 
 class Status():
     def __init__(self)
+        self.state = None
         self.active = None
         self.error = None
         self.name = None

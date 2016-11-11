@@ -5,7 +5,7 @@ TODO: redo combine, check measurement LSB, MSB, let run for 24hrs
 """
 
 from pyb import I2C
-i2c = I2C(1, I2C.MASTER, baudrate=19200)
+i2c = I2C(1, I2C.MASTER, baudrate=10000)
 
 def scan_I2C():
     found_address = i2c.scan()
