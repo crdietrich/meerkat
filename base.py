@@ -13,6 +13,19 @@ class Device(object):
         self.description = None
         self.urls = None
 
+        self.state = None
+        self.active = None
+        self.error = None
+        self.name = None
+        self.description = None
+        self.bus = None
+        self.manufacturer = None
+        self.version_hw = None
+        self.version_sw = None
+        self.accuracy = None
+        self.precision = None
+        self.calibration_date = None
+
 
 class Data(object):
 
