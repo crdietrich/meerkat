@@ -27,8 +27,8 @@ def test(verbose=False):
     #v = combine(r[2], r[3])
     if verbose:
         print('ADS replied:', r)
-        print('ADS firmware: v', v)
-    return v
+        #print('ADS firmware: v', v)
+    return r
 
 
 class BASE():
@@ -54,29 +54,21 @@ class OS():
         
 class GAIN():
     """Programmable Gain Amplifier"""
-    def __init__(self, i2c_bus):
-        
-        self.i2c = i2c_bus
-        self.state  = None
-        self.x2_3   = self.v6_144 = 0x0000  # +/- 6.144 v
-        self.x1     = self.v4_096 = 0x0200  # +/- 4.096 v
-        self.x2     = self.v2_048 = 0x0400  # +/- 2.048 v = default
-        self.x4     = self.v1_024 = 0x0600  # +/- 1.024 v
-        self.x8     = self.v0_512 = 0x0800  # +/- 0.512 v
-        self.x16    = self.v0_256 = 0x0A00  # +/- 0.256 v
+    def __init__(self):
+        self.x2_3   = 0x0000
+        self.x1     = 0x0200
+        self.x2     = 0x0400
+        self.x4     = 0x0600
+        self.x8     = 0x0800
+        self.x16    = 0x0A00
 
-    def set(self):
-        self.i2c.send()
-                    
-        
 
 class MODE():
     def __init__(self):
         self.state = 0x00
 
 class RATE():
-    """Data Rate, in samples per second (SPS)
-        Different between models, move attributes to chip specific class"""
+    """Data Rate, in samples per second (SPS)"""
     def __init__(self):
         self.sps_8 =    0x00
         self.sps_16 =   0x01

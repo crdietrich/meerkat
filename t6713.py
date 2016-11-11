@@ -7,10 +7,6 @@ TODO: redo combine, check measurement LSB, MSB, let run for 24hrs
 from pyb import I2C
 i2c = I2C(1, I2C.MASTER, baudrate=10000)
 
-def scan_I2C():
-    found_address = i2c.scan()
-    print('Found I2C devices at:', found_address)
-
 # Each portion of command is 16 bits = 2 bytes
 # from firmware version tutorial in application note
 
