@@ -5,6 +5,9 @@ TODO: set instance/chip attributes, regular polling method
 """
 
 from pyb import I2C
+#from base import Device
+
+
 i2c = I2C(1, I2C.MASTER, baudrate=10000)
 
 def scan_I2C():
@@ -20,7 +23,7 @@ def combine(msb, lsb):
     return (msb << 8) | (lsb >> 8)
 
 # this works
-def test(verbose=False):
+def config(verbose=False):
     i2c.send(0x01, 0x48)
     r = i2c.recv(2, 0x48)
     # function code, byte count, msb, lsb
@@ -30,22 +33,50 @@ def test(verbose=False):
         #print('ADS firmware: v', v)
     return r
 
+def read():
+    i2c.send(0x00, 0x48)
+    r = i2c.recv(2, 0x48)
+    # function code, byte count, msb, lsb
+    #v = combine(r[2], r[3])
+    print('ADS replied:', r)
+    return r
 
-class BASE():
-    def __init__(self):
-        self.default_i2c_address = 0x48
-        self.pointer_register = 0x00
-
-        # questionable it needed
-        self.os_single = 0x8000
-        self.mux_offset = 12
-
+    
 class REGISTERS():
     def __init__(self):
         self.conversion     = 0x00
         self.config         = 0x01
         self.low_threshold  = 0x02
         self.high_threshold = 0x03
+
+
+class BASE():
+    def __init__(self, i2c_bus):
+    
+        self.i2c = i2c_bus
+    
+        self.i2c_address = 0x48
+        self.pointer_register = 0x00
+
+        self.register = REGISTERS()
+        
+        # questionable it needed
+        self.os_single = 0x8000
+        self.mux_offset = 12
+
+    def read(self, register):
+        self.i2c.send(register, self.i2c_address)
+        r = self.i2c.recv(2, self.i2c_address)
+        # function code, byte count, msb, lsb
+        #v = combine(r[2], r[3])
+        return r
+    
+    def config_get(self):
+        r = self.read(self.register.config)
+        return r
+    
+    def config_set(self):
+        pass
 
 class OS():
     """Operational State"""
@@ -79,6 +110,6 @@ class RATE():
         self.sps_475 =  0x06
         self.sps_880 =  0x07
         
-class GAIN():
+class TEMP():
     def __init__(self):
         self.temp
