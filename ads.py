@@ -6,8 +6,7 @@ TODO: set instance/chip attributes, regular polling method
 
 from pyb import I2C
 #from base import Device
-
-
+    
 i2c = I2C(1, I2C.MASTER, baudrate=10000)
 
 def scan_I2C():

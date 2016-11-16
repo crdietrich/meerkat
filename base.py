@@ -2,6 +2,40 @@
 
 import ujson
 
+class REG(object):
+    """Basic mask for setting individual bits in a register"""
+        
+    def __init__(self, n):
+        self.value = None
+        self.bits = n
+        self.mask = [2**n for n in range(0, self.bits)]
+    
+    def mask_true(self, n):
+        """Set bit n in register r to True (1)
+        Parameters
+        ----------
+        n : int, zero index of bit to set (right lsb to left msb)
+        Returns
+        -------
+        True if successfully set
+        """
+        self.value = r | self.mask[n]
+        return True
+        
+    def mask_false(self, r, n):
+        """Set bit n in register r to False (0)
+        Parameters
+        ----------
+        n : int, zero index of bit to set (right lsb to left msb)
+        Returns
+        -------
+        True if successfully set
+        """
+        
+        self.value = r ^ self.mask[n]
+        return True
+
+
 class Device(object):
 
     def __init__(self, name):
@@ -26,6 +60,8 @@ class Device(object):
         self.precision = None
         self.calibration_date = None
 
+        
+    
 
 class Data(object):
 
