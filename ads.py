@@ -5,9 +5,10 @@ TODO: set instance/chip attributes, regular polling method
 """
 
 from pyb import I2C
-#from base import Device
-    
-i2c = I2C(1, I2C.MASTER, baudrate=10000)
+from base import REG
+
+
+i2c = I2C(1, I2C.MASTER, baudrate=100000)
 
 def scan_I2C():
     found_address = i2c.scan()
@@ -43,12 +44,33 @@ def read():
     
 class REGISTERS():
     def __init__(self):
-        self.conversion     = 0x00
-        self.config         = 0x01
-        self.low_threshold  = 0x02
-        self.high_threshold = 0x03
-
-
+    
+        
+        self.conversion_addr     = 0x00
+        self.config_addr         = 0x01
+        self.low_threshold_addr  = 0x02
+        self.high_threshold_addr = 0x03
+        
+        self.config = REG(16)
+        
+        self.comp_que = 3  # 0b11
+        self.comp_que_bits = [0,1]
+        
+    def set_comp_que(self, x):
+        """Disable or set the number of conversions before a ALERT/RDY pin
+        is set high
+        
+        Parameters
+        ----------
+        x : str, number of conversions '1', '2', '4' or 'off'        
+        """
+        
+        _conv = {'1': '00', '2': '01', '3': '02', 'off': '11'}
+        bits = _conv[x]
+        for b in bits:
+            self.config.apply(b)
+        
+    
 class BASE():
     def __init__(self, i2c_bus):
     

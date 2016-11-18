@@ -19,10 +19,10 @@ class REG(object):
         -------
         True if successfully set
         """
-        self.value = r | self.mask[n]
+        self.value = self.value | self.mask[n]
         return True
         
-    def mask_false(self, r, n):
+    def mask_false(self, n):
         """Set bit n in register r to False (0)
         Parameters
         ----------
@@ -32,9 +32,30 @@ class REG(object):
         True if successfully set
         """
         
-        self.value = r ^ self.mask[n]
+        self.value = self.value ^ self.mask[n]
         return True
-
+        
+    def apply(self, n, x):
+        """Set bit n to state x
+        
+        Parameters
+        ----------
+        n : int, zero index of bit to set (right lsb to left msb)
+        x : str/int/bool, value to set bit based on:
+            1, '1', True = set bit to True/0b1
+            0, '0', False = set bit to False/0b0
+        """
+        _conv = {1: True, '1': True, 0: False}
+        
+        if x == '0':
+            x = 0
+        elif x == '1':
+            x = 1
+        
+        if x:
+            self.mask_true(n)
+        else:
+            self.mask_false(n)
 
 class Device(object):
 
