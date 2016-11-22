@@ -66,11 +66,80 @@ class REGISTERS():
         """
         
         _conv = {'1': '00', '2': '01', '3': '02', 'off': '11'}
-        bits = _conv[x]
-        for b in bits:
-            self.config.apply(b)
+        self.apply_bits(base=0, bits=_conv[x])
         
-    
+    def set_comp_latching(self, x):
+        """Set whether the ALERT/RDY pin latches or clears when conversions
+        are within the margins of the upper and lower thresholds
+        
+        Only available in ADS1114 and ADS1115, default is 0 = non-latching
+        
+        Parameters
+        ----------
+        x : str, 'on' or 'off'
+        """
+        
+        _conv = {'on': 1, 'off': 0}
+        self.config.apply(2, _conv[x])
+        
+    def set_comp_polarity(self, x):
+        """Set polarity of ALERT/RDY pin when active.
+        
+        No function in ADS1113.
+        
+        Parameters
+        ----------
+        x : str, 'high' or 'low'
+        """
+        _conv = {'low': 0, 'high': 1}
+        self.config.apply(3, _conv[x])
+        
+    def set_comp_mode(self, x):
+        """Set comparator mode
+        
+        ADS1114 and ADS1115 only
+        
+        x : str, 'trad' or 'window'
+        """
+        _conv = {'trad': 0, 'window': 1}
+        self.config.apply(4, _conv[x])
+        
+    def set_data_rate(self, x):
+        """Set data rate of sampling
+        
+        Parameters
+        ----------
+        x : str, samples per second.
+            Allowed values: '8', '16', '32', '64',
+            '128', '250', '475', '850'
+        """
+        _conv = {'8': '000', '16': '001', '32': '010', '64': '011',
+            '128': '100', '250': '101', '475': '110', '850': '111'}
+        self.apply_bits(base=5, bits=_conv[x])
+        
+    def set_mode(self, x):
+        """Set operating mode to either single or continuous.
+        
+        Parameters
+        ----------
+        x: str, either 'single' (default) or 'continuous'
+        """
+        _conv = {'continuous': 0, 'single': 1}
+        self.config.apply(8, _conv[x])
+        
+    def set_pga(self, x):
+        """Set programmable gain amplifier range.
+        
+        Parameters
+        ----------
+        x : str, +/- voltage range value.  Supported values:
+            '6.144', '4.096', '2.048', '1.024', '0.512', '0.256'
+        """
+        _conv = {'6.144': '000', '4.096': '001', '2.048': '010',
+                 '1.024': '011', '0.512': '100', '0.256': '101'}
+        self.apply_bits(base=9, bits=_conv[x])
+        
+        
 class BASE():
     def __init__(self, i2c_bus):
     

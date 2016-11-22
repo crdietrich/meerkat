@@ -10,6 +10,33 @@ class REG(object):
         self.bits = n
         self.mask = [2**n for n in range(0, self.bits)]
     
+    def reverse_generator(self, x):
+        """Reverse itteration, directly copied from PEP 322
+        
+        Parameters
+        ----------
+        x : itterator which does not support keys
+        """
+        
+        if hasattr(x, 'keys'):
+            raise ValueError("mappings do not support reverse iteration")
+        i = len(x)
+        while i > 0:
+            i -= 1
+            yield x[i]
+    
+    def reverse(self, string):
+        """Reverse a string since str.reverse not implemented.
+        Useful for str repr of bits to byte order repr.
+        Definely other ways of doing this.
+        
+        Parameters
+        ----------
+        string : str, string to reverse
+        """
+        
+        return ''.join([n for n in self.reverse_generator(string)])
+    
     def mask_true(self, n):
         """Set bit n in register r to True (1)
         Parameters
@@ -19,6 +46,7 @@ class REG(object):
         -------
         True if successfully set
         """
+        
         self.value = self.value | self.mask[n]
         return True
         
@@ -45,6 +73,7 @@ class REG(object):
             1, '1', True = set bit to True/0b1
             0, '0', False = set bit to False/0b0
         """
+        
         _conv = {1: True, '1': True, 0: False}
         
         if x == '0':
@@ -57,6 +86,24 @@ class REG(object):
         else:
             self.mask_false(n)
 
+    def apply_bits(self, base, bits):
+        """Set bits y to register starting at bit address m
+        
+        Note: assumes python 0 index R --> L and MSB --> LSB with 0 indexing L <-- R
+        Probably needs more abstraction as not all chips are MSB LSB
+        -CRD
+        
+        Parameters
+        ----------
+        base : int, base address to write bits
+        bits : str, bits to apply in '1' and '0' format
+        """
+        
+        bits = self.config.reverse(bits)
+        for n in range(base, base + len(bits)):
+            self.config.apply(n, bits[n])
+        
+            
 class Device(object):
 
     def __init__(self, name):
