@@ -9,7 +9,7 @@ embedded systems running MicroPython and other devices.
 1. Class attributes identical within a type of measurement - allowing hardware swapping without refactor
 1. Serialization of data based on device class
 1. Parser to Pandas for serialized device data
-1. ???
+1. Clarity over speed or size.  MicroPython cannot compete with C for performance and market share, so Python's readablity and rapid development potential are it's only assets.  Maintain Pythonic idioms at the expense of performance.  If speed becomes and issue, address it then.
 
 ## TODOs and Thoughts
 1. MicroPython includes links to a few devices, check licenses and fork?

@@ -87,9 +87,10 @@ class REG(object):
             self.mask_false(n)
 
     def apply_bits(self, base, bits):
-        """Set bits y to register starting at bit address m
+        """Set specific bits in a register starting at base address.
         
-        Note: assumes python 0 index R --> L and MSB --> LSB with 0 indexing L <-- R
+        Note: assumes python 0 index L --> R and MSB --> LSB 
+        and binary 0 indexing L <-- R
         Probably needs more abstraction as not all chips are MSB LSB
         -CRD
         
@@ -103,7 +104,21 @@ class REG(object):
         for n in range(base, base + len(bits)):
             self.config.apply(n, bits[n])
         
-            
+    def get_bits(self, base, number):
+        """Return a portion of a register in string binary format
+        
+        Parameters
+        ----------
+        base : int, base bin (R --> L) address to read bits
+        number : int, number or bits to read
+        """
+        _reg = bin(self.value)[2:]
+        _reg = self.reverse(_reg)
+        sub_bits = _reg[base:base+number]
+        sub_bits = self.reverse(sub_bits)
+        return sub_bits
+        
+        
 class Device(object):
 
     def __init__(self, name):

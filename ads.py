@@ -5,7 +5,7 @@ TODO: set instance/chip attributes, regular polling method
 """
 
 from pyb import I2C
-from base import REG
+from meerkat.base import REG
 
 
 i2c = I2C(1, I2C.MASTER, baudrate=100000)
@@ -23,7 +23,8 @@ def combine(msb, lsb):
     return (msb << 8) | (lsb >> 8)
 
 # this works
-def config(verbose=False):
+
+def config_old(verbose=False):
     i2c.send(0x01, 0x48)
     r = i2c.recv(2, 0x48)
     # function code, byte count, msb, lsb
@@ -33,13 +34,32 @@ def config(verbose=False):
         #print('ADS firmware: v', v)
     return r
 
-def read():
+def conversion_old():
     i2c.send(0x00, 0x48)
     r = i2c.recv(2, 0x48)
     # function code, byte count, msb, lsb
     #v = combine(r[2], r[3])
     print('ADS replied:', r)
     return r
+
+def base_read(addr):
+    i2c.send(addr, 0x48)
+    _r = i2c.recv(2, 0x48)
+    return _r
+    
+    
+def conversion():
+    return base_read(0x0)
+    
+def config():
+    return base_read(0x1)
+    
+def lo():
+    return base_read(0x2)
+    
+def hi():
+    return base_read(0x3)
+    
 
     
 class REGISTERS():
@@ -91,6 +111,7 @@ class REGISTERS():
         ----------
         x : str, 'high' or 'low'
         """
+        
         _conv = {'low': 0, 'high': 1}
         self.config.apply(3, _conv[x])
         
@@ -101,6 +122,7 @@ class REGISTERS():
         
         x : str, 'trad' or 'window'
         """
+        
         _conv = {'trad': 0, 'window': 1}
         self.config.apply(4, _conv[x])
         
@@ -113,6 +135,7 @@ class REGISTERS():
             Allowed values: '8', '16', '32', '64',
             '128', '250', '475', '850'
         """
+        
         _conv = {'8': '000', '16': '001', '32': '010', '64': '011',
             '128': '100', '250': '101', '475': '110', '850': '111'}
         self.apply_bits(base=5, bits=_conv[x])
@@ -124,6 +147,7 @@ class REGISTERS():
         ----------
         x: str, either 'single' (default) or 'continuous'
         """
+        
         _conv = {'continuous': 0, 'single': 1}
         self.config.apply(8, _conv[x])
         
@@ -135,9 +159,45 @@ class REGISTERS():
         x : str, +/- voltage range value.  Supported values:
             '6.144', '4.096', '2.048', '1.024', '0.512', '0.256'
         """
+        
         _conv = {'6.144': '000', '4.096': '001', '2.048': '010',
                  '1.024': '011', '0.512': '100', '0.256': '101'}
         self.apply_bits(base=9, bits=_conv[x])
+        
+    def set_mux(self, x):
+        """Set multiplexer pin pair, ADS1115 only.
+        
+        Parameters
+        ----------
+        x : str, positive and negative pin combination.  Based on:
+            AIN pins '1', '2', '3', '4' and Ground pin 'G'
+            i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '1G'
+        """
+        
+        _conv = {'01': '000', '03': '001', '13': '010', '23': '011',
+                 '0G': '100', '1G': '101', '2G': '110', '3G': '111'}
+        self.apply_bits(base=12, bits=_conv[x])
+        
+    def get_status(self):
+        """Get chip operational status
+        
+        Returns
+        -------
+        str, either 'busy or 'idle' defined as: 
+            'busy' = device is performing an ADC conversion
+            'idle' = device is not currently performing an ADC conversion
+        """
+        
+        _reg = self.get_bits(15, 1)
+        _conv = {'0': 'busy', '1': 'idle'}
+        return _conv[_reg]
+        
+    def single_shot(self):
+        """Write bit to begin single conversion when in Power-down single-shot mode.
+        Bit clears on completion of ADC conversion, read conversion register
+        to retrieve ADC result.
+        """
+        self.mask_true(15)
         
         
 class BASE():
@@ -150,24 +210,23 @@ class BASE():
 
         self.register = REGISTERS()
         
-        # questionable it needed
-        self.os_single = 0x8000
-        self.mux_offset = 12
-
-    def read(self, register):
+    def _read(self, register):
         self.i2c.send(register, self.i2c_address)
         r = self.i2c.recv(2, self.i2c_address)
         # function code, byte count, msb, lsb
         #v = combine(r[2], r[3])
         return r
     
-    def config_get(self):
-        r = self.read(self.register.config)
-        return r
+    def _write(self, register):
+        self.i2c.send(register, addres)
     
+    def config_get(self):
+        return self.i2c.mem_read(2, self.i2c_address, 1)
+    """
     def config_set(self):
         pass
-
+    """
+    
 class OS():
     """Operational State"""
     def __init__(self):
