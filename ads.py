@@ -1,7 +1,5 @@
 """ADS1x15 I2C ADC for Micropython/Meerkat
 Author: Colin Dietrich 2016
-
-TODO: set instance/chip attributes, regular polling method
 """
 
 from pyb import I2C
@@ -10,19 +8,9 @@ from meerkat.base import REG
 
 i2c = I2C(1, I2C.MASTER, baudrate=100000)
 
-def scan_I2C():
-    found_address = i2c.scan()
+def scan_I2C(i2c_bus):
+    found_address = i2c_bus.scan()
     print('Found I2C devices at:', found_address)
-
-# Each portion of command is 16 bits = 2 bytes
-# from firmware version tutorial in application note
-
-device_address = 0x48
-
-def combine(msb, lsb):
-    return (msb << 8) | (lsb >> 8)
-
-# this works
 
 def config_old(verbose=False):
     i2c.send(0x01, 0x48)
@@ -41,40 +29,48 @@ def conversion_old():
     #v = combine(r[2], r[3])
     print('ADS replied:', r)
     return r
-
-def base_read(addr):
-    i2c.send(addr, 0x48)
-    _r = i2c.recv(2, 0x48)
-    return _r
-    
-    
-def conversion():
-    return base_read(0x0)
-    
-def config():
-    return base_read(0x1)
-    
-def lo():
-    return base_read(0x2)
-    
-def hi():
-    return base_read(0x3)
     
 
+class Base():
+    def __init__(self, i2c_bus, i2c_addr=0x48):
     
-class REGISTERS():
-    def __init__(self):
+        # instance of MicroPython board specific i2c bus
+        self.i2c = i2c_bus
     
+        # i2c bus address of device, default is 0x48
+        self.i2c_addr = i2c_addr
         
-        self.conversion_addr     = 0x00
-        self.config_addr         = 0x01
-        self.low_threshold_addr  = 0x02
-        self.high_threshold_addr = 0x03
+        # self.conversion_addr     = 0x00
+        # self.config_addr         = 0x01
+        # self.low_threshold_addr  = 0x02
+        # self.high_threshold_addr = 0x03
         
         self.config = REG(16)
         
-        self.comp_que = 3  # 0b11
-        self.comp_que_bits = [0,1]
+    def base_read(self, reg_addr):
+        i2c.send(reg_addr, self.i2c_addr)
+        _r = i2c.recv(2, self.i2c_addr)
+        # alternative method, but not MicroPython board portable
+        _r2 = i2c.mem_read(2, self.i2c_addr, reg_addr)
+        return _r, _r2
+    
+    
+    def conversion(self):
+        """Read the ADC conversion register""" 
+        return base_read(0x0)
+        
+    def config(self):
+        """Read the configuration register"""
+        return base_read(0x1)
+        
+    def lo(self):
+        """Read the low threshold register"""
+        return base_read(0x2)
+        
+    def hi(self):
+        """Read the high threshold register"""
+        return base_read(0x3)
+
         
     def set_comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
@@ -200,7 +196,7 @@ class REGISTERS():
         self.mask_true(15)
         
         
-class BASE():
+class BASE_OLD():
     def __init__(self, i2c_bus):
     
         self.i2c = i2c_bus
@@ -222,43 +218,4 @@ class BASE():
     
     def config_get(self):
         return self.i2c.mem_read(2, self.i2c_address, 1)
-    """
-    def config_set(self):
-        pass
-    """
     
-class OS():
-    """Operational State"""
-    def __init__(self):
-        self.state = None
-        
-class GAIN():
-    """Programmable Gain Amplifier"""
-    def __init__(self):
-        self.x2_3   = 0x0000
-        self.x1     = 0x0200
-        self.x2     = 0x0400
-        self.x4     = 0x0600
-        self.x8     = 0x0800
-        self.x16    = 0x0A00
-
-
-class MODE():
-    def __init__(self):
-        self.state = 0x00
-
-class RATE():
-    """Data Rate, in samples per second (SPS)"""
-    def __init__(self):
-        self.sps_8 =    0x00
-        self.sps_16 =   0x01
-        self.sps_32 =   0x02
-        self.sps_64 =   0x03
-        self.sps_128 =  0x04  # default
-        self.sps_250 =  0x05
-        self.sps_475 =  0x06
-        self.sps_880 =  0x07
-        
-class TEMP():
-    def __init__(self):
-        self.temp

@@ -10,6 +10,12 @@ class REG(object):
         self.bits = n
         self.mask = [2**n for n in range(0, self.bits)]
     
+    def combine(self, msb, lsb):
+        """Combine most significant bit and least significant bit
+        to a 16 bit number
+        """
+        return (msb << 8) | (lsb >> 8)
+    
     def reverse_generator(self, x):
         """Reverse itteration, directly copied from PEP 322
         
@@ -117,6 +123,12 @@ class REG(object):
         sub_bits = _reg[base:base+number]
         sub_bits = self.reverse(sub_bits)
         return sub_bits
+        
+    def clean(self, x):
+        """Convert a string representation hex to """
+        x = x.decode('utf-8')
+        y = [ord(n) for n in x]
+        return y
         
         
 class Device(object):
