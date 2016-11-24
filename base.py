@@ -2,6 +2,26 @@
 
 import ujson
 
+def scan_I2C(i2c_bus):
+    found_address = i2c_bus.scan()
+    print('Found I2C devices at:', found_address)
+    
+class I2C(object):
+    """Generic I2C Bus"""
+    
+    def __init__(self, i2c_bus):
+        if hasattr(i2c_bus, 'readfrom_mem'):
+            self.mem_read = i2c_bus.readfrom_mem
+        else:
+            self.mem_read = i2c_bus.mem_read
+        
+        if hasattr(i2c_bus, 'writeto_mem'):
+            self.mem_write = i2c_bus.writeto_mem
+        else:
+            self.mem_write = i2c_bus.mem_write
+        self.scan = i2c_bus.scan
+        
+    
 class REG(object):
     """Basic mask for setting individual bits in a register"""
         

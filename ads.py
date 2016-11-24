@@ -1,35 +1,10 @@
 """ADS1x15 I2C ADC for Micropython/Meerkat
 Author: Colin Dietrich 2016
 """
+import ustruct
 
-from pyb import I2C
 from meerkat.base import REG
 
-
-i2c = I2C(1, I2C.MASTER, baudrate=100000)
-
-def scan_I2C(i2c_bus):
-    found_address = i2c_bus.scan()
-    print('Found I2C devices at:', found_address)
-
-def config_old(verbose=False):
-    i2c.send(0x01, 0x48)
-    r = i2c.recv(2, 0x48)
-    # function code, byte count, msb, lsb
-    #v = combine(r[2], r[3])
-    if verbose:
-        print('ADS replied:', r)
-        #print('ADS firmware: v', v)
-    return r
-
-def conversion_old():
-    i2c.send(0x00, 0x48)
-    r = i2c.recv(2, 0x48)
-    # function code, byte count, msb, lsb
-    #v = combine(r[2], r[3])
-    print('ADS replied:', r)
-    return r
-    
 
 class Base():
     def __init__(self, i2c_bus, i2c_addr=0x48):
@@ -39,6 +14,8 @@ class Base():
     
         # i2c bus address of device, default is 0x48
         self.i2c_addr = i2c_addr
+        self.i2c_addr_write = i2c_addr
+        self.i2c_addr_read = i2c_addr + 0x01
         
         # self.conversion_addr     = 0x00
         # self.config_addr         = 0x01
@@ -46,30 +23,44 @@ class Base():
         # self.high_threshold_addr = 0x03
         
         self.config = REG(16)
-        
-    def base_read(self, reg_addr):
-        i2c.send(reg_addr, self.i2c_addr)
-        _r = i2c.recv(2, self.i2c_addr)
+    
+    def combine(self, b):
+        return ustruct.unpack('>H', b)[0]
+    
+    def base_read(self, reg_addr, i2c_addr=None):
+        if i2c_addr is None:
+            i2c_addr = self.i2c_addr
+        self.i2c.send(reg_addr, i2c_addr)
+        _r = self.i2c.recv(2, i2c_addr)
         # alternative method, but not MicroPython board portable
-        _r2 = i2c.mem_read(2, self.i2c_addr, reg_addr)
-        return _r, _r2
+        # _r2 = self.i2c.mem_read(2, i2c_addr, reg_addr)
+        return _r  # , _r2
     
+    def set_config(self):
+        
+        self.i2c.send()
     
-    def conversion(self):
+    def get_conversion(self):
         """Read the ADC conversion register""" 
-        return base_read(0x0)
+        return self.base_read(0x0)
         
-    def config(self):
+    def get_config(self):
         """Read the configuration register"""
-        return base_read(0x1)
+        # _a = self.base_read(0x01)
+        # self.config.value = self.config.clean(_a)
+        # return self.config.value
+        _a = self.base_read(0x01)
+        # _a = self.combine(_a)
+        self.config.value = _a
+        return _a
         
-    def lo(self):
+    def get_lo(self):
         """Read the low threshold register"""
-        return base_read(0x2)
+        return self.base_read(0x02)
         
-    def hi(self):
+    def get_hi(self):
         """Read the high threshold register"""
-        return base_read(0x3)
+        return self.base_read(0x03)
 
         
     def set_comp_que(self, x):
@@ -193,7 +184,9 @@ class Base():
         Bit clears on completion of ADC conversion, read conversion register
         to retrieve ADC result.
         """
-        self.mask_true(15)
+        command = self.config.value ^ self.config.mask[15]
+        #self.mask_true(15)
+        return command
         
         
 class BASE_OLD():

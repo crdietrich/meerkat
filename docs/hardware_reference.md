@@ -1,5 +1,12 @@
 # Reference
 
+## I2C 
+### Slave Addressing
+Good reference on 7-bit addressing:
+
+http://www.totalphase.com/support/articles/200349176-7-bit-8-bit-and-10-bit-I2C-Slave-Addressing
+
+
 ## NMEA Sentences
 
 ### $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
