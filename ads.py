@@ -6,7 +6,7 @@ import ustruct
 from meerkat.base import REG
 
 
-class Base():
+class Core():
     def __init__(self, i2c_bus, i2c_addr=0x48):
     
         # instance of MicroPython board specific i2c bus
@@ -23,7 +23,9 @@ class Base():
         # self.high_threshold_addr = 0x03
         
         self.config = REG(16)
-    
+        self.comp_que = None
+        
+        
     def combine(self, b):
         return ustruct.unpack('>H', b)[0]
     
@@ -32,6 +34,7 @@ class Base():
             i2c_addr = self.i2c_addr
         self.i2c.send(reg_addr, i2c_addr)
         _r = self.i2c.recv(2, i2c_addr)
+        _r = ustruct.unpack('<H', _r)[0]
         # alternative method, but not MicroPython board portable
         # _r2 = self.i2c.mem_read(2, i2c_addr, reg_addr)
         return _r  # , _r2
@@ -45,7 +48,10 @@ class Base():
         return self.base_read(0x0)
         
     def get_config(self):
-        """Read the configuration register"""
+        """Read the configuration register
+        
+        default is 0x8583 = '0b1000010110000110'
+        """
         # _a = self.base_read(0x01)
         # self.config.value = self.config.clean(_a)
         # return self.config.value
@@ -55,13 +61,26 @@ class Base():
         return _a
         
     def get_lo(self):
-        """Read the low threshold register"""
+        """Read the low threshold register
+        
+        default = 0x8000 = '0b1000000000000000'
+        """
         return self.base_read(0x02)
         
     def get_hi(self):
-        """Read the high threshold register"""
+        """Read the high threshold register
+        
+        default = 0x7FFF = '0b111111111111111'
+        """
         return self.base_read(0x03)
 
+    def get_comp_que(self):
+        
+        _conv = {'00': '1', '01': '2', '02': '3', '11': 'off'}
+        
+        self.comp_que = _conv[bin(self.config.value)[2:][-2:]]
+        
+        print(self.comp_que)
         
     def set_comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
