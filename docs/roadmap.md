@@ -18,6 +18,7 @@ embedded systems running MicroPython and other devices.
 1. External hook for watchdog, RTC
 1. Device side web visualization of data
 1. Command line tools
+1. Cross plateform module portability - Pi vs Pyboard, i.e. struct vs ustruct
 
 ## Devices to consider
 1. All on MicroPython website

@@ -26,139 +26,147 @@ class Core():
         self.comp_que = None
         
         self.pga = None
-        
-        
+
     def combine(self, b):
         return ustruct.unpack('>H', b)[0]
     
-    def base_read(self, reg_addr, i2c_addr=None):
-        if i2c_addr is None:
-            i2c_addr = self.i2c_addr
-        self.i2c.send(reg_addr, i2c_addr)
-        _r = self.i2c.recv(2, i2c_addr)
-        _r = ustruct.unpack('<H', _r)[0]
-        # alternative method, but not MicroPython board portable
-        # _r2 = self.i2c.mem_read(2, i2c_addr, reg_addr)
-        return _r  # , _r2
-    
-    def set_config(self):
-        
-        self.i2c.send()
-    
-    def get_conversion(self):
-        """Read the ADC conversion register""" 
-        return self.base_read(0x0)
-        
-    def get_config(self):
-        """Read the configuration register
-        
-        default is 0x8583 = '0b1000010110000110'
+    def base_read(self, reg_addr):
+        """Get the values from one registry
+        Parameters
+        ----------
+        reg_addr : hex, address of registry to read
+
+        Returns
+        -------
+        16 bit registry value
         """
-        # _a = self.base_read(0x01)
-        # self.config.value = self.config.clean(_a)
-        # return self.config.value
-        _a = self.base_read(0x01)
-        # _a = self.combine(_a)
-        self.config.value = _a
-        return _a
-        
+
+        self.i2c.send(reg_addr, self.i2c_addr)  # send register request (i.e. write 144 1)
+        _r = self.i2c.recv(2, self.i2c_addr)    # read two bytes (i.e. read 145 two bytes)
+        _r = ustruct.unpack('>H', _r)[0]        # convert to single 16 bit value
+        return _r
+
+    def get_conversion(self):
+        """Read the ADC conversion register at address 0x00
+
+        Returns
+        -------
+        16 bit conversion value
+        """
+
+        return self.base_read(0x0)
+
+    def get_config(self):
+        """Read the configuration register at address 0x01
+        Default value from chip is 0x8583 = 34179 = '0b1000010110000110'
+        Specific states extracted with other methods
+
+        Returns
+        -------
+        16 bit configuration value
+        """
+
+        self.config.value = self.base_read(0x01)
+        return self.config.value
+
+    def set_config(self):
+        self.i2c.send()
+
     def get_lo(self):
-        """Read the low threshold register
-        
-        default = 0x8000 = '0b1000000000000000'
+        """Read the low threshold register at address 0x02
+        Default value from chip is 0x8000 = 32768 = '0b1000000000000000' = 128 MSB + 0 LSB
         """
         return self.base_read(0x02)
-        
+
     def get_hi(self):
-        """Read the high threshold register
-        
-        default = 0x7FFF = '0b111111111111111'
+        """Read the high threshold register at address 0x03
+        Default value from chip is 0x7FFF = 32767 = '0b111111111111111'
         """
         return self.base_read(0x03)
 
     def get_comp_que(self):
-        
+
         _conv = {'00': '1', '01': '2', '02': '3', '11': 'off'}
-        
+
         self.comp_que = _conv[bin(self.config.value)[2:][-2:]]
-        
+
         print(self.comp_que)
-        
+
     def set_comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
         is set high
-        
+
         Parameters
         ----------
-        x : str, number of conversions '1', '2', '4' or 'off'        
+        x : str, number of conversions '1', '2', '4' or 'off'
         """
-        
+
         _conv = {'1': '00', '2': '01', '3': '02', 'off': '11'}
         self.apply_bits(base=0, bits=_conv[x])
-        
+
     def set_comp_latching(self, x):
         """Set whether the ALERT/RDY pin latches or clears when conversions
         are within the margins of the upper and lower thresholds
-        
+
         Only available in ADS1114 and ADS1115, default is 0 = non-latching
-        
+
         Parameters
         ----------
         x : str, 'on' or 'off'
         """
-        
+
         _conv = {'on': 1, 'off': 0}
         self.config.apply(2, _conv[x])
-        
+
     def set_comp_polarity(self, x):
         """Set polarity of ALERT/RDY pin when active.
-        
+
         No function in ADS1113.
-        
+
         Parameters
         ----------
         x : str, 'high' or 'low'
         """
-        
+
         _conv = {'low': 0, 'high': 1}
         self.config.apply(3, _conv[x])
-        
+
     def set_comp_mode(self, x):
         """Set comparator mode
-        
+
         ADS1114 and ADS1115 only
-        
+
         x : str, 'trad' or 'window'
         """
-        
+
         _conv = {'trad': 0, 'window': 1}
         self.config.apply(4, _conv[x])
-        
+
     def set_data_rate(self, x):
         """Set data rate of sampling
-        
+
         Parameters
         ----------
         x : str, samples per second.
             Allowed values: '8', '16', '32', '64',
             '128', '250', '475', '850'
         """
-        
+
         _conv = {'8': '000', '16': '001', '32': '010', '64': '011',
             '128': '100', '250': '101', '475': '110', '850': '111'}
         self.apply_bits(base=5, bits=_conv[x])
-        
+
     def set_mode(self, x):
         """Set operating mode to either single or continuous.
-        
+
         Parameters
         ----------
         x: str, either 'single' (default) or 'continuous'
         """
-        
+
         _conv = {'continuous': 0, 'single': 1}
         self.config.apply(8, _conv[x])
-        
+
     def set_pga(self, x):
         """Set programmable gain amplifier range.
         
