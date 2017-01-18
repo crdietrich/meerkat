@@ -25,6 +25,8 @@ class Core():
         self.config = REG(16)
         self.comp_que = None
         
+        self.pga = None
+        
         
     def combine(self, b):
         return ustruct.unpack('>H', b)[0]
@@ -168,7 +170,24 @@ class Core():
         
         _conv = {'6.144': '000', '4.096': '001', '2.048': '010',
                  '1.024': '011', '0.512': '100', '0.256': '101'}
-        self.apply_bits(base=9, bits=_conv[x])
+        self.config.apply_bits(base=9, bits=_conv[x])
+        
+    def get_pga(self):
+        """Get the programmable gain amplifier range.
+        """
+        _conv = {'000': '6.144', '001': '4.096', '010': '2.048',
+                 '011': '1.024', '100': '0.512', '101': '0.256'}
+        
+        
+        _bv = bin(self.config.value)
+        print("_bv>> ", _bv)
+        _sv = _bv[2:][-12:-9]
+        print('_sv>> ', _sv)
+        self.pga = _conv[_sv]
+        print('pga>> ', self.pga)
+        print(self.pga)
+        
+        
         
     def set_mux(self, x):
         """Set multiplexer pin pair, ADS1115 only.
