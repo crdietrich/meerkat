@@ -2,8 +2,14 @@
 Author: Colin Dietrich 2016
 """
 import ustruct
+import uctypes
 
 from meerkat.base import REG
+
+
+
+#class FlagBits(ctypes.LITTLE_ENDIAN):
+#    _fields_ =
 
 
 class Core():
@@ -24,12 +30,22 @@ class Core():
         
         self.config = REG(16)
         self.comp_que = None
-        
+
+        #self.c = uctypes.
+
         self.pga = None
 
     def combine(self, b):
         return ustruct.unpack('>H', b)[0]
-    
+
+    def get_bits(self, index, number):
+        """Get a subset of str formatted bits from a binary string representation
+
+        Parameters
+        ----------
+        index : int, starting index
+        number : int, """
+
     def base_read(self, reg_addr):
         """Get the values from one registry
         Parameters
@@ -84,7 +100,7 @@ class Core():
         """
         return self.base_read(0x03)
 
-    def get_comp_que(self):
+    def get_comp_que2(self):
 
         _conv = {'00': '1', '01': '2', '02': '3', '11': 'off'}
 
@@ -180,7 +196,7 @@ class Core():
                  '1.024': '011', '0.512': '100', '0.256': '101'}
         self.config.apply_bits(base=9, bits=_conv[x])
         
-    def get_pga(self):
+    def get_pga2(self):
         """Get the programmable gain amplifier range.
         """
         _conv = {'000': '6.144', '001': '4.096', '010': '2.048',
@@ -210,7 +226,41 @@ class Core():
         _conv = {'01': '000', '03': '001', '13': '010', '23': '011',
                  '0G': '100', '1G': '101', '2G': '110', '3G': '111'}
         self.apply_bits(base=12, bits=_conv[x])
-        
+
+    def single_shot(self):
+        """Write bit to begin single conversion when in Power-down single-shot mode.
+        Bit clears on completion of ADC conversion, read conversion register
+        to retrieve ADC result.
+        """
+        command = self.config.value ^ self.config.mask[15]
+        # self.mask_true(15)
+        return command
+
+    def get_comp_que(self):
+        return self.config.value & 0b11
+
+    def get_comp_lat(self):
+        return (self.config.value >> 2) & 0b1
+
+    def get_comp_pol(self):
+        return (self.config.value >> 3) & 0b1
+
+    def get_comp_mode(self):
+        return (self.config.value >> 4) & 0b1
+
+    def get_dr(self):
+        return (self.config.value >> 5) & 0b111
+
+    def get_mode(self):
+        return (self.config.value >> 8) & 0b1
+
+    def get_pga(self):
+        return (self.config.value >> 9) & 0b111
+
+    def get_mux(self):
+        """Get chip input multiplexer configuration"""
+        return (self.config.value >> 12) & 0b111
+
     def get_status(self):
         """Get chip operational status
         
@@ -220,41 +270,8 @@ class Core():
             'busy' = device is performing an ADC conversion
             'idle' = device is not currently performing an ADC conversion
         """
-        
-        _reg = self.get_bits(15, 1)
-        _conv = {'0': 'busy', '1': 'idle'}
-        return _conv[_reg]
-        
-    def single_shot(self):
-        """Write bit to begin single conversion when in Power-down single-shot mode.
-        Bit clears on completion of ADC conversion, read conversion register
-        to retrieve ADC result.
-        """
-        command = self.config.value ^ self.config.mask[15]
-        #self.mask_true(15)
-        return command
-        
-        
-class BASE_OLD():
-    def __init__(self, i2c_bus):
-    
-        self.i2c = i2c_bus
-    
-        self.i2c_address = 0x48
-        self.pointer_register = 0x00
 
-        self.register = REGISTERS()
-        
-    def _read(self, register):
-        self.i2c.send(register, self.i2c_address)
-        r = self.i2c.recv(2, self.i2c_address)
-        # function code, byte count, msb, lsb
-        #v = combine(r[2], r[3])
-        return r
-    
-    def _write(self, register):
-        self.i2c.send(register, addres)
-    
-    def config_get(self):
-        return self.i2c.mem_read(2, self.i2c_address, 1)
-    
+        _reg = (self.config.value >> 15)
+        _conv = {0: 'busy', 1: 'idle'}
+        return _conv[_reg]
+
