@@ -20,8 +20,14 @@ class I2C(object):
         else:
             self.mem_write = i2c_bus.mem_write
         self.scan = i2c_bus.scan
-        
-    
+
+
+def twos_complement(input_value, num_bits):
+    """Calculates a two's complement integer from the given input value's bits"""
+    mask = 2 ** (num_bits - 1)
+    return -(input_value & mask) + (input_value & ~mask)
+
+
 class REG(object):
     """Basic mask for setting individual bits in a register"""
         
@@ -126,9 +132,12 @@ class REG(object):
         bits : str, bits to apply in '1' and '0' format
         """
         
-        bits = self.config.reverse(bits)
-        for n in range(base, base + len(bits)):
-            self.config.apply(n, bits[n])
+        bits = self.reverse(bits)
+        print("len(bits)>> ", len(bits))
+        print("base>> ", base)
+        for n in range(0, len(bits)):
+            print(base, n, bits[n])
+            self.apply(base + n, bits[n])
         
     def get_bits(self, base, number):
         """Return a portion of a register in string binary format
