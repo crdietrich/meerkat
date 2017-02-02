@@ -2,7 +2,7 @@
 Author: Colin Dietrich 2016
 """
 import ustruct
-from meerkat.base import twos_complement
+from meerkat.base import twos_complement, set_bit, clear_bit
 
 
 class Core:
@@ -31,22 +31,37 @@ class Core:
         self.mux = 0b000
         self.os = None
 
+        # TODO: clean up dictionaries
         # converters for config register attributes
         self.pga_float = [6.144, 4.096, 2.048, 1.024, 0.512, 0.256]
         self.pga_str = [str(_n) for _n in self.pga_float]
         self.pga_binary = [0b000, 0b001, 0b010, 0b011, 0b100, 0b101]
+        self.pga_bin_str = ['000', '001', '010', '011', '100', '101']
         self.pga_bin_to_str = dict(zip(self.pga_binary, self.pga_str))
         self.pga_bin_to_float = dict(zip(self.pga_binary, self.pga_float))
         self.pga_str_to_bin = dict(zip(self.pga_str, self.pga_binary))
+        self.pga_str_to_str = dict(zip(self.pga_str, self.pga_bin_str))
 
-        # as pga, these are TODO
-        self.op_bin_to_str = {0: 'busy', 1: 'idle'}
-        self.comp_que_bin_to_str = {0b00: '1', 0b01: '2', 0b10: '3', 0b11: 'off'}
-        self.comp_lat_bin_to_str = {'on': 1, 'off': 0}
-        self.comp_str_to_bin = {'low': 0, 'high': 1}
+        self.os_bin_to_str = {0: 'Busy', 1: 'Idle'}
+        self.comp_que_bin_to_str = {0b00: 'Assert after 1', 
+                                    0b01: 'Assert after 2',
+                                    0b10: 'Assert after 3',
+                                    0b11: 'Disabled'}
+        self.comp_lat_bin_to_str = {0: 'Non-latching',
+                                    1: 'Latching'}
+        self.comp_pol_int_to_str = {0: 'Low', 1: 'High'}
+        self.comp_mode_bin_to_str = {0: 'Traditional', 1: 'Window'}
+        self.dr_int_to_sps = {0: 8, 1: 16, 2:32, 3:64, 4:128, 5:250, 6:475, 7:850}
+        self.mode_int_to_str = {0: 'Continuous', 1: 'Single Shot'}
+        self.mux_int_to_str = {0: 'p:0 n:1', 1: 'p:0 n:3', 2: 'p:1 n:3', 3: 'p:2 n:3',
+                               4: 'p:0 n:g', 5: 'p:1 n:g', 6: 'p:2 n:g', 7: 'p:3 n:g'}
+        
+        # these are unused
+        self.comp_str_to_bin = {'Low': 0, 'High': 1}
+        self.comp_bin_to_str = {0: 'Low', 1: 'High'}
         self.comp_mode_str_to_bin = {'trad': 0, 'window': 1}
         self.dr_int_to_bin = {'8': '000', '16': '001', '32': '010', '64': '011',
-            '128': '100', '250': '101', '475': '110', '850': '111'}
+                              '128': '100', '250': '101', '475': '110', '850': '111'}
         self.mode_str_to_bin = {'continuous': 0b0, 'single': 0b1}
         self.mux_str_to_bin = {'01': '000', '03': '001', '13': '010', '23': '011',
                  '0G': '100', '1G': '101', '2G': '110', '3G': '111'}
@@ -69,7 +84,7 @@ class Core:
 
     def get_conversion(self):
         """Read the ADC conversion register at address 0x00
-        Default value from chip is 0
+        Default value on power up from chip is 0
         """
         self.conversion = self.read_register(0x0)
 
@@ -79,7 +94,8 @@ class Core:
         least once to get the current configuration, otherwise the chip default is used.
         Chip clears bit on completion of ADC conversion.
         """
-        _s = bytearray([1, self.config & 0xff, (self.config >> 8) & 0xff])
+
+        _s = bytearray([1, (self.config >> 8) & 0xff, self.config & 0xff])
         self.i2c.send(_s, addr=self.i2c_addr)
         self.get_conversion()
 
@@ -87,9 +103,15 @@ class Core:
         """Calculate the voltage measured by the chip based on conversion register
         and configuration register values
         """
+        # self.get_config()
         self.single_shot()
+        # self.get_config()
+        # self.update_attributes()
         _x = twos_complement(self.conversion, 16)
-        _y = _x * (self.pga_bin_to_float[self.pga] / 2**14)
+        print('_x:', _x)
+        _y = _x * (self.pga_bin_to_float[self.pga] / 2**15)
+        # print('pga: ', self.pga, 'config:', self.config, bin(self.config))
+        self.print_attributes()
         print('voltage =', _y)
 
     def get_config(self):
@@ -159,17 +181,52 @@ class Core:
         self.config_os()
 
     def print_attributes(self):
+        self.update_attributes()
         print('ADS11x5 Configuration Attributes')
         print('--------------------------------')
-        print('comp que:', self.comp_que)
-        print('comp lat:', self.comp_lat)
-        print('comp_pol', self.comp_pol)
-        print('comp_mode', self.comp_mode)
-        print('dr:', self.dr)
-        print('mode:', self.mode)
-        print('pga range: +/-', self.pga_bin_to_str[self.pga], 'volts')
-        print('mux:', self.mux)
-        print('os:', self.os)
+        print('Data Rate:', self.dr_int_to_sps[self.dr], 'SPS')
+        print('Mode:', self.mode_int_to_str[self.mode])
+        print('PGA Range: +/-', self.pga_bin_to_str[self.pga], 'Volts')
+        print('Input Multiplexer:', self.mux_int_to_str[self.mux])
+        print('Comparator:')
+        print(' Queue:', self.comp_que_bin_to_str[self.comp_que])
+        print(' Latching:', self.comp_lat_bin_to_str[self.comp_lat])
+        print(' Polarity: Active', self.comp_pol_int_to_str[self.comp_pol])
+        print(' Mode:', self.comp_mode_bin_to_str[self.comp_mode])
+        
+    def set_pga(self, x):
+        """Set programmable gain amplifier range.
+
+        Parameters
+        ----------
+        x : str, +/- voltage range value.  Supported values:
+            '6.144', '4.096', '2.048', '1.024', '0.512', '0.256'
+        """
+
+        print('voltage range to set:', x)
+
+        _bin_in = [-1, -2, -3]
+        _bit = [9, 10, 11]
+
+        _x = self.pga_str_to_str[x]
+
+        for _n in [0, 1, 2]:
+            _y = _x[_bin_in[_n]]
+            if _y == '0':
+                self.config = clear_bit(self.config, _bit[_n])
+            else:
+                self.config = set_bit(self.config, _bit[_n])
+
+    def set_mux(self, x):
+        """Set multiplexer pin pair, ADS1115 only.
+
+        Parameters
+        ----------
+        x : str, positive and negative pin combination.  Based on:
+            AIN pins '1', '2', '3', '4' and Ground pin 'G'
+            i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '1G'
+        """
+        pass
 
     def set_comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
@@ -233,27 +290,4 @@ class Core:
         """
         pass
 
-    def set_pga(self, x):
-        """Set programmable gain amplifier range.
-        
-        Parameters
-        ----------
-        x : str, +/- voltage range value.  Supported values:
-            '6.144', '4.096', '2.048', '1.024', '0.512', '0.256'
-        """
-        pass
-        
-    def set_mux(self, x):
-        """Set multiplexer pin pair, ADS1115 only.
-        
-        Parameters
-        ----------
-        x : str, positive and negative pin combination.  Based on:
-            AIN pins '1', '2', '3', '4' and Ground pin 'G'
-            i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '1G'
-        """
-        pass
 
-    def set_config(self):
-        """Set the configuration register"""
-        pass
