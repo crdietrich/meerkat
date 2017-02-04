@@ -1,6 +1,7 @@
 """ADS1x15 I2C ADC for Micropython/Meerkat
 Author: Colin Dietrich 2016
 """
+
 import ustruct
 from meerkat.base import twos_complement, bit_set, bit_clear, bit_toggle
 
@@ -37,46 +38,24 @@ class Core:
         self.mux = 0b000
         self.os = None
 
-        # TODO: clean up dictionaries
-        # converters for config register attributes
-        self.pga_float = [6.144, 4.096, 2.048, 1.024, 0.512, 0.256]
-        self.pga_str = [str(_n) for _n in self.pga_float]
-        self.pga_binary = [0b000, 0b001, 0b010, 0b011, 0b100, 0b101]
-        self.pga_bin_str = ['000', '001', '010', '011', '100', '101']
-        
-        self.pga_bin_to_str = dict(zip(self.pga_binary, self.pga_str))
-        self.pga_bin_to_float = dict(zip(self.pga_binary, self.pga_float))
-        self.pga_str_to_bin = dict(zip(self.pga_str, self.pga_binary))
-        self.pga_str_to_str = dict(zip(self.pga_str, self.pga_bin_str))
+        # voltage measurement
+        self.pga_float = 2.048
+        self.volts = 0
 
-        self.os_bin_to_str = {0: 'Busy', 1: 'Idle'}
-        
+        # attribute converters for print
         self.comp_que_bin_to_str = {0b00: 'Assert after 1', 
                                     0b01: 'Assert after 2',
                                     0b10: 'Assert after 3',
                                     0b11: 'Disabled'}
                                     
         self.comp_lat_bin_to_str = {0: 'Non-latching', 1: 'Latching'}
-                                    
         self.comp_pol_int_to_str = {0: 'Low', 1: 'High'}
         self.comp_mode_bin_to_str = {0: 'Traditional', 1: 'Window'}
-        
         self.dr_int_to_sps = {0: 8, 1: 16, 2:32, 3:64, 4:128, 5:250, 6:475, 7:850}
         self.mode_int_to_str = {0: 'Continuous', 1: 'Single Shot'}
-        
         self.mux_int_to_str = {0: 'p:0 n:1', 1: 'p:0 n:3', 2: 'p:1 n:3', 3: 'p:2 n:3',
                                4: 'p:0 n:g', 5: 'p:1 n:g', 6: 'p:2 n:g', 7: 'p:3 n:g'}
         
-        # these are unused
-        self.comp_str_to_bin = {'Low': 0, 'High': 1}
-        self.comp_bin_to_str = {0: 'Low', 1: 'High'}
-        self.comp_mode_str_to_bin = {'trad': 0, 'window': 1}
-        self.dr_int_to_bin = {'8': '000', '16': '001', '32': '010', '64': '011',
-                              '128': '100', '250': '101', '475': '110', '850': '111'}
-        #self.mode_str_to_bin = {'continuous': 0b0, 'single': 0b1}
-        self.mux_str_to_bin = {'01': '000', '03': '001', '13': '010', '23': '011',
-                 '0G': '100', '1G': '101', '2G': '110', '3G': '111'}
-
     def read_register(self, reg_addr):
         """Get the values from one registry
         Parameters
@@ -105,7 +84,6 @@ class Core:
         least once to get the current configuration, otherwise the chip default is used.
         Chip clears bit on completion of ADC conversion.
         """
-
         _s = bytearray([1, (self.config >> 8) & 0xff, self.config & 0xff])
         self.i2c.send(_s, addr=self.i2c_addr)
         self.get_conversion()
@@ -113,17 +91,18 @@ class Core:
     def voltage(self):
         """Calculate the voltage measured by the chip based on conversion register
         and configuration register values
+        TODO: return or set attribute?
         """
-        # self.get_config()
         self.single_shot()
-        # self.get_config()
-        # self.update_attributes()
         _x = twos_complement(self.conversion, 16)
-        print('_x:', _x)
-        _y = _x * (self.pga_bin_to_float[self.pga] / 2**15)
-        # print('pga: ', self.pga, 'config:', self.config, bin(self.config))
+        _y = _x * (self.pga_float / 2**15)
+        self.volts = _y
+        return self.volts
+        
+    def test(self):
         self.print_attributes()
-        print('voltage =', _y)
+        self.voltage()
+        print('voltage measured:', self.volts)
 
     def get_config(self):
         """Read the configuration register at address 0x01
@@ -195,9 +174,9 @@ class Core:
         self.update_attributes()
         print('ADS11x5 Configuration Attributes')
         print('--------------------------------')
-        print('Data Rate:', self.dr_int_to_sps[self.dr], 'SPS')
+        print('PGA Range: +/-', self.pga_float, 'Volts')
         print('Mode:', self.mode_int_to_str[self.mode])
-        print('PGA Range: +/-', self.pga_bin_to_str[self.pga], 'Volts')
+        print('Data Rate:', self.dr_int_to_sps[self.dr], 'SPS')
         print('Input Multiplexer:', self.mux_int_to_str[self.mux])
         print('Comparator:')
         print(' Queue:', self.comp_que_bin_to_str[self.comp_que])
@@ -214,20 +193,16 @@ class Core:
             '6.144', '4.096', '2.048', '1.024', '0.512', '0.256'
         """
         
-        print('voltage range to set:', x)
+        _bit = [11, 10, 9]
+        _pga = {'6.144': '000', '4.096': '001', '2.048': '010', 
+                '1.024': '011', '0.512': '100', '0.256': '101'}[x]
+        _pga = [{'0': False, '1':True}[_] for _ in _pga]
         
-        _bin_in = [-1, -2, -3]
-        _bit = [9, 10, 11]
-        
-        _x = self.pga_str_to_str[x]
-        # 0, 1, 2, 11, 10, 9
         for _n in [0, 1, 2]:
-            _y = _x[_bin_in[_n]]
-            if _y == '0':
-                self.config = bit_clear(self.config, _bit[_n])
-            else:
-                self.config = bit_set(self.config, _bit[_n])
-
+            self.config = bit_toggle(self.config, _bit[_n], _pga[_n])
+            
+        self.pga_float = float(x)
+                
     def set_mux(self, x):
         """Set multiplexer pin pair, ADS1115 only.
         
@@ -237,7 +212,13 @@ class Core:
             AIN pins '1', '2', '3', '4' and Ground pin 'G'
             i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '1G'
         """
-        pass
+        _reg = [14, 13, 12]
+        _mux = {'01': '000', '03': '001', '13': '010', '23': '011',
+                 '0G': '100', '1G': '101', '2G': '110', '3G': '111'}[x]
+        _mux = [{'0': False, '1':True}[_] for _ in _mux]
+        
+        for _n in [0, 1, 2]:
+            self.config = bit_toggle(self.config, _reg[_n], _mux[_n])
         
     def set_comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
@@ -247,7 +228,12 @@ class Core:
         ----------
         x : str, number of conversions '1', '2', '4' or 'off'
         """
-        pass
+        _reg = [1, 0]
+        _que = {'1': '00', '2': '01', '3': '10', 'off': '11'}[x]
+        _que = [{'0': False, '1':True}[_] for _ in _que]
+        
+        for _n in [0, 1]:
+            self.config = bit_toggle(self.config, _reg[_n], _que[_n])
         
     def set_comp_latching(self, x):
         """Set whether the ALERT/RDY pin latches or clears when conversions
@@ -259,70 +245,62 @@ class Core:
         ----------
         x : str, 'on' or 'off'
         """
-        pass
+        self.bit_toggle(self.config, 2,
+                        {'off': False, 'on': True}[x])
 
     def set_comp_polarity(self, x):
         """Set polarity of ALERT/RDY pin when active.
-
-        No function in ADS1113.
+        No function in ADS1113, changes bit 3
 
         Parameters
         ----------
         x : str, 'high' or 'low'
         """
-        pass
+        self.bit_toggle(self.config, 3,
+                        {'low': False, 'high': True}[x])
 
     def set_comp_mode(self, x):
         """Set comparator mode
-
-        ADS1114 and ADS1115 only
+        ADS1114 and ADS1115 only, changes bit 4
 
         x : str, 'trad' or 'window'
         """
-        pass
+        self.bit_toggle(self.config, 4,
+                        {'trad': False, 'window': True}[x])
 
     def set_data_rate(self, x):
         """Set data rate of sampling
-
+        Changes bits [7:5]
+        
         Parameters
         ----------
         x : int, samples per second.
             Allowed values: 8, 16, 32, 64,
             128, 250, 475, 850
         """
-        print('input:', x)
-        _dict = {8: '000', 16: '001', 32: '010', 64: '011',
-                 128: '100', 250: '101', 475: '110', 850: '111'}
+        _reg = [7, 6, 5]
+        _sps = {8: '000', 16: '001', 32: '010', 64: '011',
+                128: '100', 250: '101', 475: '110', 860: '111'}[x]
+        _sps = [{'0': False, '1':True}[_] for _ in _sps]
         
-        # values [7:5]
-        _r = [7, 6, 5]
-        _s = _dict[x]
-        print(_s)
-        _b = [int(_) for _ in _s]
-        print(_b)
         for _n in [0, 1, 2]:
-            print(_b[_n])
-            print(_r[_n])
-            
+            self.config = bit_toggle(self.config, _reg[_n], _sps[_n])
         
-        print('before:', bin(self.config))
-        #print()
-        
-
     def set_mode(self, x):
         """Set operating mode to either single or continuous.
-
+        
         Parameters
         ----------
         x: str, either 'single' or 'continuous'
         """
-        return {'continuous': 0, 'single': 1}[x]
-
-    def set_os(self, x):
+        self.bit_toggle(self.config, 8,
+                        {'continuous': False, 'single': True}[x])
+        
+    def set_os(self):
         """Set the operational status
-
-        Parameters
-        ----------
-        x : boolean, direction to toggle os register
+        As this has only one use in write mode, sets bit 15 to True.
+        Chip will automatically clear it.  Bit 15 = True is also the
+        power on default - it should be sufficient to read the configuration
+        register once and use that bit position for all read commands.
         """
-        return self.bit_toggle(self.config, 0, x)
+        self.bit_toggle(self.config, 15, True)
