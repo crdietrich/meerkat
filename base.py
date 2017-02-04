@@ -22,6 +22,50 @@ class I2C(object):
         self.scan = i2c_bus.scan
 
 
+def bit_set(value, bit):
+    """Set bit in value to 1
+
+    Parameters
+    ----------
+    value : 16 bit int, value to change bit
+    bit : int, bit index to set
+        (binary notation: MSB left, LSB right - not Python indexing!)
+    """
+    return value | (1 << bit)
+
+
+def bit_clear(value, bit):
+    """Set (clear) bit in value to 0
+
+    Parameters
+    ----------
+    value : 16 bit int, value to change bit
+    bit : int, bit index to set
+        (binary notation: MSB left, LSB right - not Python indexing!)
+    """
+    return value & ~(1 << bit)
+
+    
+def bit_toggle(value, bit, bool):
+    """Toggle bit in value to boolean
+    
+    Parameters
+    ----------
+    value : 16 bit int, value to change bit
+    bit : int, bit index to set
+        (binary notation: MSB left, LSB right - not Python indexing!)
+    bool : boolean, direction to toggle bit
+    
+    Returns
+    -------
+    value with toggled bit
+    """
+    
+    if bool is True:
+        return bit_set(value, bit)
+    elif bool is False:
+        return bit_clear(value, bit)
+
 def twos_complement(input_value, num_bits):
     """Calculates a two's complement integer from the given input value's bits"""
     mask = 2 ** (num_bits - 1)

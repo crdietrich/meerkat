@@ -2,12 +2,18 @@
 Author: Colin Dietrich 2016
 """
 import ustruct
-from meerkat.base import twos_complement, set_bit, clear_bit
+from meerkat.base import twos_complement, bit_set, bit_clear, bit_toggle
 
 
 class Core:
     def __init__(self, i2c_bus, i2c_addr=0x48):
-    
+
+        # attributes for rpel use
+        self.twos_complement = twos_complement
+        self.bit_set = bit_set
+        self.bit_clear = bit_clear
+        self.bit_toggle = bit_toggle
+        
         # instance of MicroPython board specific i2c bus
         self.i2c = i2c_bus
     
@@ -37,22 +43,27 @@ class Core:
         self.pga_str = [str(_n) for _n in self.pga_float]
         self.pga_binary = [0b000, 0b001, 0b010, 0b011, 0b100, 0b101]
         self.pga_bin_str = ['000', '001', '010', '011', '100', '101']
+        
         self.pga_bin_to_str = dict(zip(self.pga_binary, self.pga_str))
         self.pga_bin_to_float = dict(zip(self.pga_binary, self.pga_float))
         self.pga_str_to_bin = dict(zip(self.pga_str, self.pga_binary))
         self.pga_str_to_str = dict(zip(self.pga_str, self.pga_bin_str))
 
         self.os_bin_to_str = {0: 'Busy', 1: 'Idle'}
+        
         self.comp_que_bin_to_str = {0b00: 'Assert after 1', 
                                     0b01: 'Assert after 2',
                                     0b10: 'Assert after 3',
                                     0b11: 'Disabled'}
-        self.comp_lat_bin_to_str = {0: 'Non-latching',
-                                    1: 'Latching'}
+                                    
+        self.comp_lat_bin_to_str = {0: 'Non-latching', 1: 'Latching'}
+                                    
         self.comp_pol_int_to_str = {0: 'Low', 1: 'High'}
         self.comp_mode_bin_to_str = {0: 'Traditional', 1: 'Window'}
+        
         self.dr_int_to_sps = {0: 8, 1: 16, 2:32, 3:64, 4:128, 5:250, 6:475, 7:850}
         self.mode_int_to_str = {0: 'Continuous', 1: 'Single Shot'}
+        
         self.mux_int_to_str = {0: 'p:0 n:1', 1: 'p:0 n:3', 2: 'p:1 n:3', 3: 'p:2 n:3',
                                4: 'p:0 n:g', 5: 'p:1 n:g', 6: 'p:2 n:g', 7: 'p:3 n:g'}
         
@@ -62,7 +73,7 @@ class Core:
         self.comp_mode_str_to_bin = {'trad': 0, 'window': 1}
         self.dr_int_to_bin = {'8': '000', '16': '001', '32': '010', '64': '011',
                               '128': '100', '250': '101', '475': '110', '850': '111'}
-        self.mode_str_to_bin = {'continuous': 0b0, 'single': 0b1}
+        #self.mode_str_to_bin = {'continuous': 0b0, 'single': 0b1}
         self.mux_str_to_bin = {'01': '000', '03': '001', '13': '010', '23': '011',
                  '0G': '100', '1G': '101', '2G': '110', '3G': '111'}
 
@@ -196,30 +207,30 @@ class Core:
         
     def set_pga(self, x):
         """Set programmable gain amplifier range.
-
+        
         Parameters
         ----------
         x : str, +/- voltage range value.  Supported values:
             '6.144', '4.096', '2.048', '1.024', '0.512', '0.256'
         """
-
+        
         print('voltage range to set:', x)
-
+        
         _bin_in = [-1, -2, -3]
         _bit = [9, 10, 11]
-
+        
         _x = self.pga_str_to_str[x]
-
+        # 0, 1, 2, 11, 10, 9
         for _n in [0, 1, 2]:
             _y = _x[_bin_in[_n]]
             if _y == '0':
-                self.config = clear_bit(self.config, _bit[_n])
+                self.config = bit_clear(self.config, _bit[_n])
             else:
-                self.config = set_bit(self.config, _bit[_n])
+                self.config = bit_set(self.config, _bit[_n])
 
     def set_mux(self, x):
         """Set multiplexer pin pair, ADS1115 only.
-
+        
         Parameters
         ----------
         x : str, positive and negative pin combination.  Based on:
@@ -227,17 +238,17 @@ class Core:
             i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '1G'
         """
         pass
-
+        
     def set_comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
         is set high
-
+        
         Parameters
         ----------
         x : str, number of conversions '1', '2', '4' or 'off'
         """
         pass
-
+        
     def set_comp_latching(self, x):
         """Set whether the ALERT/RDY pin latches or clears when conversions
         are within the margins of the upper and lower thresholds
@@ -275,19 +286,43 @@ class Core:
 
         Parameters
         ----------
-        x : str, samples per second.
-            Allowed values: '8', '16', '32', '64',
-            '128', '250', '475', '850'
+        x : int, samples per second.
+            Allowed values: 8, 16, 32, 64,
+            128, 250, 475, 850
         """
-        pass
+        print('input:', x)
+        _dict = {8: '000', 16: '001', 32: '010', 64: '011',
+                 128: '100', 250: '101', 475: '110', 850: '111'}
+        
+        # values [7:5]
+        _r = [7, 6, 5]
+        _s = _dict[x]
+        print(_s)
+        _b = [int(_) for _ in _s]
+        print(_b)
+        for _n in [0, 1, 2]:
+            print(_b[_n])
+            print(_r[_n])
+            
+        
+        print('before:', bin(self.config))
+        #print()
+        
 
     def set_mode(self, x):
         """Set operating mode to either single or continuous.
 
         Parameters
         ----------
-        x: str, either 'single' (default) or 'continuous'
+        x: str, either 'single' or 'continuous'
         """
-        pass
+        return {'continuous': 0, 'single': 1}[x]
 
+    def set_os(self, x):
+        """Set the operational status
 
+        Parameters
+        ----------
+        x : boolean, direction to toggle os register
+        """
+        return self.bit_toggle(self.config, 0, x)
