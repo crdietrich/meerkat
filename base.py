@@ -239,11 +239,18 @@ class Data(object):
         self.datetime = None
         self.lat = None
         self.lon = None
-        self.payload = None
+        self.value = None
+
+    def payload(self):
+        return {'name': self.name,
+                'datetime': self.datetime,
+                'lat': self.lat,
+                'lon': self.lon,
+                'value': self.value}
 
     def dumps(self):
         if self.payload is not None:
-            return ujson.dumps(self.payload)
+            return ujson.dumps(self.payload())
 
-    def loads(self):
-        print(ujson.loads(self.payload))
+    def loads(self, data):
+        print(ujson.loads(data))

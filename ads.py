@@ -2,8 +2,9 @@
 Author: Colin Dietrich 2016
 """
 
+from time import sleep
 import ustruct
-from meerkat.base import twos_complement, bit_set, bit_clear, bit_toggle
+from meerkat.base import Data, twos_complement, bit_set, bit_clear, bit_toggle
 
 
 class Core:
@@ -55,7 +56,11 @@ class Core:
         self.mode_int_to_str = {0: 'Continuous', 1: 'Single Shot'}
         self.mux_int_to_str = {0: 'p:0 n:1', 1: 'p:0 n:3', 2: 'p:1 n:3', 3: 'p:2 n:3',
                                4: 'p:0 n:g', 5: 'p:1 n:g', 6: 'p:2 n:g', 7: 'p:3 n:g'}
+
         
+        # data class to return
+        self.data = Data(name='ADS1115')
+
     def read_register(self, reg_addr):
         """Get the values from one registry
         Parameters
@@ -86,6 +91,7 @@ class Core:
         """
         _s = bytearray([1, (self.config >> 8) & 0xff, self.config & 0xff])
         self.i2c.send(_s, addr=self.i2c_addr)
+	sleep(0.3)  # duty cycle pg 19 - wait for conversion to finish
         self.get_conversion()
 
     def voltage(self):
@@ -99,6 +105,11 @@ class Core:
         self.volts = _y
         return self.volts
         
+    def measure(self):
+        """Measure the voltage as configured on the ADA1x15"""
+        self.data.value = self.voltage()
+        return self.data.dumps()
+
     def test(self):
         self.print_attributes()
         self.voltage()
