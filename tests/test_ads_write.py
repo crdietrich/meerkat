@@ -1,6 +1,7 @@
 import smbus2
-import ads
 from time import sleep
+
+from meerkat import ads
 
 i2c = smbus2.SMBus(1)
 dev = ads.Core(bus=i2c)

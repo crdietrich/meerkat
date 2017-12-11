@@ -1,5 +1,5 @@
 import smbus2
-import ads
+from meerkat import ads
 from time import sleep
 
 i2c = smbus2.SMBus(1)

@@ -7,7 +7,7 @@ try:
     import ustruct as struct
 except:
     import struct
-from base import Data, twos_comp_to_dec
+from meerkat.base import twos_comp_to_dec
 
 # chip register address
 REG_CONVERT = 0b00000000
@@ -82,7 +82,7 @@ class Core:
         self.bin_comp_que = {v: k for k, v in self.str_comp_que.items()}
 
         # data class to return
-        self.data = Data(name='ADS1115')
+        #self.data = Data(name='ADS1115')
 
 
     def set_pointer(self, reg_name):
@@ -344,9 +344,9 @@ class Core:
 
     def measure(self):
         """Measure the voltage as configured on the ADA1x15"""
-
+        return self.voltage()
         self.data.value = self.voltage()
-        return self.data.dumps()
+        #return self.data.dumps()
 
 
     def print_attributes(self):
