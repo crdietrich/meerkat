@@ -7,7 +7,8 @@ try:
     import ustruct as struct
 except:
     import struct
-from meerkat.base import twos_comp_to_dec
+
+from meerkat.base import Device, DataFormat, twos_comp_to_dec
 
 # chip register address
 REG_CONVERT = 0b00000000
@@ -27,11 +28,33 @@ BIT_COMP_LAT  = 4
 BIT_COMP_QUE  = 3
 
 
-class Core:
+class ADS1115Data(DataFormat):
+    def __init__(self, device_name):
+        super(ADS1115Data, self).__init__(device_name)
+        self.data = None
+
+class ADS1115(Device):
     def __init__(self, bus, i2c_addr=0x48):
+        super(ADS1115, self).__init__('ADS1115')
+        
+        # descriptive attributes
+        self.description = 'Texas Instruments 16-bit 860SPS 4-Ch Delta-Sigma ADC with PGA'
+        self.urls = 'www.ti.com/product/ADS1115'
+        self.active = None
+        self.error = None
+        self.bus = repr(bus)
+        self.manufacturer = 'Texas Instruments'
+        self.version_hw = '1.0'
+        self.version_sw = '1.0'
+        self.accuracy = None
+        self.precision = '16bit'
+        self.calibration_date = None
 
         self.bus = bus
         self.bus_addr = i2c_addr
+
+        # time to wait for conversion to finish - see datasheet pg 19
+        self.delay = 0.3  # units = seconds
 
         # register values and defaults
         self.conversion_value = 40000   # higher than any conversion result
@@ -80,10 +103,6 @@ class Core:
         self.bin_comp_lat = {v: k for k, v in self.str_comp_lat.items()}
         self.str_comp_que = {'1': 0b00, '2': 0b01, '3': 0b10, 'off': 0b11}
         self.bin_comp_que = {v: k for k, v in self.str_comp_que.items()}
-
-        # data class to return
-        #self.data = Data(name='ADS1115')
-
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
@@ -311,6 +330,7 @@ class Core:
         ----------
         x : str, number of conversions '1', '2', '4' or 'off'
         """
+
         self.config_value = ((self.config_value & BIT_COMP_QUE)
                              | (self.str_comp_lat[x] << 0))
         self.set_config()
@@ -321,11 +341,10 @@ class Core:
         a single shot conversion.  The configuration register must be read at
         least once to get the current configuration, otherwise the chip default is used.
         Chip clears bit on completion of ADC conversion.
-
         """
 
         self.os()
-        sleep(0.3)  # duty cycle pg 19 - wait for conversion to finish
+        sleep(self.delay)
         self.get_conversion()
 
 
@@ -333,7 +352,6 @@ class Core:
         """Calculate the voltage measured by the chip based on conversion register
         and configuration register values
         TODO: return or set attribute?
-
         """
 
         self.single_shot()
@@ -345,8 +363,6 @@ class Core:
     def measure(self):
         """Measure the voltage as configured on the ADA1x15"""
         return self.voltage()
-        self.data.value = self.voltage()
-        #return self.data.dumps()
 
 
     def print_attributes(self):
@@ -363,4 +379,43 @@ class Core:
         print(' Latching:', self.bin_comp_lat[self.comp_lat_value])
         print(' Polarity: Active', self.bin_comp_pol[self.comp_pol_value])
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
+
+
+    def format_output(self, t, v, sid, format):
+        """Format output based on 'list' or 'json' and optional attributes
+        Parameters
+        ----------
+        t : datetime, float, int, str, timestamp to apply
+        f : list of int, frequencies of impedance stimulation
+        re : list of float, real components of impedance
+        im : list of loat, imaginary components of impedance
+        sid : char, sample id, anything to identify data collected, i.e.
+            'm' : measurement
+            'c' : calibration
+        format: str, 'list' for list output, else JSON
+        
+        Returns
+        -------
+        list as [t, sid, f, re, im] 
+        or
+        JSON dump, see meerkat.base for specification
+        """
+
+        if sid is False:
+            sid = 'None'
+        t = str(t)
+
+        if format == 'list':
+            print('Format is list')
+            print(t)
+            print('sid', sid)
+            print('v', v)
+            return [t, sid, v]
+
+        else:
+            data = ADS1115Data(device_name='ADS1115')
+            data.datetime = t
+            data.sample_id = sid
+            data.values = v
+            return str(data)
 
