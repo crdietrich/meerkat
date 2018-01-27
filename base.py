@@ -35,29 +35,39 @@ class I2C2(object):
             self.mem_write = i2c_bus.mem_write
         self.scan = i2c_bus.scan
 
-
-def bit_set(bit, value):
-    """Set bit in value to 1
-
-    Parameters
-    ----------
-    bit : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    value : 16 bit int, value to change bit
-    """
-    return value | (1 << bit)
-
-
-def bit_clear(bit, value):
-    """Set (clear) bit in value to 0
+def bit_get(idx, value):
+    """Get bit at index idx in value
 
     Parameters
     ----------
-    bit : int, bit index to set
+    idx : int, bit index to set
         (binary notation: MSB left, LSB right - not Python indexing!)
-    value : 16 bit int, value to change bit
+    value : bool, value of bit
     """
-    return value & ~(1 << bit)
+    return (value & (1 << idx) != 0)
+
+def bit_set(idx, value):
+    """Set bit at index idx in value to 1
+
+    Parameters
+    ----------
+    idx : int, bit index to set
+        (binary notation: MSB left, LSB right - not Python indexing!)
+    value : value to change bit
+    """
+    return value | (1 << idx)
+
+
+def bit_clear(idx, value):
+    """Set bit at index idx in value to 0
+
+    Parameters
+    ----------
+    idx : int, bit index to set
+        (binary notation: MSB left, LSB right - not Python indexing!)
+    value : value to change bit
+    """
+    return value & ~(1 << idx)
 
     
 def bit_toggle(value, bit, bool):
