@@ -1,4 +1,10 @@
-"""Base Meerkat classes"""
+# -*- coding: utf-8 -*-
+"""Meerkat device tools"""
+__author__ = "Colin Dietrich"
+__copyright__ = "2018"
+__license__ = "MIT"
+
+
 try:
     import ujson as json
 except:
@@ -16,24 +22,11 @@ def generate_UUID():
     # placeholder for UUID    
     return 'non-compliant-UUID'
 
+
 def scan_I2C(i2c_bus):
     found_address = i2c_bus.scan()
     print('Found I2C devices at:', found_address)
-    
-class I2C2(object):
-    """Generic I2C Bus standardized API"""
-    
-    def __init__(self, i2c_bus):
-        if hasattr(i2c_bus, 'readfrom_mem'):
-            self.mem_read = i2c_bus.readfrom_mem
-        else:
-            self.mem_read = i2c_bus.mem_read
-        
-        if hasattr(i2c_bus, 'writeto_mem'):
-            self.mem_write = i2c_bus.writeto_mem
-        else:
-            self.mem_write = i2c_bus.mem_write
-        self.scan = i2c_bus.scan
+
 
 def bit_get(idx, value):
     """Get bit at index idx in value
@@ -45,6 +38,7 @@ def bit_get(idx, value):
     value : bool, value of bit
     """
     return (value & (1 << idx) != 0)
+
 
 def bit_set(idx, value):
     """Set bit at index idx in value to 1
@@ -69,7 +63,7 @@ def bit_clear(idx, value):
     """
     return value & ~(1 << idx)
 
-    
+
 def bit_toggle(value, bit, bool):
     """Toggle bit in value to boolean
     
@@ -98,6 +92,23 @@ def twos_comp_to_dec(value, bits):
     return value
 
 
+class I2C2(object):
+    """Generic I2C Bus standardized API"""
+    
+    def __init__(self, i2c_bus):
+        if hasattr(i2c_bus, 'readfrom_mem'):
+            self.mem_read = i2c_bus.readfrom_mem
+        else:
+            self.mem_read = i2c_bus.mem_read
+        
+        if hasattr(i2c_bus, 'writeto_mem'):
+            self.mem_write = i2c_bus.writeto_mem
+        else:
+            self.mem_write = i2c_bus.mem_write
+        self.scan = i2c_bus.scan
+
+
+'''
 class Resource(object):
     """Base metadata for a data resource using the
     Frictionless Data Specification
@@ -120,8 +131,8 @@ class Resource(object):
 
     def dumps(self):
         return json.dumps(vars(self))
-
-
+'''
+'''
 class ResourcePath(Resource):
     """Tabular data resource referenced in JSON metadata,
     using the Frictionless Data Specification
@@ -131,7 +142,8 @@ class ResourcePath(Resource):
     def __init__(self, name, path):
         super(ResourcePath, self).__init__(name)
         self.path = path
-
+'''
+'''
 class ResourceData(Resource):
     """Tabular data inline with JSON data resource,
     using the Frictionless Data Specification
@@ -141,8 +153,8 @@ class ResourceData(Resource):
     def __init__(self, name):
         super(ResourceData, self).__init__(name)
         self.data = None
-
-
+'''
+'''
 class DataDialect(object):
     def __init__(self):
 
@@ -158,8 +170,8 @@ class DataDialect(object):
         return json.dumps(vars(self))
 
         #return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
-
-
+'''
+'''
 class CSVDialect(DataDialect):
     def __init__(self):
         #super(DataDialect, self).__init__()
@@ -182,16 +194,16 @@ class CSVDialect(DataDialect):
 
     def __repr__(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
+'''
 
-
-
+'''
 class JSONDialect(DataDialect):
     def __init__(self):
         super(DataDialect, self).__init__()
 
     def __repr__(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
-
+'''
 
 class DataFormat(object):
 
@@ -256,7 +268,7 @@ class CSVRecorder(object):
         self.f.write(sample_data)
         self.f.write(self.data_format.dialect.line_terminator)
         
-        
+
 class Device(object):
 
     def __init__(self, device_name):
