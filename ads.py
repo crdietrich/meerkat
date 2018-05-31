@@ -8,7 +8,8 @@ try:
 except:
     import struct
 
-from meerkat.base import Device, DataFormat, twos_comp_to_dec
+from meerkat.base import DeviceMetadata, twos_comp_to_dec
+from meerkat.data import CSVResource, JSONResource
 
 # chip register address
 REG_CONVERT = 0b00000000
@@ -28,28 +29,86 @@ BIT_COMP_LAT  = 4
 BIT_COMP_QUE  = 3
 
 
-class ADS1115Data(DataFormat):
+class ADS1115CSVData(CSVResource):
     def __init__(self, device_name):
-        super(ADS1115Data, self).__init__(device_name)
+        super(ADS1115CSVData, self).__init__(device_name)
+        self.data = None
+        self.header = ['datetime', 'sample_id', 'voltage']
+        self.sample_id = None
+
+
+    def write(self, v, t=None, sid=None, shebang=True, header=True):
+        """Format output and save to file.
+        
+        Parameters
+        ----------
+        v : float, voltage measurement                
+        t : float, defalut=None, timestamp of measurement
+        sid : char, defalut=None, sample id to identify data sample collected
+        shebang : bool, default=True, initialize file with shebang metadata
+        header : bool, default=False, initialize file with header row
+        
+        Returns
+        -------
+        None, write to disk only
+        """
+        
+        # data values will be converted to string by write method
+        self.write(data=[t, sid, v], shebang=shebang, header=header)
+
+    def get(self, v, t=None, sid=None, shebang=True, header=True):
+        """Format output and save to file.
+        
+        Parameters
+        ----------
+        v : float, voltage measurement                
+        t : float, defalut=None, timestamp of measurement
+        sid : char, defalut=None, sample id to identify data sample collected
+        
+        Returns
+        -------
+        data : list, data that will be saved to disk with self.write
+        """
+        
+        return [t, sid, v]
+
+
+class ADS1115JSONData(JSONResource):
+    def __init__(self, device_name):
+        super(ADS1115JSONData, self).__init__(device_name)
         self.data = None
 
-class ADS1115(Device):
-    def __init__(self, bus, i2c_addr=0x48):
-        super(ADS1115, self).__init__('ADS1115')
-        
-        # descriptive attributes
-        self.description = 'Texas Instruments 16-bit 860SPS 4-Ch Delta-Sigma ADC with PGA'
-        self.urls = 'www.ti.com/product/ADS1115'
-        self.active = None
-        self.error = None
-        self.bus = repr(bus)
-        self.manufacturer = 'Texas Instruments'
-        self.version_hw = '1.0'
-        self.version_sw = '1.0'
-        self.accuracy = None
-        self.precision = '16bit'
-        self.calibration_date = None
 
+class ADS1115(object):
+    def __init__(self, bus, i2c_addr=0x48, output='csv'):
+        #super(ADS1115, self).__init__('ADS1115')
+        
+        # metadata information about device
+        self.metadata = DeviceMetadata('ADS1115')
+        self.metadata.description = ('Texas Instruments 16-bit 860SPS' +
+            ' 4-Ch Delta-Sigma ADC with PGA')
+        self.metadata.urls = 'www.ti.com/product/ADS1115'
+        self.metadata.active = None
+        self.metadata.error = None
+        self.metadata.bus = repr(bus)
+        self.metadata.manufacturer = 'Texas Instruments'
+        self.metadata.version_hw = '1.0'
+        self.metadata.version_sw = '1.0'
+        self.metadata.accuracy = None
+        self.metadata.precision = '16bit'
+        self.metadata.calibration_date = None
+
+        # data recording method
+        if output == 'csv':
+            self.data = ADS1115CSVData('ADS1115')
+
+        elif output == 'json':
+            self.data = ADS1115JSONData('ADS1115')
+
+        # metadata for recording TODO: check that updates save
+        self.data.device_metadata = self.metadata
+
+        # i2c bus
         self.bus = bus
         self.bus_addr = i2c_addr
 
@@ -175,7 +234,9 @@ class ADS1115(Device):
 
 
     def update_attributes(self):
-
+        """Update all attributes
+        TODO: add more detail
+        """
         # Comparator queue and disable
         self.comp_que_value = self.config_value & 0b11
         # Latching comparator
@@ -205,6 +266,7 @@ class ADS1115(Device):
         self.lo_thres_value = self.read_register_16bit('lo_thresh')
         return self.lo_thres_value
 
+
     def get_hi(self):
         """Read the high threshold register at address 0x03
         Default value from chip is 0x7FFF
@@ -212,6 +274,7 @@ class ADS1115(Device):
 
         self.hi_thres_value = self.read_register_16bit('hi_thresh')
         return self.hi_thres_value
+
 
     def os(self):
         """Set the operational status
@@ -265,6 +328,7 @@ class ADS1115(Device):
                              | (self.str_mode[x] << 8))
         self.set_config()
 
+
     def data_rate(self, x):
         """Set data rate of sampling
         Changes bits [7:5]
@@ -279,6 +343,7 @@ class ADS1115(Device):
         self.config_value = ((self.config_value & BIT_DR)
                              | (self.str_data_rate[x] << 5))
         self.set_config()
+
 
     def comp_mode(self, x):
         """Set comparator mode
@@ -366,6 +431,7 @@ class ADS1115(Device):
 
 
     def print_attributes(self):
+        """Print to console current attributes"""
         print('ADS11x5 Configuration Attributes')
         print('--------------------------------')
         print('Config Register:', self.config_value,
@@ -379,43 +445,4 @@ class ADS1115(Device):
         print(' Latching:', self.bin_comp_lat[self.comp_lat_value])
         print(' Polarity: Active', self.bin_comp_pol[self.comp_pol_value])
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
-
-
-    def format_output(self, t, v, sid, format):
-        """Format output based on 'list' or 'json' and optional attributes
-        Parameters
-        ----------
-        t : datetime, float, int, str, timestamp to apply
-        f : list of int, frequencies of impedance stimulation
-        re : list of float, real components of impedance
-        im : list of loat, imaginary components of impedance
-        sid : char, sample id, anything to identify data collected, i.e.
-            'm' : measurement
-            'c' : calibration
-        format: str, 'list' for list output, else JSON
-        
-        Returns
-        -------
-        list as [t, sid, f, re, im] 
-        or
-        JSON dump, see meerkat.base for specification
-        """
-
-        if sid is False:
-            sid = 'None'
-        t = str(t)
-
-        if format == 'list':
-            print('Format is list')
-            print(t)
-            print('sid', sid)
-            print('v', v)
-            return [t, sid, v]
-
-        else:
-            data = ADS1115Data(device_name='ADS1115')
-            data.datetime = t
-            data.sample_id = sid
-            data.values = v
-            return str(data)
 

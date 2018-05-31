@@ -102,8 +102,8 @@ class I2C2(object):
         self.scan = i2c_bus.scan
         
 
-class Device(object):
-    """Base class for device drivers"""
+class DeviceMetadata(object):
+    """Base class for device driver metadata"""
     def __init__(self, device_name):
         
         self.device_name = device_name

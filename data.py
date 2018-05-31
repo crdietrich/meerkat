@@ -34,10 +34,12 @@ class Data(object):
         self.comment = '#'
         self.skip_lines = 0
 
-        # data and location
+        # data location
         self.data = []
         self.path = None
-        self.device = None
+
+        # device metadata information
+        self.device_metadata = None
 
         # data quality
         self.units = None
@@ -52,7 +54,10 @@ class Data(object):
         return self.__dict__
 
     def to_json(self, indent=None):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=indent)
+        return json.dumps(self,
+                          default=lambda o: o.__dict__,
+                          sort_keys=True,
+                          indent=indent)
 
     def write(self, indent=None):
         """Write metadata to file path location self.path"""
@@ -83,7 +88,19 @@ class CSVResource(Data):
         self.case_sensitive_header = False
         self.skip_lines = 1
 
-    def write(self, shebang=True, header=True):
+        self._file_init = False
+
+    def create_metadata(self):
+        """Generate JSON metadata and format it with 
+        a leading shebang sequence, '#!'
+        
+        Returns
+        -------
+        str, metadata in JSON with '#!' at the beginning
+        """
+        return '#!' + self.to_json() + self.line_terminator
+
+    def write_init(self, shebang=True, header=True):
         """Write metadata to a header row designated
         by a shebang '#!' as the first line of a file at location
         self.path, then a header line in self.header, then lines of data
@@ -91,14 +108,10 @@ class CSVResource(Data):
 
         with open(self.path, 'w') as f:
             if shebang == True:
-                f.write('#!' + self.to_json() + self.line_terminator)
+                f.write(self.create_metadata())
             if header == True:
                 h = ','.join(self.header)
                 f.write(h + self.line_terminator)
-            if self.data is not None:
-                for d in self.data:
-                    dc = ','.join([str(_x) for _x in d])
-                    f.write(dc + self.line_terminator)
 
     def write_append(self, data):
         """Append data to an existing file at location self.path"""
@@ -107,6 +120,27 @@ class CSVResource(Data):
             for d in data:
                 dc = ','.join([str(_x) for _x in d])
                 f.write(dc + self.line_terminator)
+
+    def _write(self, data, shebang=True, header=True):
+        """Write data to file, write header if not yet done
+        To be called by the child class method 'write'
+        with a properly formed data list"""
+        
+        if not self._file_init:
+            self.write_init(shebang=shebang, header=header)
+        if self.data is not None:
+            self.write_append(data)
+
+    def _get(self, data):
+        """Placeholder for child class method that will 
+        return a list of data as it will be saved to disk.
+        Requires correct formatting in the child class.
+
+        Parameters
+        ----------
+        data : list, data that will be saved"""
+
+        pass
 
 
 class JSONResource(Data):
@@ -161,3 +195,4 @@ class HTMLResource(Data):
         with open(self.path, 'w') as f:
             dc = ','.join([str(_x) for _x in data])
             f.write('<div>' + dc + self.line_terminator)
+

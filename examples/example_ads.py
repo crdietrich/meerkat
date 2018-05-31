@@ -1,9 +1,9 @@
-import smbus2
+import smbus
 from time import ctime, sleep
 
 from meerkat import ads
 
-i2c = smbus2.SMBus(1)
+i2c = smbus.SMBus(1)
 dev = ads.ADS1115(bus=i2c)
 dev.get_config()
 #dev.pga('6.144')
