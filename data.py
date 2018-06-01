@@ -10,7 +10,7 @@ except:
     import json
 
 
-class Data(object):
+class Writer(object):
     """Base class for data serialization"""
     def __init__(self, name):
         # data and file attributes
@@ -69,12 +69,12 @@ class Data(object):
                 f.write(d + self.line_terminator)
 
 
-class CSVResource(Data):
+class CSVWriter(Writer):
     """Specific attributes of comma delimited values (CSV) data formatting
     based on Frictionless Data CSV dialect
     """
     def __init__(self, name):
-        super(CSVResource, self).__init__(name)
+        super(CSVWriter, self).__init__(name)
 
         self.version = '0.1 Alpha'
         self.standard = 'Follow RFC 4180'
@@ -88,6 +88,9 @@ class CSVResource(Data):
         self.case_sensitive_header = False
         self.skip_lines = 1
 
+        # attributes
+        self.shebang = True
+        self.header = None
         self._file_init = False
 
     def create_metadata(self):
@@ -98,40 +101,44 @@ class CSVResource(Data):
         -------
         str, metadata in JSON with '#!' at the beginning
         """
-        return '#!' + self.to_json() + self.line_terminator
+        return '#!' + self.to_json()
 
-    def write_init(self, shebang=True, header=True):
+    def _write_init(self):
         """Write metadata to a header row designated
         by a shebang '#!' as the first line of a file at location
         self.path, then a header line in self.header, then lines of data
         for each item in self.data"""
 
         with open(self.path, 'w') as f:
-            if shebang == True:
-                f.write(self.create_metadata())
-            if header == True:
+            if self.shebang == True:
+                f.write(self.create_metadata() + self.line_terminator)
+            if self.header is not None:
                 h = ','.join(self.header)
                 f.write(h + self.line_terminator)
 
-    def write_append(self, data):
+    def _write_append(self, data):
         """Append data to an existing file at location self.path"""
 
-        with open(self.path, 'w') as f:
-            for d in data:
-                dc = ','.join([str(_x) for _x in d])
-                f.write(dc + self.line_terminator)
+        with open(self.path, 'a') as f:
+#            for d in data:
+            dc = ','.join([str(_x) for _x in data])
+            f.write(dc + self.line_terminator)
 
-    def _write(self, data, shebang=True, header=True):
+    def write(self, data):
         """Write data to file, write header if not yet done
         To be called by the child class method 'write'
-        with a properly formed data list"""
+        with a properly formed data list
+
+        To just initialize metadata and header, pass
+        data = None"""
         
         if not self._file_init:
-            self.write_init(shebang=shebang, header=header)
+            self._write_init()
+            self._file_init = True
         if self.data is not None:
-            self.write_append(data)
+            self._write_append(data)
 
-    def _get(self, data):
+    def get(self, data):
         """Placeholder for child class method that will 
         return a list of data as it will be saved to disk.
         Requires correct formatting in the child class.
@@ -143,9 +150,9 @@ class CSVResource(Data):
         pass
 
 
-class JSONResource(Data):
+class JSONWriter(Writer):
     def __init__(self, name):
-        super(JSONResource, self).__init__(name)
+        super(JSONWriter, self).__init__(name)
 
         self.version = '0.1 Alpha'
         self.standard = 'RFC 8259'
@@ -158,9 +165,9 @@ class JSONResource(Data):
             f.write(self.to_json(indent))
 
 
-class HTMLResource(Data):
+class HTMLWriter(Writer):
     def __init__(self, name):
-        super(HTMLResource, self).__init__(name)
+        super(HTMLWriter, self).__init__(name)
 
         self.version = '0.1 Alpha'
         self.standard = 'HTML5 & TBD'

@@ -8,8 +8,8 @@ try:
 except:
     import struct
 
-from meerkat.base import DeviceMetadata, twos_comp_to_dec
-from meerkat.data import CSVResource, JSONResource
+from meerkat.base import DeviceData, twos_comp_to_dec
+from meerkat.data import CSVWriter, JSONWriter
 
 # chip register address
 REG_CONVERT = 0b00000000
@@ -29,85 +29,23 @@ BIT_COMP_LAT  = 4
 BIT_COMP_QUE  = 3
 
 
-class ADS1115CSVData(CSVResource):
-    def __init__(self, device_name):
-        super(ADS1115CSVData, self).__init__(device_name)
-        self.data = None
-        self.header = ['datetime', 'sample_id', 'voltage']
-        self.sample_id = None
+#class ADS1115CSVData(CSVWriter):
+#    def __init__(self, device_name):
+#        super(ADS1115CSVData, self).__init__(device_name)
+#        self.data = None
+#        self.header = ['datetime', 'sample_id', 'voltage']
+#        self.sample_id = None
 
 
-    def write(self, v, t=None, sid=None, shebang=True, header=True):
-        """Format output and save to file.
-        
-        Parameters
-        ----------
-        v : float, voltage measurement                
-        t : float, defalut=None, timestamp of measurement
-        sid : char, defalut=None, sample id to identify data sample collected
-        shebang : bool, default=True, initialize file with shebang metadata
-        header : bool, default=False, initialize file with header row
-        
-        Returns
-        -------
-        None, write to disk only
-        """
-        
-        # data values will be converted to string by write method
-        self.write(data=[t, sid, v], shebang=shebang, header=header)
-
-    def get(self, v, t=None, sid=None, shebang=True, header=True):
-        """Format output and save to file.
-        
-        Parameters
-        ----------
-        v : float, voltage measurement                
-        t : float, defalut=None, timestamp of measurement
-        sid : char, defalut=None, sample id to identify data sample collected
-        
-        Returns
-        -------
-        data : list, data that will be saved to disk with self.write
-        """
-        
-        return [t, sid, v]
-
-
-class ADS1115JSONData(JSONResource):
-    def __init__(self, device_name):
-        super(ADS1115JSONData, self).__init__(device_name)
-        self.data = None
+#class ADS1115JSONData(JSONWriter):
+#    def __init__(self, device_name):
+#        super(ADS1115JSONData, self).__init__(device_name)
+#        self.data = None
 
 
 class ADS1115(object):
     def __init__(self, bus, i2c_addr=0x48, output='csv'):
-        #super(ADS1115, self).__init__('ADS1115')
         
-        # metadata information about device
-        self.metadata = DeviceMetadata('ADS1115')
-        self.metadata.description = ('Texas Instruments 16-bit 860SPS' +
-            ' 4-Ch Delta-Sigma ADC with PGA')
-        self.metadata.urls = 'www.ti.com/product/ADS1115'
-        self.metadata.active = None
-        self.metadata.error = None
-        self.metadata.bus = repr(bus)
-        self.metadata.manufacturer = 'Texas Instruments'
-        self.metadata.version_hw = '1.0'
-        self.metadata.version_sw = '1.0'
-        self.metadata.accuracy = None
-        self.metadata.precision = '16bit'
-        self.metadata.calibration_date = None
-
-        # data recording method
-        if output == 'csv':
-            self.data = ADS1115CSVData('ADS1115')
-
-        elif output == 'json':
-            self.data = ADS1115JSONData('ADS1115')
-
-        # metadata for recording TODO: check that updates save
-        self.data.device_metadata = self.metadata
-
         # i2c bus
         self.bus = bus
         self.bus_addr = i2c_addr
@@ -162,6 +100,37 @@ class ADS1115(object):
         self.bin_comp_lat = {v: k for k, v in self.str_comp_lat.items()}
         self.str_comp_que = {'1': 0b00, '2': 0b01, '3': 0b10, 'off': 0b11}
         self.bin_comp_que = {v: k for k, v in self.str_comp_que.items()}
+
+
+        # information about this device
+        self.data = DeviceData('ADS1115')
+        self.data.description = ('Texas Instruments 16-bit 860SPS' +
+            ' 4-Ch Delta-Sigma ADC with PGA')
+        self.data.urls = 'www.ti.com/product/ADS1115'
+        self.data.active = None
+        self.data.error = None
+        self.data.bus = repr(bus)
+        self.data.manufacturer = 'Texas Instruments'
+        self.data.version_hw = '1.0'
+        self.data.version_sw = '1.0'
+        self.data.accuracy = None
+        self.data.precision = '16bit'
+        self.data.calibration_date = None
+
+        # data recording information
+        self.data.sample_id = None
+
+        # current settings of this device
+        self.data.pga_gain = self.pga_float
+
+        # data recording method
+        if output == 'csv':
+            self.data.writer = CSVWriter('ADS1115')
+            self.data.writer.header = ['datetime', 'sample_id', 'voltage']
+            self.data.sample_id = None
+
+        elif output == 'json':
+            self.data.writer = JSONWriter('ADS1115')
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
@@ -293,8 +262,8 @@ class ADS1115(object):
         Parameters
         ----------
         x : str, positive and negative pin combination.  Based on:
-            AIN pins '1', '2', '3', '4' and Ground pin 'G'
-            i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '1G'
+            AIN pins '0', '1', '2', '3' and Ground pin 'G'
+            i.e. for AIN_pos = AIN0 and AIN_neg = Ground, x = '0G'
         """
 
         self.config_value = ((self.config_value & BIT_MUX)
@@ -414,9 +383,8 @@ class ADS1115(object):
 
 
     def voltage(self):
-        """Calculate the voltage measured by the chip based on conversion register
-        and configuration register values
-        TODO: return or set attribute?
+        """Calculate the voltage measured by the chip based on conversion
+        register and configuration register values
         """
 
         self.single_shot()
@@ -445,4 +413,42 @@ class ADS1115(object):
         print(' Latching:', self.bin_comp_lat[self.comp_lat_value])
         print(' Polarity: Active', self.bin_comp_pol[self.comp_pol_value])
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
+
+
+    def get(self, t=None, sid=None):
+        """Get formatted output.
+        
+        Parameters
+        ----------
+        v : float, voltage measurement                
+        t : float, defalut=None, timestamp of measurement
+        sid : char, defalut=None, sample id to identify data sample collected
+        
+        Returns
+        -------
+        data : list, data that will be saved to disk with self.write containing:
+            t: datetime
+            sid : str, sample id
+            v : float, voltage measurement"""
+        
+        return [t, sid, self.voltage()]
+
+    def write(self, t=None, sid=None):
+        """Format output and save to file.
+        
+        Parameters
+        ----------
+        t : float, defalut=None, timestamp of measurement
+        sid : char, defalut=None, sample id to identify data sample collected
+        
+        Returns
+        -------
+        None, writes to disk the following:
+            data : list, data that will be saved to disk containing
+                t: datetime
+                sid : str, sample id
+                v : float, voltage measurement"""
+        
+        # data values will be converted to string by write method
+        self.data.writer.write(self.get(t=t, sid=sid))
 
