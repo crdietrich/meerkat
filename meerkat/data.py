@@ -9,6 +9,7 @@ try:
 except:
     import json
 
+from datetime import datetime
 
 class Writer(object):
     """Base class for data serialization"""
@@ -62,6 +63,10 @@ class Writer(object):
     def write(self, indent=None):
         """Write metadata to file path location self.path"""
 
+
+        if self.path is None:
+            str_time = datetime.now.strftime('%Y-%m-%d_%H:%M:%S.%f')
+            self.path = str_time + '_data.txt'
         h = self.to_json(indent)
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
