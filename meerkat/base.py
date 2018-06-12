@@ -127,3 +127,27 @@ class DeviceData(object):
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
+
+class DeviceCalibration(object):
+    """Base class for device calibration"""
+
+        self.name = None
+        self.description = None
+        self.urls = None
+        self.manufacturer = None
+        self.version = None
+        self.dtype = None
+        self.date = None
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
+
+    def from_json(self, json_str):
+        self.__dict__ = json.loads(json_str)
+
+    def from_file(self, filepath):
+        with open(filepath) as f:
+            self.from_json(f)
