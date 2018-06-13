@@ -109,16 +109,16 @@ class DeviceData(object):
         self.device_name = device_name
         self.description = None
         self.urls = None
-
-        self.state = None
-        self.active = None
-        self.error = None
-        self.bus = None
         self.manufacturer = None
         self.version_hw = None
         self.version_sw = None
         self.accuracy = None
         self.precision = None
+
+        self.bus = None
+        self.state = None  # TODO: clarify what these mean
+        self.active = None #
+        self.error = None
         self.dtype = None
         self.calibration_date = None
 
@@ -130,6 +130,8 @@ class DeviceData(object):
 
 class DeviceCalibration(object):
     """Base class for device calibration"""
+
+    def __init__(self):
 
         self.name = None
         self.description = None

@@ -36,7 +36,6 @@ class Writer(object):
         self.skip_lines = 0
 
         # data location
-        self.data = []
         self.path = None
 
         # device metadata information
@@ -60,9 +59,8 @@ class Writer(object):
                           sort_keys=True,
                           indent=indent)
 
-    def write(self, indent=None):
+    def write(self, data, indent=None):
         """Write metadata to file path location self.path"""
-
 
         if self.path is None:
             str_time = datetime.now.strftime('%Y-%m-%d_%H:%M:%S.%f')
@@ -70,7 +68,7 @@ class Writer(object):
         h = self.to_json(indent)
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
-            for d in self.data:
+            for d in data:
                 f.write(d + self.line_terminator)
 
 
