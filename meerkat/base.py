@@ -145,11 +145,24 @@ class DeviceCalibration(object):
         return str(self.__dict__)
 
     def to_json(self):
+        """Convert all calibration information to a JSON string"""
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
 
     def from_json(self, json_str):
+        """Read a JSON string of calibration information and as set attributes
+        """
+
         self.__dict__ = json.loads(json_str)
 
+    def to_file(self, filepath):
+        """Write calibration information to a file in JSON.
+        """
+        with open(filepath, 'w') as f:
+            f.write(self.to_json())
+
     def from_file(self, filepath):
-        with open(filepath) as f:
-            self.from_json(f)
+        """Read JSON calibration information from file.
+        all data must be JSON on 1st line.
+        """
+        with open(filepath, 'r') as f:
+            self.from_json(f.readline())
