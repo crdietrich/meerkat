@@ -50,8 +50,8 @@ class ADS1115(object):
         self.bus = bus
         self.bus_addr = i2c_addr
 
-        # time to wait for conversion to finish - see datasheet pg 19
-        self.delay = 0.3  # units = seconds
+        # time to wait for conversion to finish
+        self.delay = 0.009  # units = seconds
 
         # register values and defaults
         self.conversion_value = 40000   # higher than any conversion result
@@ -254,6 +254,7 @@ class ADS1115(object):
         """
         self.config_value = (self.config_value & BIT_OS) | (0b1 << 15)
         self.set_config()
+        self.os_value = self.config_value >> 15
 
 
     def mux(self, x):
@@ -268,7 +269,8 @@ class ADS1115(object):
 
         self.config_value = ((self.config_value & BIT_MUX)
                              | (self.str_mux[x] << 12))
-        self.set_config() 
+        self.set_config()
+        self.mux_value = (self.config_value >> 12) & 0b111
 
 
     def pga(self, x):
@@ -283,6 +285,9 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_PGA)
                              | (self.str_pga[x] << 9))
         self.set_config()
+        sleep(self.delay)  # needs at least 7 ms to complete
+        self.pga_value = (self.config_value >> 9) & 0b111
+        self.pga_float = self.bin_pga[self.pga_value]
 
 
     def mode(self, x):
@@ -296,6 +301,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MODE)
                              | (self.str_mode[x] << 8))
         self.set_config()
+        self.mode_value = (self.config_value >> 8) & 0b1
 
 
     def data_rate(self, x):
@@ -312,6 +318,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_DR)
                              | (self.str_data_rate[x] << 5))
         self.set_config()
+        self.dr_value = (self.config_value >> 5) & 0b111
 
 
     def comp_mode(self, x):
@@ -324,6 +331,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_COMP_MODE)
                              | (self.str_comp_mode[x] << 4))
         self.set_config()
+        self.comp_mode_value = (self.config_value >> 4) & 0b1
 
 
     def comp_polarity(self, x):
@@ -338,6 +346,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_COMP_POL)
                              | (self.str_comp_pol[x] << 3))
         self.set_config()
+        self.comp_pol_value = (self.config_value >> 3) & 0b1
 
 
     def comp_latching(self, x):
@@ -354,6 +363,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_COMP_LAT)
                              | (self.str_comp_lat[x] << 2))
         self.set_config()
+        self.comp_lat_value = (self.config_value >> 2) & 0b1
 
 
     def comp_que(self, x):
@@ -368,6 +378,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_COMP_QUE)
                              | (self.str_comp_lat[x] << 0))
         self.set_config()
+        self.comp_que_value = self.config_value & 0b11
         
 
     def single_shot(self):
@@ -394,9 +405,10 @@ class ADS1115(object):
         
 
     def measure(self):
+        # rename this to voltage later, consolidating methods
         """Measure the voltage as configured on the ADA1x15"""
-        return self.voltage()
 
+        return self.voltage()
 
     def print_attributes(self):
         """Print to console current attributes"""
