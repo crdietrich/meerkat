@@ -199,8 +199,6 @@ class ADS1115(object):
         self.config_value = self.read_register_16bit('config')
         self.update_attributes()
 
-        return self.config_value
-
 
     def update_attributes(self):
         """Update all attributes
@@ -312,7 +310,7 @@ class ADS1115(object):
         ----------
         x : int, samples per second.
             Allowed values: 8, 16, 32, 64,
-            128, 250, 475, 850
+            128, 250, 475, 860
         """
 
         self.config_value = ((self.config_value & BIT_DR)
@@ -398,17 +396,14 @@ class ADS1115(object):
         register and configuration register values
         """
 
-        self.single_shot()
+        if self.mode_value == 1:
+            self.single_shot()
+        else:
+            self.get_conversion()
         _x = twos_comp_to_dec(self.conversion_value, 16)
         self.volts = _x * (self.pga_float / 2**15)
         return self.volts
-        
 
-    def measure(self):
-        # rename this to voltage later, consolidating methods
-        """Measure the voltage as configured on the ADA1x15"""
-
-        return self.voltage()
 
     def print_attributes(self):
         """Print to console current attributes"""
