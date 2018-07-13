@@ -268,6 +268,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MUX)
                              | (self.str_mux[x] << 12))
         self.set_config()
+        sleep(self.delay)
         self.mux_value = (self.config_value >> 12) & 0b111
 
 
@@ -299,6 +300,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MODE)
                              | (self.str_mode[x] << 8))
         self.set_config()
+        sleep(self.delay)
         self.mode_value = (self.config_value >> 8) & 0b1
 
 
