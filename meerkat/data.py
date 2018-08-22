@@ -144,7 +144,7 @@ class CSVWriter(Writer):
         if not self._file_init:
             self._write_init()
             self._file_init = True
-        if self.data is not None:
+        if data is not None:
             self._write_append(data)
 
     def get(self, data):
