@@ -11,6 +11,8 @@ except:
 
 from datetime import datetime
 
+from meerkat.base import file_time_fmt
+
 class Writer(object):
     """Base class for data serialization"""
     def __init__(self, name):
@@ -63,7 +65,7 @@ class Writer(object):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            str_time = datetime.now.strftime('%Y-%m-%d_%H:%M:%S.%f')
+            str_time = datetime.now().strftime(file_time_fmt)
             self.path = str_time + '_data.txt'
         h = self.to_json(indent)
         with open(self.path, 'w') as f:
@@ -112,6 +114,10 @@ class CSVWriter(Writer):
         self.path, then a header line in self.header, then lines of data
         for each item in self.data"""
 
+        if self.path is None:
+            str_time = datetime.now().strftime(file_time_fmt)
+            self.path = str_time + '_data.txt'
+        
         with open(self.path, 'w') as f:
             if self.shebang == True:
                 f.write(self.create_metadata() + self.line_terminator)

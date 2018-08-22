@@ -9,8 +9,10 @@ try:
 except:
     import json
 
-
-iso_time_fmt = '%Y-%m-%dT%H:%M:%S%z'
+# TODO: import universal to CPython and uPython datetime method
+iso_time_fmt =  '%Y-%m-%dT%H:%M:%S.%f%z'
+std_time_fmt =  '%Y-%m-%d %H:%M:%S.%f%z'
+file_time_fmt = '%Y-%m-%d_%H_%M_%S_%f'
 
 def generate_UUID():
     # placeholder for UUID    
