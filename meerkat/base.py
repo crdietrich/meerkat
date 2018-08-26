@@ -12,7 +12,7 @@ except:
 # TODO: import universal to CPython and uPython datetime method
 iso_time_fmt =  '%Y-%m-%dT%H:%M:%S.%f%z'
 std_time_fmt =  '%Y-%m-%d %H:%M:%S.%f%z'
-file_time_fmt = '%Y-%m-%d_%H_%M_%S_%f'
+file_time_fmt = '%Y_%m_%d_%H_%M_%S_%f'
 
 def generate_UUID():
     # placeholder for UUID    
@@ -108,7 +108,7 @@ class DeviceData(object):
     """Base class for device driver metadata"""
     def __init__(self, device_name):
         
-        self.device_name = device_name
+        self.name = device_name
         self.description = None
         self.urls = None
         self.manufacturer = None
