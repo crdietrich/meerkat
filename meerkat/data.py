@@ -14,7 +14,8 @@ from datetime import datetime
 from meerkat.base import file_time_fmt
 
 class Writer(object):
-    """Base class for data serialization"""
+    """Base class for data serialization
+    Note: Any attribute prefixed with '_' will not be saved to metadata"""
     def __init__(self, name):
         # data and file attributes
         self.name = name
@@ -29,10 +30,10 @@ class Writer(object):
         self.licenses = None
 
         # dialect attributes
-        self.line_terminator = '\n'
+        self.line_terminator = '\n'  # note: needs \\ to escape \ in JSON
         self.quote_char = '"'
         self.double_quote = True
-        self.escape_char = '\\'
+        self.escape_char = '\\'  # note: needs \\ to escape \ in JSON... meta.
         self.null_sequence = 'NA'
         self.comment = '#'
         self.skip_lines = 0
@@ -41,9 +42,9 @@ class Writer(object):
         self.path = None
 
         # device metadata information
-        self.device_metadata = None
+        self.device = None
 
-        # data quality
+        # data quality - move to base.DeviceData?
         self.units = None
         self.dtypes = None
         self.accuracy = None
@@ -53,11 +54,16 @@ class Writer(object):
         return str(self.__dict__)
 
     def values(self):
-        return self.__dict__
+        d = {}
+        for k, v in self.__dict__.items():
+            if k[0] != '_':
+                d[k] = v
+        return d  #{i for i in self.__dict__}
 
     def to_json(self, indent=None):
         return json.dumps(self,
-                          default=lambda o: o.__dict__,
+                          #default=lambda o: o.__dict__,
+                          default=lambda o: o.values(),
                           sort_keys=True,
                           indent=indent)
 
@@ -67,7 +73,7 @@ class Writer(object):
         if self.path is None:
             str_time = datetime.now().strftime(file_time_fmt)
             self.path = str_time + '_data.txt'
-        h = self.to_json(indent)
+        h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
             for d in data:
@@ -211,4 +217,9 @@ class HTMLWriter(Writer):
         with open(self.path, 'w') as f:
             dc = ','.join([str(_x) for _x in data])
             f.write('<div>' + dc + self.line_terminator)
+
+
+class Streamer(Writer):
+    def __init__(self):
+        super(Streamer, self).__init__()
 
