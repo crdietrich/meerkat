@@ -54,15 +54,28 @@ class Writer(object):
         return str(self.__dict__)
 
     def values(self):
+        """Get all class attributes from __dict__ attribute
+        except those prefixed with underscore ('_')
+
+        Returns
+        -------
+        dict, of (attribute: value) pairs
+        """
         d = {}
         for k, v in self.__dict__.items():
             if k[0] != '_':
                 d[k] = v
-        return d  #{i for i in self.__dict__}
+        return d
 
     def to_json(self, indent=None):
+        """Return all class objects from __dict__ except
+        those prefixed with underscore ('_')
+
+        Returns
+        -------
+        str, JSON formatted (attribute: value) pairs
+        """
         return json.dumps(self,
-                          #default=lambda o: o.__dict__,
                           default=lambda o: o.values(),
                           sort_keys=True,
                           indent=indent)
