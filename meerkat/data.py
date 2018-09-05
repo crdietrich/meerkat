@@ -6,12 +6,13 @@ __license__ = "MIT"
 
 try:
     import ujson as json
-except:
+except ImportError:
     import json
 
 from datetime import datetime
 
 from meerkat.base import file_time_fmt
+
 
 class Writer(object):
     """Base class for data serialization
@@ -138,7 +139,7 @@ class CSVWriter(Writer):
             self.path = str_time + '_data.txt'
         
         with open(self.path, 'w') as f:
-            if self.shebang == True:
+            if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
             if self.header is not None:
                 h = ','.join(self.header)
@@ -148,11 +149,10 @@ class CSVWriter(Writer):
         """Append data to an existing file at location self.path"""
 
         with open(self.path, 'a') as f:
-#            for d in data:
             dc = ','.join([str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
-    def write(self, data):
+    def write(self, data, indent=None):
         """Write data to file, write header if not yet done
         To be called by the child class method 'write'
         with a properly formed data list
@@ -186,11 +186,58 @@ class JSONWriter(Writer):
         self.standard = 'RFC 8259'
         self.media_type = 'text/json'
 
-    def write(self, indent=None):
+        # how often to write a metadata JSON packet
+        self.metadata_interval = 100
+        self.metadata_i = 0
+
+        # header is the JSON key values for the JSON value data
+        self.header = None
+        self._file_init = False
+
+    def create_metadata(self):
+        """Generate JSON metadata and format it with
+        a leading shebang sequence, '#!'
+
+        Returns
+        -------
+        str, JSON formatted metadata describing JSON data format
+        """
+        return json.dumps({'metadata': self.values})
+
+    def write(self, data, indent=None):
         """Write metadata to file path location self.path"""
 
-        with open(self.path, 'w') as f:
-            f.write(self.to_json(indent))
+        if self.path is None:
+            str_time = datetime.now().strftime(file_time_fmt)
+            self.path = str_time + '_JSON_data.txt'
+
+        with open(self.path, 'a') as f:
+            if self.metadata_i == self.metadata_interval:
+                self.metadata_i = 0
+            if self.metadata_i == 0:
+                f.write(json.dumps({'metadata': self.values()}, indent=indent)
+                        + self.line_terminator)
+            data = {'data': data}
+            f.write(json.dumps(data, indent=indent) + self.line_terminator)
+            self.metadata_i += 1
+
+
+class SerialStreamer(JSONWriter):
+    def __init__(self, name):
+        super(SerialStreamer, self).__init__(name)
+
+        self.name = name
+        self.serial = None
+
+    def writer(self, data, indent=None):
+        with self.serial.open() as serial:
+            if self.metadata_i == 0:
+                serial.write(self.to_json(indent))
+                self.metadata_i += 1
+            elif self.metadata_i == self.metadata_interval:
+                self.metadata_i = 0
+                serial.write(json.dumps(data, indent=indent))
+            self.metadata_i += 1
 
 
 class HTMLWriter(Writer):
@@ -217,7 +264,7 @@ class HTMLWriter(Writer):
                  a + self.line_terminator,
                  "<style>.mono {{font-family: 'Courier New', Courier, monospace;}}</style>" + self.line_terminator,
                  "</head>" + self.line_terminator,
-                 "<body class='mono'>" + self.line_terminator,]
+                 "<body class='mono'>" + self.line_terminator]
         h_all = "".join(h_all)
         h_all = h_all.encode('ascii', 'xmlcharrefreplace')
         print(h_all)
@@ -230,9 +277,3 @@ class HTMLWriter(Writer):
         with open(self.path, 'w') as f:
             dc = ','.join([str(_x) for _x in data])
             f.write('<div>' + dc + self.line_terminator)
-
-
-class Streamer(Writer):
-    def __init__(self):
-        super(Streamer, self).__init__()
-
