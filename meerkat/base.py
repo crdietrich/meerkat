@@ -181,6 +181,8 @@ class TestDevice(object):
         from collections import deque
         from math import sin, pi
 
+        from meerkat.data import CSVWriter, JSONWriter
+
         # data bus placeholder
         self.bus = None
         self.bus_addr = None
@@ -220,33 +222,44 @@ class TestDevice(object):
         # data writer placeholder
         self.writer = None
 
-        # example data of one 360 degree, -1 to 1 sine wave
-        self._deg = [n for n in range(360)]
-        self._amp = [sin(d * (pi/180.0)) for d in self._deg]
-        self._test_data = list(zip(self._deg, self._amp))
-
-    def run(self, delay=0):
-        """Run data collection"""
-
-        # TODO: make safe for MicroPython, leave here for now in Conda
-        from time import sleep
-        from itertools import cycle
-        from meerkat.data import CSVWriter, JSONWriter
-
-        # used in non-unlimited acquisition
-        i = 0
-
-        self.q.clear()
-        for _ in range(self.q_maxlen):
-            self.q.append((0, 0))
-
         if self.output is not None:
             if self.output == 'csv':
                 self.writer = CSVWriter('Software Test')
             elif self.output == 'JSON':
                 self.writer = JSONWriter('Software Test')
-            self.writer.header = ['degrees', 'amplitude']
+            self.writer.header = ['index', 'degrees', 'amplitude']
             self.writer.device = self.device.__dict__
+
+        # example data of one 360 degree, -1 to 1 sine wave
+        self._deg = [n for n in range(360)]
+        self._amp = [sin(d * (pi/180.0)) for d in self._deg]
+        self._test_data = list(zip(self._deg, self._amp))
+
+    def run(self, delay=0, index='count'):
+        """Run data collection"""
+
+        # TODO: make safe for MicroPython, leave here for now in Conda
+        from time import sleep, time, ctime
+        from itertools import cycle
+
+        # used in non-unlimited acquisition
+        count = 0
+
+        self.q.clear()
+
+        # fill deque with zeros, this could just be left empty?
+        for _ in range(self.q_maxlen):
+            self.q.append((0, 0))
+
+        if index == 'time':
+            def get_index():
+                return time()
+        elif index == 'ctime':
+            def get_index():
+                return ctime()
+        else:
+            def get_index():
+                return count
 
         for d, a in cycle(self._test_data):
 
@@ -256,17 +269,20 @@ class TestDevice(object):
                 break
 
             self.device.state = 'Test run() method'
+
+            i = get_index()
+
             if self.verbose_data:
-                print(d, a)
+                print(i, d, a)
 
             if self.output is not None:
-                self.writer.write((d, a))
+                self.writer.write((i, d, a))
 
-            self.q.append((d, a))
+            self.q.append((i, d, a))
 
             if not self.unlimited:
-                i += 1
-                if i == self.max_samples:
+                count += 1
+                if count == self.max_samples:
                     self.go = False
 
             sleep(delay)

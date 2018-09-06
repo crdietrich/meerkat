@@ -136,7 +136,7 @@ class CSVWriter(Writer):
 
         if self.path is None:
             str_time = datetime.now().strftime(file_time_fmt)
-            self.path = str_time + '_data.txt'
+            self.path = str_time + '_data.csv'
         
         with open(self.path, 'w') as f:
             if self.shebang:
