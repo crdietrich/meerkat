@@ -10,7 +10,6 @@ except ImportError:
     import json
 
 
-
 # TODO: import universal to CPython and uPython datetime method
 iso_time_fmt =  '%Y-%m-%dT%H:%M:%S.%f%z'
 std_time_fmt =  '%Y-%m-%d %H:%M:%S.%f%z'
@@ -36,7 +35,7 @@ def bit_get(idx, value):
         (binary notation: MSB left, LSB right - not Python indexing!)
     value : bool, value of bit
     """
-    return (value & (1 << idx) != 0)
+    return value & (1 << idx) != 0
 
 
 def bit_set(idx, value):
@@ -63,7 +62,7 @@ def bit_clear(idx, value):
     return value & ~(1 << idx)
 
 
-def bit_toggle(value, bit, bool):
+def bit_toggle(value, bit, boolean):
     """Toggle bit in value to boolean
     
     Parameters
@@ -71,16 +70,16 @@ def bit_toggle(value, bit, bool):
     value : 16 bit int, value to change bit
     bit : int, bit index to set
         (binary notation: MSB left, LSB right - not Python indexing!)
-    bool : boolean, direction to toggle bit
+    boolean : boolean, direction to toggle bit
     
     Returns
     -------
     value with toggled bit
     """
     
-    if bool is True:
+    if boolean is True:
         return bit_set(value, bit)
-    elif bool is False:
+    elif boolean is False:
         return bit_clear(value, bit)
 
 
@@ -193,7 +192,7 @@ class TestDevice(object):
         self.verbose = False
         self.verbose_data = False
 
-        # threadsafe deque for sharing and plotting
+        # thread safe deque for sharing and plotting
         self.q_maxlen = 300
         self.q = deque(maxlen=self.q_maxlen)
 
@@ -204,7 +203,7 @@ class TestDevice(object):
 
         # information about this device
         self.device = DeviceData('Software Test')
-        self.device.description = ('Dummy data for software testing')
+        self.device.description = 'Dummy data for software testing'
         self.device.urls = None
         self.device.manufacturer = None
         self.device.version_hw = None
