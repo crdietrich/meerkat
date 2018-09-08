@@ -197,6 +197,7 @@ class TestDevice(object):
         # thread safe deque for sharing and plotting
         self.q_maxlen = 300
         self.q = deque(maxlen=self.q_maxlen)
+        self.q_prefill_zeros = False
 
         # realtime/stream options
         self.go = False
@@ -235,21 +236,31 @@ class TestDevice(object):
         self._amp = [sin(d * (pi/180.0)) for d in self._deg]
         self._test_data = list(zip(self._deg, self._amp))
 
+    @staticmethod
+    def _cycle(iterable):
+        """Copied from Python 3.7 itertools.cycle example"""
+        saved = []
+        for element in iterable:
+            yield element
+            saved.append(element)
+        while saved:
+            for element in saved:
+                yield element
+
     def run(self, delay=0, index='count'):
         """Run data collection"""
 
         # TODO: make safe for MicroPython, leave here for now in Conda
         from time import sleep, time, ctime
-        from itertools import cycle
 
         # used in non-unlimited acquisition
         count = 0
 
         self.q.clear()
 
-        # fill deque with zeros, this could just be left empty?
-        for _ in range(self.q_maxlen):
-            self.q.append((0, 0))
+        if self.q_prefill_zeros:
+            for _ in range(self.q_maxlen):
+                self.q.append((0, 0))
 
         if index == 'time':
             def get_index():
@@ -261,7 +272,7 @@ class TestDevice(object):
             def get_index():
                 return count
 
-        for d, a in cycle(self._test_data):
+        for d, a in self._cycle(self._test_data):
 
             if not self.go:
                 if self.verbose:
@@ -272,13 +283,16 @@ class TestDevice(object):
 
             i = get_index()
 
-            if self.verbose_data:
-                print(i, d, a)
+            data = [i, d, a]
 
             if self.output is not None:
-                self.writer.write((i, d, a))
+                self.writer.write(data)
 
-            self.q.append((i, d, a))
+            q_out = self.writer.stream(data)
+            self.q.append(q_out)
+
+            if self.verbose_data:
+                print(q_out)
 
             if not self.unlimited:
                 count += 1

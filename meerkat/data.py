@@ -31,10 +31,10 @@ class Writer(object):
         self.licenses = None
 
         # dialect attributes
-        self.line_terminator = '\n'  # note: needs \\ to escape \ in JSON
+        self.line_terminator = '\n'
         self.quote_char = '"'
         self.double_quote = True
-        self.escape_char = '\\'  # note: needs \\ to escape \ in JSON... meta.
+        self.escape_char = '\\'  # note: \\ to escape \ in JSON... meta.
         self.null_sequence = 'NA'
         self.comment = '#'
         self.skip_lines = 0
@@ -80,6 +80,10 @@ class Writer(object):
                           default=lambda o: o.values(),
                           sort_keys=True,
                           indent=indent)
+
+    def create_data(self, data, indent=None):
+        """Placeholder method to keep classes consistent"""
+        return data
 
     def write(self, data, indent=None):
         """Write metadata to file path location self.path"""
@@ -127,6 +131,9 @@ class CSVWriter(Writer):
         str, metadata in JSON with '#!' at the beginning
         """
         return '#!' + self.to_json()
+
+    def create_data(self, data, indent=None):
+        return ','.join([str(d) for d in data])
 
     def _write_init(self):
         """Write metadata to a header row designated
@@ -188,7 +195,8 @@ class JSONWriter(Writer):
 
         # how often to write a metadata JSON packet
         self.metadata_interval = 100
-        self.metadata_i = 0
+        self.metadata_file_i = 0
+        self.metadata_stream_i = 0
 
         # header is the JSON key values for the JSON value data
         self.header = None
@@ -204,6 +212,17 @@ class JSONWriter(Writer):
         """
         return json.dumps({'metadata': self.values})
 
+    def create_data(self, data, indent=None):
+        data_out = {}
+        if self.metadata_file_i == self.metadata_interval:
+            self.metadata_file_i = 0
+        if self.metadata_stream_i == self.metadata_interval:
+            self.metadata_stream_i = 0
+        if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
+            data_out['metadata'] = self.values()
+        data_out['data'] = data
+        return json.dumps(data_out, indent=indent)
+
     def write(self, data, indent=None):
         """Write metadata to file path location self.path"""
 
@@ -212,14 +231,12 @@ class JSONWriter(Writer):
             self.path = str_time + '_JSON_data.txt'
 
         with open(self.path, 'a') as f:
-            if self.metadata_i == self.metadata_interval:
-                self.metadata_i = 0
-            if self.metadata_i == 0:
-                f.write(json.dumps({'metadata': self.values()}, indent=indent)
-                        + self.line_terminator)
-            data = {'data': data}
-            f.write(json.dumps(data, indent=indent) + self.line_terminator)
-            self.metadata_i += 1
+            f.write(self.create_data(data, indent=indent) + self.line_terminator)
+        self.metadata_file_i += 1
+
+    def stream(self, data, indent=None):
+        self.metadata_stream_i += 1
+        return self.create_data(data, indent=indent)
 
 
 class SerialStreamer(JSONWriter):
