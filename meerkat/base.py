@@ -10,9 +10,31 @@ except ImportError:
     import json
 
 
-# TODO: import universal to CPython and uPython datetime method
-iso_time_fmt =  '%Y-%m-%dT%H:%M:%S.%f%z'
-std_time_fmt =  '%Y-%m-%d %H:%M:%S.%f%z'
+try:
+    import pyb  # pyboard import
+    rtc = pyb.RTC()
+    _struct_time = rtc.now
+
+except ImportError:
+
+    try:
+        import machine  # CircuitPython import
+        rtc = machine.RTC()
+        _struct_time = rtc.now
+    except ImportError:
+        try:
+            from datetime import datetime  # CPython 3.7
+
+
+            def _struct_time():
+                t = datetime.now()
+                return t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond
+        except ImportError:
+            raise
+
+
+iso_time_fmt = '%Y-%m-%dT%H:%M:%S.%f%z'
+std_time_fmt = '%Y-%m-%d %H:%M:%S.%f%z'
 file_time_fmt = '%Y_%m_%d_%H_%M_%S_%f'
 
 
@@ -88,6 +110,51 @@ def twos_comp_to_dec(value, bits):
     if (value & (1 << (bits - 1))) != 0:
         value = value - (1 << bits)
     return value
+
+
+class TimePiece(object):
+
+    def __init__(self, str_format):
+
+        self.str_format = str_format  # one of 'iso' or 'std'
+        if self.str_format == 'iso':
+            self.str_format_spec = iso_time_fmt
+        else:
+            self.str_format_spec = std_time_fmt
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
+
+    @staticmethod
+    def get_time(str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
+        t = _struct_time()
+        st = str_format
+        return st.format(t[0], t[1], t[2], t[3], t[4], t[5])
+
+    def get_ftime(self):
+        """Get filename with timestamp, accurate to the second
+        """
+
+        str_format = '{:02d}_{:02d}_{:02d}_{:02d}_{:02d}_{:02d}'
+        return self.get_time(str_format)
+
+    def get_iso_time(self):
+        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}'
+        return self.get_time(str_format)
+
+    @staticmethod
+    def get_time_ms():
+        """Cross plateform timestamp in milliseconds
+
+        Returns
+        -------
+        """
+        t = _struct_time()
+        st = '{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'
+        return st.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
 
 
 class I2C2(object):

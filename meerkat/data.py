@@ -9,9 +9,10 @@ try:
 except ImportError:
     import json
 
+import uuid
 from datetime import datetime
 
-from meerkat.base import file_time_fmt
+from meerkat.base import file_time_fmt, get_ftime, TimePiece
 
 
 class Writer(object):
@@ -20,6 +21,7 @@ class Writer(object):
     def __init__(self, name):
         # data and file attributes
         self.name = name
+        self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
         self.title = None
         self.description = None
         self.format = None
@@ -50,6 +52,8 @@ class Writer(object):
         self.dtypes = None
         self.accuracy = None
         self.precision = None
+
+        self.timepiece = TimePiece()
 
     def __repr__(self):
         return str(self.__dict__)
@@ -85,12 +89,11 @@ class Writer(object):
         """Placeholder method to keep classes consistent"""
         return data
 
-    def write(self, data, indent=None):
+    def write(self, data, indent=None, name=''):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            str_time = datetime.now().strftime(file_time_fmt)
-            self.path = str_time + '_data.txt'
+            self.path = name + get_ftime() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
@@ -210,7 +213,7 @@ class JSONWriter(Writer):
         -------
         str, JSON formatted metadata describing JSON data format
         """
-        return json.dumps({'metadata': self.values})
+        return json.dumps({'metadata': self.values, 'uuid': self.uuid})
 
     def create_data(self, data, indent=None):
         data_out = {}
@@ -221,6 +224,7 @@ class JSONWriter(Writer):
         if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
             data_out['metadata'] = self.values()
         data_out['data'] = data
+        data_out['uuid'] = self.uuid
         return json.dumps(data_out, indent=indent)
 
     def write(self, data, indent=None):
