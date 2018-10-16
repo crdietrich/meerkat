@@ -6,11 +6,16 @@ __license__ = "MIT"
 
 try:
     import ujson as json
-except:
+except ImportError:
     import json
 
 
-iso_time_fmt = '%Y-%m-%dT%H:%M:%S%z'
+
+# TODO: import universal to CPython and uPython datetime method
+iso_time_fmt =  '%Y-%m-%dT%H:%M:%S.%f%z'
+std_time_fmt =  '%Y-%m-%d %H:%M:%S.%f%z'
+file_time_fmt = '%Y_%m_%d_%H_%M_%S_%f'
+
 
 def generate_UUID():
     # placeholder for UUID    
@@ -106,7 +111,7 @@ class DeviceData(object):
     """Base class for device driver metadata"""
     def __init__(self, device_name):
         
-        self.device_name = device_name
+        self.name = device_name
         self.description = None
         self.urls = None
         self.manufacturer = None
@@ -127,6 +132,7 @@ class DeviceData(object):
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
+
 
 class DeviceCalibration(object):
     """Base class for device calibration"""
@@ -166,3 +172,102 @@ class DeviceCalibration(object):
         """
         with open(filepath, 'r') as f:
             self.from_json(f.readline())
+
+
+class TestDevice(object):
+    """Non-hardware test class"""
+    def __init__(self, output=None):
+
+        # TODO: make safe for MicroPython, leave here for now in Conda
+        from collections import deque
+        from math import sin, pi
+
+        # data bus placeholder
+        self.bus = None
+        self.bus_addr = None
+
+        # what kind of data output to file
+        self.output = output
+
+        # types of verbose printing
+        self.verbose = False
+        self.verbose_data = False
+
+        # threadsafe deque for sharing and plotting
+        self.q_maxlen = 300
+        self.q = deque(maxlen=self.q_maxlen)
+
+        # realtime/stream options
+        self.go = False
+        self.unlimited = False
+        self.max_samples = 1000
+
+        # information about this device
+        self.device = DeviceData('Software Test')
+        self.device.description = ('Dummy data for software testing')
+        self.device.urls = None
+        self.device.manufacturer = None
+        self.device.version_hw = None
+        self.device.version_sw = None
+        self.device.accuracy = None
+        self.device.precision = None
+        self.device.bus = None
+        self.device.state = 'Test Not Running'
+        self.device.active = False
+        self.device.error = None
+        self.device.dtype = None
+        self.device.calibration_date = None
+
+        # data writer placeholder
+        self.writer = None
+
+        # example data of one 360 degree, -1 to 1 sine wave
+        self._deg = [n for n in range(360)]
+        self._amp = [sin(d * (pi/180.0)) for d in self._deg]
+        self._test_data = list(zip(self._deg, self._amp))
+
+    def run(self, delay=0):
+        """Run data collection"""
+
+        # TODO: make safe for MicroPython, leave here for now in Conda
+        from time import sleep
+        from itertools import cycle
+        from meerkat.data import CSVWriter, JSONWriter
+
+        # used in non-unlimited acquisition
+        i = 0
+
+        self.q.clear()
+        for _ in range(self.q_maxlen):
+            self.q.append((0, 0))
+
+        if self.output is not None:
+            if self.output == 'csv':
+                self.writer = CSVWriter('Software Test')
+            elif self.output == 'JSON':
+                self.writer = JSONWriter('Software Test')
+            self.writer.header = ['degrees', 'amplitude']
+            self.writer.device = self.device.__dict__
+
+        for d, a in cycle(self._test_data):
+
+            if not self.go:
+                if self.verbose:
+                    print('Test Stopped')
+                break
+
+            self.device.state = 'Test run() method'
+            if self.verbose_data:
+                print(d, a)
+
+            if self.output is not None:
+                self.writer.write((d, a))
+
+            self.q.append((d, a))
+
+            if not self.unlimited:
+                i += 1
+                if i == self.max_samples:
+                    self.go = False
+
+            sleep(delay)

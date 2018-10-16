@@ -103,34 +103,34 @@ class ADS1115(object):
 
 
         # information about this device
-        self.data = DeviceData('ADS1115')
-        self.data.description = ('Texas Instruments 16-bit 860SPS' +
+        self.device = DeviceData('ADS1115')
+        self.device.description = ('Texas Instruments 16-bit 860SPS' +
             ' 4-Ch Delta-Sigma ADC with PGA')
-        self.data.urls = 'www.ti.com/product/ADS1115'
-        self.data.active = None
-        self.data.error = None
-        self.data.bus = repr(bus)
-        self.data.manufacturer = 'Texas Instruments'
-        self.data.version_hw = '1.0'
-        self.data.version_sw = '1.0'
-        self.data.accuracy = None
-        self.data.precision = '16bit'
-        self.data.calibration_date = None
+        self.device.urls = 'www.ti.com/product/ADS1115'
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(bus)
+        self.device.manufacturer = 'Texas Instruments'
+        self.device.version_hw = '1.0'
+        self.device.version_sw = '1.0'
+        self.device.accuracy = None
+        self.device.precision = '16bit'
+        self.device.calibration_date = None
 
         # data recording information
-        self.data.sample_id = None
+        self.sample_id = None
 
         # current settings of this device
-        self.data.pga_gain = self.pga_float
+        self.device.pga_gain = self.pga_float
 
         # data recording method
         if output == 'csv':
-            self.data.writer = CSVWriter('ADS1115')
-            self.data.writer.header = ['datetime', 'sample_id', 'voltage']
-            self.data.sample_id = None
+            self.writer = CSVWriter('ADS1115')
+            self.writer.device = self.device.__dict__
+            self.writer.header = ['datetime', 'sample_id', 'voltage']
 
         elif output == 'json':
-            self.data.writer = JSONWriter('ADS1115')
+            self.writer = JSONWriter('ADS1115')
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
@@ -459,5 +459,5 @@ class ADS1115(object):
                 v : float, voltage measurement"""
         
         # data values will be converted to string by write method
-        self.data.writer.write(self.get(t=t, sid=sid))
+        self.writer.write(self.get(t=t, sid=sid))
 
