@@ -9,7 +9,9 @@ try:
 except ImportError:
     import json
 
-
+# TODO: after TimePiece and TimeFormat are tested, replace in drivers
+"""
+# ways of getting a timestamp
 try:
     import pyb  # pyboard import
     rtc = pyb.RTC()
@@ -18,28 +20,23 @@ try:
 except ImportError:
 
     try:
-        import machine  # CircuitPython import
+        import machine  # CircuitPython / Pycom import
         rtc = machine.RTC()
         _struct_time = rtc.now
     except ImportError:
         try:
             from datetime import datetime  # CPython 3.7
-
-
             def _struct_time():
                 t = datetime.now()
-                return t.year, t.month, t.day, t.hour, t.minute, t.second, t.microsecond
+                return (t.year, t.month, t.day, t.hour,
+                        t.minute, t.second, t.microsecond)
         except ImportError:
             raise
-
-
-iso_time_fmt = '%Y-%m-%dT%H:%M:%S.%f%z'
-std_time_fmt = '%Y-%m-%d %H:%M:%S.%f%z'
-file_time_fmt = '%Y_%m_%d_%H_%M_%S_%f'
+"""
 
 
 def generate_UUID():
-    # placeholder for UUID    
+    # placeholder for UUID
     return 'non-compliant-UUID'
 
 
@@ -86,19 +83,19 @@ def bit_clear(idx, value):
 
 def bit_toggle(value, bit, boolean):
     """Toggle bit in value to boolean
-    
+
     Parameters
     ----------
     value : 16 bit int, value to change bit
     bit : int, bit index to set
         (binary notation: MSB left, LSB right - not Python indexing!)
     boolean : boolean, direction to toggle bit
-    
+
     Returns
     -------
     value with toggled bit
     """
-    
+
     if boolean is True:
         return bit_set(value, bit)
     elif boolean is False:
@@ -111,16 +108,13 @@ def twos_comp_to_dec(value, bits):
         value = value - (1 << bits)
     return value
 
-
-class TimePiece(object):
-
-    def __init__(self, str_format):
-
-        self.str_format = str_format  # one of 'iso' or 'std'
-        if self.str_format == 'iso':
-            self.str_format_spec = iso_time_fmt
-        else:
-            self.str_format_spec = std_time_fmt
+class TimeFormats(object):
+    """Time format descriptions for strftime conversion to datetime objects"""
+    def __init__(self):
+        self.std_time =    '%Y-%m-%d %H:%M:%S'
+        self.std_time_ms = '%Y-%m-%d %H:%M:%S.%f'
+        self.iso_time =    '%Y-%m-%dT%H:%M:%S.%f%z'
+        self.file_time =   '%Y_%m_%d_%H_%M_%S_%f'
 
     def __repr__(self):
         return str(self.__dict__)
@@ -128,55 +122,82 @@ class TimePiece(object):
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
 
-    @staticmethod
-    def get_time(str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
-        t = _struct_time()
+    def to_dict(self):
+        return self.__repr__()
+
+class TimePiece(object):
+    """Time formatting methods for creating strftime compliant timestamps"""
+    def __init__(self):
+        try:
+            import pyb  # pyboard import
+            rtc = pyb.RTC()
+            self._struct_time = rtc.now
+        except ImportError:
+            try:
+                import machine  # CircuitPython / Pycom import
+                rtc = machine.RTC()
+                self._struct_time = rtc.now
+            except ImportError:
+                try:
+                    from datetime import datetime  # CPython 3.7
+                    def _struct_time(self):
+                        t = datetime.now()
+                        return (t.year, t.month, t.day, t.hour,
+                                t.minute, t.second, t.microsecond)
+                except ImportError:
+                    raise
+
+    def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
+        """Get time in stardard format '%Y-%m-%d %H:%M:%S' and accurate
+        to the second
+        """
+        t = self._struct_time()
         st = str_format
         return st.format(t[0], t[1], t[2], t[3], t[4], t[5])
 
-    def get_ftime(self):
-        """Get filename with timestamp, accurate to the second
+    def file_time(self):
+        """Get time in a format compatible with filenames,
+        '%Y_%m_%d_%H_%M_%S_%f' and accurate to the second
         """
-
         str_format = '{:02d}_{:02d}_{:02d}_{:02d}_{:02d}_{:02d}'
-        return self.get_time(str_format)
+        return self.std_time(str_format)
 
-    def get_iso_time(self):
-        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}'
-        return self.get_time(str_format)
-
-    @staticmethod
-    def get_time_ms():
-        """Cross plateform timestamp in milliseconds
-
-        Returns
-        -------
+    def iso_time(self):
+        """Get time in ISO 8601 format '%Y-%m-%dT%H:%M:%SZ' and
+        accurate to the second.  Note: assumes system clock is UTC.
         """
-        t = _struct_time()
+        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z'
+        return self.std_time(str_format)
+
+    def std_time_ms(self):
+        """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and accurate
+        to the microsecond
+        """
+        t = self._struct_time()
         st = '{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'
         return st.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
 
 
 class I2C2(object):
     """Generic I2C Bus standardized API"""
-    
+
     def __init__(self, i2c_bus):
         if hasattr(i2c_bus, 'readfrom_mem'):
             self.mem_read = i2c_bus.readfrom_mem
         else:
             self.mem_read = i2c_bus.mem_read
-        
+
         if hasattr(i2c_bus, 'writeto_mem'):
             self.mem_write = i2c_bus.writeto_mem
         else:
             self.mem_write = i2c_bus.mem_write
         self.scan = i2c_bus.scan
-        
+
 
 class DeviceData(object):
     """Base class for device driver metadata"""
     def __init__(self, device_name):
-        
+
         self.name = device_name
         self.description = None
         self.urls = None
