@@ -5,7 +5,7 @@ Author: Colin Dietrich 2017
 from time import sleep
 try:
     import ustruct as struct
-except:
+except ImportError:
     import struct
 
 from meerkat.base import DeviceData, twos_comp_to_dec

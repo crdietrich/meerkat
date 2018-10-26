@@ -12,7 +12,7 @@ except ImportError:
 import uuid
 from datetime import datetime
 
-from meerkat.base import file_time_fmt, get_ftime, TimePiece
+from meerkat.base import file_time_fmt, file_time_fmt, TimePiece
 
 
 class Writer(object):
@@ -93,7 +93,7 @@ class Writer(object):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            self.path = name + get_ftime() + '.txt'
+            self.path = name + file_time_fmt() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
