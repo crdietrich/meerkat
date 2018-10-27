@@ -9,10 +9,11 @@ try:
 except ImportError:
     import json
 
-import uuid
-from datetime import datetime
+#import uuid
+#from datetime import datetime
 
-from meerkat.base import file_time_fmt, file_time_fmt, TimePiece
+#from meerkat.base import file_time_fmt, file_time_fmt, Base, TimePiece
+from meerkat.base import Base, TimeFormats, TimePiece
 
 
 class Writer(object):
@@ -21,7 +22,7 @@ class Writer(object):
     def __init__(self, name):
         # data and file attributes
         self.name = name
-        self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
+        #self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
         self.title = None
         self.description = None
         self.format = None
@@ -126,9 +127,9 @@ class CSVWriter(Writer):
         self._file_init = False
 
     def create_metadata(self):
-        """Generate JSON metadata and format it with 
+        """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
-        
+
         Returns
         -------
         str, metadata in JSON with '#!' at the beginning
@@ -147,7 +148,7 @@ class CSVWriter(Writer):
         if self.path is None:
             str_time = datetime.now().strftime(file_time_fmt)
             self.path = str_time + '_data.csv'
-        
+
         with open(self.path, 'w') as f:
             if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
@@ -169,7 +170,7 @@ class CSVWriter(Writer):
 
         To just initialize metadata and header, pass
         data = None"""
-        
+
         if not self._file_init:
             self._write_init()
             self._file_init = True
@@ -177,7 +178,7 @@ class CSVWriter(Writer):
             self._write_append(data)
 
     def get(self, data):
-        """Placeholder for child class method that will 
+        """Placeholder for child class method that will
         return a list of data as it will be saved to disk.
         Requires correct formatting in the child class.
 

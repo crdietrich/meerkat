@@ -9,7 +9,7 @@ try:
 except ImportError:
     import json
 
-# TODO: after TimePiece and TimeFormat are tested, replace in drivers
+# TODO: after TimePiece and TimeFormats are tested, replace in drivers
 """
 # ways of getting a timestamp
 try:
@@ -108,7 +108,41 @@ def twos_comp_to_dec(value, bits):
         value = value - (1 << bits)
     return value
 
-class TimeFormats(object):
+class Base(object):
+    """Common methods for classes"""
+
+    def __repr__(self):
+        return str(self.values())
+
+    def values(self):
+        """Get all class attributes from __dict__ attribute
+        except those prefixed with underscore ('_')
+
+        Returns
+        -------
+        dict, of (attribute: value) pairs
+        """
+        d = {}
+        for k, v in self.__dict__.items():
+            if k[0] != '_':
+                d[k] = v
+        return d
+
+    def to_json(self, indent=None):
+        """Return all class objects from __dict__ except
+        those prefixed with underscore ('_')
+
+        Returns
+        -------
+        str, JSON formatted (attribute: value) pairs
+        """
+        return json.dumps(self,
+                          default=lambda o: o.values(),
+                          sort_keys=True,
+                          indent=indent)
+
+
+class TimeFormats(Base):
     """Time format descriptions for strftime conversion to datetime objects"""
     def __init__(self):
         self.std_time =    '%Y-%m-%d %H:%M:%S'
@@ -116,16 +150,8 @@ class TimeFormats(object):
         self.iso_time =    '%Y-%m-%dT%H:%M:%S.%f%z'
         self.file_time =   '%Y_%m_%d_%H_%M_%S_%f'
 
-    def __repr__(self):
-        return str(self.__dict__)
 
-    def to_json(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
-
-    def to_dict(self):
-        return self.__repr__()
-
-class TimePiece(object):
+class TimePiece(Base):
     """Time formatting methods for creating strftime compliant timestamps"""
     def __init__(self):
         try:
@@ -146,6 +172,8 @@ class TimePiece(object):
                                 t.minute, t.second, t.microsecond)
                 except ImportError:
                     raise
+
+        self.formats = TimeFormats()
 
     def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
         """Get time in stardard format '%Y-%m-%d %H:%M:%S' and accurate
@@ -194,7 +222,7 @@ class I2C2(object):
         self.scan = i2c_bus.scan
 
 
-class DeviceData(object):
+class DeviceData(Base):
     """Base class for device driver metadata"""
     def __init__(self, device_name):
 
@@ -214,14 +242,7 @@ class DeviceData(object):
         self.dtype = None
         self.calibration_date = None
 
-    def __repr__(self):
-        return str(self.__dict__)
-
-    def to_json(self):
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
-
-
-class DeviceCalibration(object):
+class DeviceCalibration(Base):
     """Base class for device calibration"""
 
     def __init__(self):
@@ -233,19 +254,6 @@ class DeviceCalibration(object):
         self.version = None
         self.dtype = None
         self.date = None
-
-    def __repr__(self):
-        return str(self.__dict__)
-
-    def to_json(self):
-        """Convert all calibration information to a JSON string"""
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True)
-
-    def from_json(self, json_str):
-        """Read a JSON string of calibration information and as set attributes
-        """
-
-        self.__dict__ = json.loads(json_str)
 
     def to_file(self, filepath):
         """Write calibration information to a file in JSON.
@@ -261,7 +269,7 @@ class DeviceCalibration(object):
             self.from_json(f.readline())
 
 
-class TestDevice(object):
+class TestDevice(Base):
     """Non-hardware test class"""
     def __init__(self, output=None):
 
@@ -317,7 +325,7 @@ class TestDevice(object):
             elif self.output == 'JSON':
                 self.writer = JSONWriter('Software Test')
             self.writer.header = ['index', 'degrees', 'amplitude']
-            self.writer.device = self.device.__dict__
+            self.writer.device = self.device.values()
 
         # example data of one 360 degree, -1 to 1 sine wave
         self._deg = [n for n in range(360)]
