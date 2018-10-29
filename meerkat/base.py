@@ -136,10 +136,8 @@ class Base(object):
         -------
         str, JSON formatted (attribute: value) pairs
         """
-        return json.dumps(self,
-                          default=lambda o: o.values(),
-                          sort_keys=True,
-                          indent=indent)
+        return json.dumps(self, default=lambda o: o.values(),
+            sort_keys=True, indent=indent)
 
 
 class TimeFormats(Base):
@@ -152,8 +150,8 @@ class TimeFormats(Base):
 
 
 class TimePiece(Base):
-    """Time formatting methods for creating strftime compliant timestamps"""
-    def __init__(self):
+    """Formatting methods for creating strftime compliant timestamps"""
+    def __init__(self, format='std_time'):
         try:
             import pyb  # pyboard import
             rtc = pyb.RTC()
@@ -173,7 +171,28 @@ class TimePiece(Base):
                 except ImportError:
                     raise
 
-        self.formats = TimeFormats()
+        self.formats_available = TimeFormats()
+        self.format_used = format
+
+    def get_time(self):
+        """Get the time in a specific format.  For creating a reproducible
+        format citation based on the attributes of the TimeFormats class.
+
+        Parameters
+        ----------
+        format : str, type of format to return.  Allowable options are:
+            'std_time'
+            'std_time_ms'
+            'iso_time'
+            'file_time'
+        Returns
+        -------
+        str, formatted current time based on input argument
+        """
+        _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
+            'iso_time': self.iso_time, 'file_time': self.file_time}
+        _method = _formats[self.format_used]
+        return _method()
 
     def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
         """Get time in stardard format '%Y-%m-%d %H:%M:%S' and accurate

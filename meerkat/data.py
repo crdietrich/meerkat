@@ -94,7 +94,7 @@ class Writer(object):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            self.path = name + file_time_fmt() + '.txt'
+            self.path = name + self.timepiece.file_time() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
@@ -144,10 +144,9 @@ class CSVWriter(Writer):
         by a shebang '#!' as the first line of a file at location
         self.path, then a header line in self.header, then lines of data
         for each item in self.data"""
-
+        # TODO: this file creation is different than parent class, fix!
         if self.path is None:
-            str_time = datetime.now().strftime(file_time_fmt)
-            self.path = str_time + '_data.csv'
+            self.path = self.timepiece.file_time() + '_data.csv'
 
         with open(self.path, 'w') as f:
             if self.shebang:
@@ -214,7 +213,7 @@ class JSONWriter(Writer):
         -------
         str, JSON formatted metadata describing JSON data format
         """
-        return json.dumps({'metadata': self.values, 'uuid': self.uuid})
+        return json.dumps({'metadata': self.values}) #, 'uuid': self.uuid})
 
     def create_data(self, data, indent=None):
         data_out = {}
@@ -225,15 +224,14 @@ class JSONWriter(Writer):
         if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
             data_out['metadata'] = self.values()
         data_out['data'] = data
-        data_out['uuid'] = self.uuid
+        #data_out['uuid'] = self.uuid #TODO: uuid support
         return json.dumps(data_out, indent=indent)
 
     def write(self, data, indent=None):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            str_time = datetime.now().strftime(file_time_fmt)
-            self.path = str_time + '_JSON_data.txt'
+            self.path = self.timepiece.file_time() + '_JSON_data.txt'
 
         with open(self.path, 'a') as f:
             f.write(self.create_data(data, indent=indent) + self.line_terminator)
