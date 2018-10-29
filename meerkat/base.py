@@ -290,7 +290,7 @@ class DeviceCalibration(Base):
 
 class TestDevice(Base):
     """Non-hardware test class"""
-    def __init__(self, output=None):
+    def __init__(self, output='csv', time_format='std_time'):
 
         # TODO: make safe for MicroPython, leave here for now in Conda
         from collections import deque
@@ -335,16 +335,14 @@ class TestDevice(Base):
         self.device.dtype = None
         self.device.calibration_date = None
 
-        # data writer placeholder
-        self.writer = None
-
-        if self.output is not None:
-            if self.output == 'csv':
-                self.writer = CSVWriter('Software Test')
-            elif self.output == 'JSON':
-                self.writer = JSONWriter('Software Test')
-            self.writer.header = ['index', 'degrees', 'amplitude']
-            self.writer.device = self.device.values()
+        # data writer
+        if output == 'csv':
+            self.writer = CSVWriter('Software Test', time_format)
+            self.writer.device = self.device.__dict__
+        elif output == 'json':
+            self.writer = JSONWriter('Software Test', time_format)
+        self.writer.header = ['index', 'degrees', 'amplitude']
+        self.writer.device = self.device.values()
 
         # example data of one 360 degree, -1 to 1 sine wave
         self._deg = [n for n in range(360)]

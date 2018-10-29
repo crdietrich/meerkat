@@ -19,7 +19,7 @@ from meerkat.base import Base, TimeFormats, TimePiece
 class Writer(object):
     """Base class for data serialization
     Note: Any attribute prefixed with '_' will not be saved to metadata"""
-    def __init__(self, name):
+    def __init__(self, name, time_format='std_time'):
         # data and file attributes
         self.name = name
         #self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
@@ -54,7 +54,13 @@ class Writer(object):
         self.accuracy = None
         self.precision = None
 
-        self.timepiece = TimePiece()
+        # timestamp formatter
+        self.time_format = time_format
+        self.timepiece = TimePiece(format=self.time_format)
+
+        # header
+        if time_format not in header:
+
 
     def __repr__(self):
         return str(self.__dict__)
@@ -90,6 +96,7 @@ class Writer(object):
         """Placeholder method to keep classes consistent"""
         return data
 
+    # TODO: This might need to be removed
     def write(self, data, indent=None, name=''):
         """Write metadata to file path location self.path"""
 
@@ -152,14 +159,14 @@ class CSVWriter(Writer):
             if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
             if self.header is not None:
-                h = ','.join(self.header)
+                h = ','.join([self.time_format] + self.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
         """Append data to an existing file at location self.path"""
 
         with open(self.path, 'a') as f:
-            dc = ','.join([str(_x) for _x in data])
+            dc = ','.join([self.timepiece.get_time]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data, indent=None):
@@ -224,6 +231,7 @@ class JSONWriter(Writer):
         if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
             data_out['metadata'] = self.values()
         data_out['data'] = data
+        data_out[self.time_format] = self.timepiece.get_time()
         #data_out['uuid'] = self.uuid #TODO: uuid support
         return json.dumps(data_out, indent=indent)
 
