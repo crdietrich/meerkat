@@ -50,6 +50,30 @@ class MCP9808(object):
         self.device_id = None
         self.revision = None
 
+        self.device = DeviceData('MCP9808')
+        self.device.description = ('Microchip 0.5 degree C max accuracy' +
+            ' digitial temperature sensor')
+        self.device.urls = 'https://www.microchip.com/wwwproducts/en/en556182'
+        #self.device.active = None  # not sure if these two are needed?
+        #self.device.error = None
+        self.device.bus = repr(bus)
+        self.device.manufacturer = 'Microchip'
+        self.device.version_hw = '1.0'
+        self.device.version_sw = '1.0'
+        self.device.accuracy = 0.5
+        self.device.precision = '13bit'
+        self.device.calibration = None
+        self.device.units = 'degrees Celcius'
+
+        self.sample_id = None
+
+        if output == 'csv':
+            self.writer = CSVWriter('MCP9808')
+            self.writer.device = self.device.__dict__
+            self.writer.header = ['datetime', 'sample_id', 'temperature']
+        elif output == 'json':
+            self.writer = JSONWriter('MCP9808')
+
     def set_pointer(self, reg_name):
         """Set the pointer register address
         
@@ -156,5 +180,11 @@ class MCP9808(object):
         else:
             return (ub * 2**4) + (lb * 2**-4)
     
+    def get(self, t=None, sid=None):
+        return [t, sid, self.get_temp()]
+
+    def write(self, t=None, sid=None):
+        self.writer.write(self.get(t=t, sid=sid))
+
         
 
