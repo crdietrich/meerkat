@@ -164,10 +164,11 @@ class TimePiece(Base):
             except ImportError:
                 try:
                     from datetime import datetime  # CPython 3.7
-                    def _struct_time(self):
+                    def _struct_time():
                         t = datetime.now()
                         return (t.year, t.month, t.day, t.hour,
                                 t.minute, t.second, t.microsecond)
+                    self._struct_time = _struct_time
                 except ImportError:
                     raise
 
