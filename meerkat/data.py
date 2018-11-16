@@ -58,9 +58,6 @@ class Writer(object):
         self.time_format = time_format
         self.timepiece = TimePiece(format=self.time_format)
 
-        # header
-        if time_format not in header:
-
 
     def __repr__(self):
         return str(self.__dict__)
@@ -96,9 +93,8 @@ class Writer(object):
         """Placeholder method to keep classes consistent"""
         return data
 
-    # TODO: This might need to be removed
     def write(self, data, indent=None, name=''):
-        """Write metadata to file path location self.path"""
+        """Write JSON metadata and arbitrary data to a file"""
 
         if self.path is None:
             self.path = name + self.timepiece.file_time() + '.txt'
@@ -150,11 +146,10 @@ class CSVWriter(Writer):
         """Write metadata to a header row designated
         by a shebang '#!' as the first line of a file at location
         self.path, then a header line in self.header, then lines of data
-        for each item in self.data"""
-        # TODO: this file creation is different than parent class, fix!
+        for each item in self.data
+        """
         if self.path is None:
             self.path = self.timepiece.file_time() + '_data.csv'
-
         with open(self.path, 'w') as f:
             if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
@@ -166,7 +161,7 @@ class CSVWriter(Writer):
         """Append data to an existing file at location self.path"""
 
         with open(self.path, 'a') as f:
-            dc = ','.join([self.timepiece.get_time]+[str(_x) for _x in data])
+            dc = ','.join([self.timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data, indent=None):
