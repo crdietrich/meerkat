@@ -424,40 +424,35 @@ class ADS1115(object):
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
 
 
-    def get(self, t=None, sid=None):
+    def get(self, sid=None):
         """Get formatted output.
         
         Parameters
         ----------
-        v : float, voltage measurement                
-        t : float, defalut=None, timestamp of measurement
         sid : char, defalut=None, sample id to identify data sample collected
         
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
-            t: datetime
             sid : str, sample id
             v : float, voltage measurement"""
         
-        return [t, sid, self.voltage()]
+        return [sid, self.voltage()]
 
-    def write(self, t=None, sid=None):
+    def write(self, sid=None):
         """Format output and save to file.
         
         Parameters
         ----------
-        t : float, defalut=None, timestamp of measurement
         sid : char, defalut=None, sample id to identify data sample collected
         
         Returns
         -------
         None, writes to disk the following:
             data : list, data that will be saved to disk containing
-                t: datetime
                 sid : str, sample id
                 v : float, voltage measurement"""
         
         # data values will be converted to string by write method
-        self.writer.write(self.get(t=t, sid=sid))
+        self.writer.write(self.get(sid=sid))
 
