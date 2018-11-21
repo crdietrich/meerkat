@@ -50,6 +50,34 @@ class MCP9808(object):
         self.device_id = None
         self.revision = None
 
+        # information about this device
+        self.device = DeviceData('MCP9808')
+        self.device.description = ('+/-0.5 degrees Celcius ' +
+            'maximum accuracy digital temperature sensor')
+        self.device.urls = 'https://www.microchip.com/datasheet/MCP9808'
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(bus)
+        self.device.manufacturer = 'Microchip'
+        self.device.version_hw = '0.1'
+        self.device.version_sw = '0.1'
+        self.device.accuracy = '+/-0.25 (typical) C'
+        self.device.precision = '0.0625 C maximum'
+        self.device.units = 'Degrees Celcius'
+        self.device.calibration_date = None
+
+        # data recording information
+        self.sample_id = None
+
+        # data recording method
+        if output == 'csv':
+            self.writer = CSVWriter('MCP9808')
+            self.writer.device = self.device.__dict__
+            self.writer.header = ['sample_id', 'temperature_C']
+
+        elif output == 'json':
+            self.writer = JSONWriter('MCP9808')
+
     def set_pointer(self, reg_name):
         """Set the pointer register address
         
@@ -155,6 +183,37 @@ class MCP9808(object):
             return 256 - (ub * 2**4) + (lb * 2**-4)
         else:
             return (ub * 2**4) + (lb * 2**-4)
-    
+
+    def get(self, sid=None):
+        """Get formatted output.
+        
+        Parameters
+        ----------
+        sid : char, defalut=None, sample id to identify data sample collected
+        
+        Returns
+        -------
+        data : list, data that will be saved to disk with self.write containing:
+            sid : str, sample id
+            v : float, temperature (C) measurement"""
+        
+        return [sid, self.get_temp()]
+
+    def write(self, sid=None):
+        """Format output and save to file.
+        
+        Parameters
+        ----------
+        sid : char, defalut=None, sample id to identify data sample collected
+        
+        Returns
+        -------
+        None, writes to disk the following:
+            data : list, data that will be saved to disk containing
+                sid : str, sample id
+                v : float, temperature (C) measurement"""
+        
+        # data values will be converted to string by write method
+        self.writer.write(self.get_temp(sid=sid))
         
 
