@@ -1,9 +1,9 @@
-import smbus2
+import smbus
 from meerkat import ads
 from time import sleep
 
-i2c = smbus2.SMBus(1)
-dev = ads.Core(bus=i2c)
+i2c = smbus.SMBus(1)
+dev = ads.ADS1115(bus=i2c)
 
 print('Set Bus Pointer Test')
 # test setting pointer register
