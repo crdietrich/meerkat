@@ -9,31 +9,6 @@ try:
 except ImportError:
     import json
 
-# TODO: after TimePiece and TimeFormats are tested, replace in drivers
-"""
-# ways of getting a timestamp
-try:
-    import pyb  # pyboard import
-    rtc = pyb.RTC()
-    _struct_time = rtc.now
-
-except ImportError:
-
-    try:
-        import machine  # CircuitPython / Pycom import
-        rtc = machine.RTC()
-        _struct_time = rtc.now
-    except ImportError:
-        try:
-            from datetime import datetime  # CPython 3.7
-            def _struct_time():
-                t = datetime.now()
-                return (t.year, t.month, t.day, t.hour,
-                        t.minute, t.second, t.microsecond)
-        except ImportError:
-            raise
-"""
-
 
 def generate_UUID():
     # placeholder for UUID
@@ -108,6 +83,7 @@ def twos_comp_to_dec(value, bits):
         value = value - (1 << bits)
     return value
 
+
 class Base(object):
     """Common methods for classes"""
 
@@ -164,10 +140,12 @@ class TimePiece(Base):
             except ImportError:
                 try:
                     from datetime import datetime  # CPython 3.7
+
                     def _struct_time():
                         t = datetime.now()
                         return (t.year, t.month, t.day, t.hour,
                                 t.minute, t.second, t.microsecond)
+
                     self._struct_time = _struct_time
                 except ImportError:
                     raise
@@ -191,7 +169,7 @@ class TimePiece(Base):
         str, formatted current time based on input argument
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
-            'iso_time': self.iso_time, 'file_time': self.file_time}
+                    'iso_time': self.iso_time, 'file_time': self.file_time}
         _method = _formats[self.format_used]
         return _method()
 
@@ -262,9 +240,9 @@ class DeviceData(Base):
         self.dtype = None
         self.calibration_date = None
 
+
 class DeviceCalibration(Base):
     """Base class for device calibration"""
-
     def __init__(self):
 
         self.name = None
