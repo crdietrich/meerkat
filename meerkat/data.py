@@ -9,11 +9,7 @@ try:
 except ImportError:
     import json
 
-#import uuid
-#from datetime import datetime
-
-#from meerkat.base import file_time_fmt, file_time_fmt, Base, TimePiece
-from meerkat.base import Base, TimeFormats, TimePiece
+from meerkat.base import TimePiece
 
 
 class Writer(object):
@@ -58,7 +54,6 @@ class Writer(object):
         self.time_format = time_format
         self.timepiece = TimePiece(format=self.time_format)
 
-
     def __repr__(self):
         return str(self.__dict__)
 
@@ -93,11 +88,11 @@ class Writer(object):
         """Placeholder method to keep classes consistent"""
         return data
 
-    def write(self, data, indent=None, name=''):
+    def write(self, data, indent=None):
         """Write JSON metadata and arbitrary data to a file"""
 
         if self.path is None:
-            self.path = name + self.timepiece.file_time() + '.txt'
+            self.path = self.name + '_' + self.timepiece.file_time() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
@@ -227,7 +222,7 @@ class JSONWriter(Writer):
             data_out['metadata'] = self.values()
         data_out['data'] = data
         data_out[self.time_format] = self.timepiece.get_time()
-        #data_out['uuid'] = self.uuid #TODO: uuid support
+        # data_out['uuid'] = self.uuid  #TODO: uuid support
         return json.dumps(data_out, indent=indent)
 
     def write(self, data, indent=None):
@@ -251,6 +246,7 @@ class SerialStreamer(JSONWriter):
 
         self.name = name
         self.serial = None
+        self.metadata_i = 0
 
     def writer(self, data, indent=None):
         with self.serial.open() as serial:
