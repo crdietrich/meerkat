@@ -4,8 +4,7 @@ __author__ = "Colin Dietrich"
 __copyright__ = "2018"
 __license__ = "MIT"
 
-from meerkat.base import Base
-from meerkat.data import DeviceData
+from meerkat.base import Base, DeviceData
 
 
 class TestDevice(Base):
