@@ -9,7 +9,7 @@ from meerkat.base import Base, DeviceData
 
 class TestDevice(Base):
     """Non-hardware test class"""
-    def __init__(self, output='csv', time_format='std_time'):
+    def __init__(self, output='json'):
 
         # TODO: make safe for MicroPython, leave here for now in Conda
         from collections import deque
@@ -55,11 +55,12 @@ class TestDevice(Base):
         self.device.calibration_date = None
 
         # data writer
-        if output == 'csv':
-            self.writer = CSVWriter('Software Test', time_format)
-            self.writer.device = self.device.__dict__
-        elif output == 'json':
-            self.writer = JSONWriter('Software Test', time_format)
+        if self.output == 'csv':
+            self.writer = CSVWriter('Software Test')
+            #self.writer.device = self.device.values()
+        elif self.output == 'json':
+            self.writer = JSONWriter('Software Test')
+
         self.writer.header = ['index', 'degrees', 'amplitude']
         self.writer.device = self.device.values()
 
@@ -84,6 +85,9 @@ class TestDevice(Base):
 
         # TODO: make safe for MicroPython, leave here for now in Conda
         from time import sleep, time, ctime
+
+        if self.verbose:
+            print('Test Started')
 
         # used in non-unlimited acquisition
         count = 0
