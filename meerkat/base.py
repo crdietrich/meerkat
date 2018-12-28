@@ -84,7 +84,7 @@ def twos_comp_to_dec(value, bits):
     return value
 
 
-class Base(object):
+class Base:
     """Common methods for classes"""
 
     def __repr__(self):
@@ -113,7 +113,7 @@ class Base(object):
         str, JSON formatted (attribute: value) pairs
         """
         return json.dumps(self, default=lambda o: o.values(),
-            sort_keys=True, indent=indent)
+                          sort_keys=True, indent=indent)
 
 
 class TimeFormats(Base):
@@ -128,6 +128,7 @@ class TimeFormats(Base):
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
     def __init__(self, format='std_time'):
+        super().__init__()
         try:
             import pyb  # pyboard import
             rtc = pyb.RTC()
