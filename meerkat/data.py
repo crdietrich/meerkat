@@ -104,8 +104,8 @@ class CSVWriter(Writer):
     """Specific attributes of comma delimited values (CSV) data formatting
     based on Frictionless Data CSV dialect
     """
-    def __init__(self, name):
-        super(CSVWriter, self).__init__(name)
+    def __init__(self, name, time_format='std_time'):
+        super().__init__(name, time_format)
 
         self.version = '0.1 Alpha'
         self.standard = 'Follow RFC 4180'
@@ -196,8 +196,8 @@ class CSVWriter(Writer):
 
 
 class JSONWriter(Writer):
-    def __init__(self, name):
-        super(JSONWriter, self).__init__(name)
+    def __init__(self, name, time_format='std_time'):
+        super().__init__(name, time_format)
 
         self.version = '0.1 Alpha'
         self.standard = 'RFC 8259'
