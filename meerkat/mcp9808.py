@@ -71,12 +71,12 @@ class MCP9808(object):
 
         # data recording method
         if output == 'csv':
-            self.writer = CSVWriter('MCP9808')
+            self.writer = CSVWriter('MCP9808', time_format='std_time_ms')
             self.writer.device = self.device.__dict__
             self.writer.header = ['sample_id', 'temperature_C']
 
         elif output == 'json':
-            self.writer = JSONWriter('MCP9808')
+            self.writer = JSONWriter('MCP9808', time_format='std_time_ms')
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
@@ -214,6 +214,6 @@ class MCP9808(object):
                 v : float, temperature (C) measurement"""
         
         # data values will be converted to string by write method
-        self.writer.write(self.get_temp(sid=sid))
+        self.writer.write(self.get(sid=sid))
         
 
