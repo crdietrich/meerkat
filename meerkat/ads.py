@@ -125,12 +125,12 @@ class ADS1115(object):
 
         # data recording method
         if output == 'csv':
-            self.writer = CSVWriter('ADS1115')
+            self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
             self.writer.device = self.device.__dict__
             self.writer.header = ['sample_id', 'voltage']
 
         elif output == 'json':
-            self.writer = JSONWriter('ADS1115')
+            self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
