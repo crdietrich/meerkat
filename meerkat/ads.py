@@ -3,10 +3,6 @@ Author: Colin Dietrich 2017
 """
 
 from time import sleep
-try:
-    import ustruct as struct
-except ImportError:
-    import struct
 
 from meerkat.base import DeviceData, twos_comp_to_dec
 from meerkat.data import CSVWriter, JSONWriter
@@ -27,20 +23,6 @@ BIT_COMP_MODE = 16
 BIT_COMP_POL  = 8
 BIT_COMP_LAT  = 4
 BIT_COMP_QUE  = 3
-
-
-#class ADS1115CSVData(CSVWriter):
-#    def __init__(self, device_name):
-#        super(ADS1115CSVData, self).__init__(device_name)
-#        self.data = None
-#        self.header = ['datetime', 'sample_id', 'voltage']
-#        self.sample_id = None
-
-
-#class ADS1115JSONData(JSONWriter):
-#    def __init__(self, device_name):
-#        super(ADS1115JSONData, self).__init__(device_name)
-#        self.data = None
 
 
 class ADS1115(object):
@@ -124,8 +106,10 @@ class ADS1115(object):
         if output == 'csv':
             self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
             self.writer.header = ['sample_id', 'voltage']
-        else: output == 'json':
+        elif output == 'json':
             self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
+        else: 
+            pass  # holder for another writer or change in default  
         self.writer.device = self.device.values()
 
         # data recording information
