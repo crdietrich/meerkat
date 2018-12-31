@@ -117,20 +117,19 @@ class ADS1115(object):
         self.device.precision = '16bit'
         self.device.calibration_date = None
 
-        # data recording information
-        self.sample_id = None
-
         # current settings of this device
         self.device.pga_gain = self.pga_float
 
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
-            self.writer.device = self.device.__dict__
             self.writer.header = ['sample_id', 'voltage']
-
-        elif output == 'json':
+        else output == 'json':
             self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
+        self.writer.device = self.device.values()
+
+        # data recording information
+        self.sample_id = None
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
