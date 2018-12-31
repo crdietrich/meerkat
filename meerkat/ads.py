@@ -124,7 +124,7 @@ class ADS1115(object):
         if output == 'csv':
             self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
             self.writer.header = ['sample_id', 'voltage']
-        else output == 'json':
+        else: output == 'json':
             self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
         self.writer.device = self.device.values()
 
