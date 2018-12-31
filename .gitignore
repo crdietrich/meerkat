@@ -3,7 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Data files output by meerkat
 *.csv
+*_JSON_data.txt
 
+# Jupyter Notebook / IDE files
 \.idea/
 \.ipynb_checkpoints/
