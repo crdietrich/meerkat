@@ -52,7 +52,7 @@ class Writer(object):
 
         # timestamp formatter
         self.time_format = time_format
-        self._timepiece = TimePiece(format=self.time_format)
+        self.timepiece = TimePiece(format=self.time_format)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -67,7 +67,7 @@ class Writer(object):
         """
         d = {}
         for k, v in self.__dict__.items():
-            if k[0] != '_':
+            if (k[0] != '_'):
                 d[k] = v
         return d
 
@@ -92,7 +92,7 @@ class Writer(object):
         """Write JSON metadata and arbitrary data to a file"""
 
         if self.path is None:
-            self.path = self.name + '_' + self._timepiece.file_time() + '.txt'
+            self.path = self.name + '_' + self.timepiece.file_time() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
@@ -125,15 +125,16 @@ class CSVWriter(Writer):
         self._file_init = False
         self._stream_init = False
 
-    def create_metadata(self):
+    def create_metadata(self, indent=None):
         """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
 
         Returns
         -------
         str, metadata in JSON with '#!' at the beginning
+        indent, None or int - passed to json.dump builtin
         """
-        return '#!' + self.to_json()
+        return '#!' + self.to_json(indent=indent)
 
     def create_data(self, data, indent=None):
         return ','.join([str(d) for d in data])
@@ -145,7 +146,7 @@ class CSVWriter(Writer):
         for each item in self.data
         """
         if self.path is None:
-            self.path = self._timepiece.file_time() + '_data.csv'
+            self.path = self.timepiece.file_time() + '_data.csv'
         with open(self.path, 'w') as f:
             if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
@@ -157,7 +158,7 @@ class CSVWriter(Writer):
         """Append data to an existing file at location self.path"""
 
         with open(self.path, 'a') as f:
-            dc = ','.join([self._timepiece.get_time()]+[str(_x) for _x in data])
+            dc = ','.join([self.timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data, indent=None):
@@ -231,7 +232,7 @@ class JSONWriter(Writer):
         if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
             data_out['metadata'] = self.values()
         data_out['data'] = data
-        data_out[self.time_format] = self._timepiece.get_time()
+        data_out[self.time_format] = self.timepiece.get_time()
         # data_out['uuid'] = self.uuid  #TODO: uuid support
         return json.dumps(data_out, indent=indent)
 
@@ -239,7 +240,7 @@ class JSONWriter(Writer):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            self.path = self._timepiece.file_time() + '_JSON_data.txt'
+            self.path = self.timepiece.file_time() + '_JSON_data.txt'
 
         with open(self.path, 'a') as f:
             f.write(self.create_data(data, indent=indent) + self.line_terminator)
