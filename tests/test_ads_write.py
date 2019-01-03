@@ -1,10 +1,10 @@
-import smbus2
+import smbus
 from time import sleep
 
 from meerkat import ads
 
-i2c = smbus2.SMBus(1)
-dev = ads.Core(bus=i2c)
+i2c = smbus.SMBus(1)
+dev = ads.ADS1115(bus=i2c)
 # this seems to work in Saleae Logic...
 dev.get_config()
 print(bin(dev.config_value))

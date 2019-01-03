@@ -27,5 +27,6 @@ def csv_resource(fp):
     df = pd.read_csv(fp,
                      delimiter=meta['delimiter'],
                      comment=meta['comment'])
+    df['datetime64_ns'] = pd.to_datetime(df[meta['time_format']])
 
     return meta, df

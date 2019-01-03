@@ -9,19 +9,16 @@ try:
 except ImportError:
     import json
 
-import uuid
-from datetime import datetime
-
-from meerkat.base import file_time_fmt, file_time_fmt, TimePiece
+from meerkat.base import TimePiece
 
 
 class Writer(object):
     """Base class for data serialization
     Note: Any attribute prefixed with '_' will not be saved to metadata"""
-    def __init__(self, name):
+    def __init__(self, name, time_format='std_time'):
         # data and file attributes
         self.name = name
-        self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
+        #self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
         self.title = None
         self.description = None
         self.format = None
@@ -53,7 +50,9 @@ class Writer(object):
         self.accuracy = None
         self.precision = None
 
-        self.timepiece = TimePiece()
+        # timestamp formatter
+        self.time_format = time_format
+        self.timepiece = TimePiece(format=self.time_format)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -68,7 +67,7 @@ class Writer(object):
         """
         d = {}
         for k, v in self.__dict__.items():
-            if k[0] != '_':
+            if (k[0] != '_'):
                 d[k] = v
         return d
 
@@ -89,11 +88,11 @@ class Writer(object):
         """Placeholder method to keep classes consistent"""
         return data
 
-    def write(self, data, indent=None, name=''):
-        """Write metadata to file path location self.path"""
+    def write(self, data, indent=None):
+        """Write JSON metadata and arbitrary data to a file"""
 
         if self.path is None:
-            self.path = name + file_time_fmt() + '.txt'
+            self.path = self.name + '_' + self.timepiece.file_time() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
@@ -105,8 +104,8 @@ class CSVWriter(Writer):
     """Specific attributes of comma delimited values (CSV) data formatting
     based on Frictionless Data CSV dialect
     """
-    def __init__(self, name):
-        super(CSVWriter, self).__init__(name)
+    def __init__(self, name, time_format='std_time'):
+        super().__init__(name, time_format)
 
         self.version = '0.1 Alpha'
         self.standard = 'Follow RFC 4180'
@@ -124,16 +123,18 @@ class CSVWriter(Writer):
         self.shebang = True
         self.header = None
         self._file_init = False
+        self._stream_init = False
 
-    def create_metadata(self):
-        """Generate JSON metadata and format it with 
+    def create_metadata(self, indent=None):
+        """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
-        
+
         Returns
         -------
         str, metadata in JSON with '#!' at the beginning
+        indent, None or int - passed to json.dump builtin
         """
-        return '#!' + self.to_json()
+        return '#!' + self.to_json(indent=indent)
 
     def create_data(self, data, indent=None):
         return ','.join([str(d) for d in data])
@@ -142,24 +143,22 @@ class CSVWriter(Writer):
         """Write metadata to a header row designated
         by a shebang '#!' as the first line of a file at location
         self.path, then a header line in self.header, then lines of data
-        for each item in self.data"""
-
+        for each item in self.data
+        """
         if self.path is None:
-            str_time = datetime.now().strftime(file_time_fmt)
-            self.path = str_time + '_data.csv'
-        
+            self.path = self.timepiece.file_time() + '_data.csv'
         with open(self.path, 'w') as f:
             if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
             if self.header is not None:
-                h = ','.join(self.header)
+                h = ','.join([self.time_format] + self.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
         """Append data to an existing file at location self.path"""
 
         with open(self.path, 'a') as f:
-            dc = ','.join([str(_x) for _x in data])
+            dc = ','.join([self.timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data, indent=None):
@@ -169,7 +168,7 @@ class CSVWriter(Writer):
 
         To just initialize metadata and header, pass
         data = None"""
-        
+
         if not self._file_init:
             self._write_init()
             self._file_init = True
@@ -177,7 +176,7 @@ class CSVWriter(Writer):
             self._write_append(data)
 
     def get(self, data):
-        """Placeholder for child class method that will 
+        """Placeholder for child class method that will
         return a list of data as it will be saved to disk.
         Requires correct formatting in the child class.
 
@@ -187,10 +186,19 @@ class CSVWriter(Writer):
 
         pass
 
+    def stream(self, data):
+        """Simple stream of comma delimited data.  Initializes
+        with the shebang JSON then just returns strings of data"""
+        d = ""
+        if not self._stream_init:
+            d = self.create_metadata() + '\n'
+            self._stream_init = True
+        return d + ','.join([str(_x) for _x in data])
+
 
 class JSONWriter(Writer):
-    def __init__(self, name):
-        super(JSONWriter, self).__init__(name)
+    def __init__(self, name, time_format='std_time'):
+        super().__init__(name, time_format)
 
         self.version = '0.1 Alpha'
         self.standard = 'RFC 8259'
@@ -213,7 +221,7 @@ class JSONWriter(Writer):
         -------
         str, JSON formatted metadata describing JSON data format
         """
-        return json.dumps({'metadata': self.values, 'uuid': self.uuid})
+        return json.dumps({'metadata': self.values}) #, 'uuid': self.uuid})
 
     def create_data(self, data, indent=None):
         data_out = {}
@@ -224,15 +232,15 @@ class JSONWriter(Writer):
         if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
             data_out['metadata'] = self.values()
         data_out['data'] = data
-        data_out['uuid'] = self.uuid
+        data_out[self.time_format] = self.timepiece.get_time()
+        # data_out['uuid'] = self.uuid  #TODO: uuid support
         return json.dumps(data_out, indent=indent)
 
     def write(self, data, indent=None):
         """Write metadata to file path location self.path"""
 
         if self.path is None:
-            str_time = datetime.now().strftime(file_time_fmt)
-            self.path = str_time + '_JSON_data.txt'
+            self.path = self.timepiece.file_time() + '_JSON_data.txt'
 
         with open(self.path, 'a') as f:
             f.write(self.create_data(data, indent=indent) + self.line_terminator)
@@ -249,6 +257,7 @@ class SerialStreamer(JSONWriter):
 
         self.name = name
         self.serial = None
+        self.metadata_i = 0
 
     def writer(self, data, indent=None):
         with self.serial.open() as serial:
