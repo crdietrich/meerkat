@@ -184,36 +184,43 @@ class MCP9808(object):
         else:
             return (ub * 2**4) + (lb * 2**-4)
 
-    def get(self, sid=None):
+    def get(self, description='no_description', n=1):
         """Get formatted output.
         
         Parameters
         ----------
-        sid : char, defalut=None, sample id to identify data sample collected
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
         
         Returns
         -------
-        data : list, data that will be saved to disk with self.write containing:
-            sid : str, sample id
-            v : float, temperature (C) measurement"""
-        
-        return [sid, self.get_temp()]
+        data : list, data containing:
+            description: str, description of sample under test
+            temperature : float, temperature in degrees Celcius
+        """
+        data_list = []
+        for m in range(1,n+1):
+            data_list.append([description, m, self.get_temp()])
+            if n == 1:
+                return data_list[0]        
+        return data_list
 
-    def write(self, sid=None):
-        """Format output and save to file.
+    def write(self, description='no_description', n=1):
+        """Format output and save to file, formatted as either
+        .csv or .json.
         
         Parameters
         ----------
-        sid : char, defalut=None, sample id to identify data sample collected
-        
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
+
         Returns
         -------
-        None, writes to disk the following:
-            data : list, data that will be saved to disk containing
-                sid : str, sample id
-                v : float, temperature (C) measurement"""
-        
-        # data values will be converted to string by write method
-        self.writer.write(self.get(sid=sid))
-        
-
+        None, writes to disk the following data:
+            description : str, description of sample
+            sample_n : int, sample number in this burst
+            temperature : float, temperature in degrees Celcius
+        """
+        self.writer.header = ['description', 'sample_n', 'temperature']
+        for m in range(1,n+1):        
+            self.writer.write([description, m, self.get_temp()])

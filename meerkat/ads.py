@@ -105,7 +105,7 @@ class ADS1115(object):
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
-            self.writer.header = ['sample_id', 'voltage']
+            self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
         elif output == 'json':
             self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
         else: 
@@ -407,35 +407,44 @@ class ADS1115(object):
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
 
 
-    def get(self, sid=None):
+    def get(self, description='no_description', n=1):
         """Get formatted output.
         
         Parameters
         ----------
-        sid : char, defalut=None, sample id to identify data sample collected
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
         
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
-            sid : str, sample id
-            v : float, voltage measurement"""
-        
-        return [sid, self.voltage()]
+            description : str
+            v : float, voltage measurement
+        """
+        data_list = []
+        for m in range(1,n+1):
+            data_list.append([description, m, self.mux_value, self.voltage()])
+            if n == 1:
+                return data_list[0]        
+        return data_list
 
-    def write(self, sid=None):
-        """Format output and save to file.
+    def write(self, description='no_description', n=1):
+        """Format output and save to file, formatted as either .csv or .json.
         
         Parameters
         ----------
-        sid : char, defalut=None, sample id to identify data sample collected
-        
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
+
         Returns
         -------
-        None, writes to disk the following:
-            data : list, data that will be saved to disk containing
-                sid : str, sample id
-                v : float, voltage measurement"""
-        
-        # data values will be converted to string by write method
-        self.writer.write(self.get(sid=sid))
+        None, writes to disk the following data: 
+            description : str, description of sample
+            sample_n : int, sample number in this burst
+            mux : str, multiplexer input used
+            voltage : float, voltage measurement
+        """
+        self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
+        for m in range(1,n+1):        
+            self.writer.write([description, m, self.mux_value, self.voltage()])
 
