@@ -2,7 +2,7 @@
 between a Raspberry Pi and a MPU-6050 Gyroscope / Accelerometer combo.
 Made by: MrTijn/Tijndagamer
 Forked 01/02/2019 from https://github.com/Tijndagamer/mpu6050
-and modified for meerkat format by: Colin Dietrich / crdietrich
+and merged into meerkat by: Colin Dietrich / crdietrich
 
 The MIT License (MIT)
 
@@ -28,7 +28,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import smbus
 
 class mpu6050:
 
@@ -76,11 +75,14 @@ class mpu6050:
     ACCEL_CONFIG = 0x1C
     GYRO_CONFIG = 0x1B
 
-    def __init__(self, address, bus=1):
-        self.address = address
-        self.bus = smbus.SMBus(bus)
+    def __init__(self, bus, i2c_addr=0x68):
+        
+        # i2c bus
+        self.bus_addr = i2c_addr
+        self.bus = bus
+        
         # Wake up the MPU-6050 since it starts in sleep mode
-        self.bus.write_byte_data(self.address, self.PWR_MGMT_1, 0x00)
+        self.bus.write_byte_data(self.bus_addr, self.PWR_MGMT_1, 0x00)
 
     # I2C communication methods
 
@@ -91,12 +93,12 @@ class mpu6050:
         Returns the combined read results.
         """
         # Read the data from the registers
-        high = self.bus.read_byte_data(self.address, register)
-        low = self.bus.read_byte_data(self.address, register + 1)
+        high = self.bus.read_byte_data(self.bus_addr, register)
+        low = self.bus.read_byte_data(self.bus_addr, register + 1)
 
         value = (high << 8) + low
 
-        if (value >= 0x8000):
+        if value >= 0x8000:
             return -((65535 - value) + 1)
         else:
             return value
@@ -123,10 +125,10 @@ class mpu6050:
         pre-defined range is advised.
         """
         # First change it to 0x00 to make sure we write the correct value later
-        self.bus.write_byte_data(self.address, self.ACCEL_CONFIG, 0x00)
+        self.bus.write_byte_data(self.bus_addr, self.ACCEL_CONFIG, 0x00)
 
         # Write the new range to the ACCEL_CONFIG register
-        self.bus.write_byte_data(self.address, self.ACCEL_CONFIG, accel_range)
+        self.bus.write_byte_data(self.bus_addr, self.ACCEL_CONFIG, accel_range)
 
     def read_accel_range(self, raw = False):
         """Reads the range the accelerometer is set to.
@@ -136,7 +138,7 @@ class mpu6050:
         If raw is False, it will return an integer: -1, 2, 4, 8 or 16. When it
         returns -1 something went wrong.
         """
-        raw_data = self.bus.read_byte_data(self.address, self.ACCEL_CONFIG)
+        raw_data = self.bus.read_byte_data(self.bus_addr, self.ACCEL_CONFIG)
 
         if raw is True:
             return raw_data
@@ -197,10 +199,10 @@ class mpu6050:
         range is advised.
         """
         # First change it to 0x00 to make sure we write the correct value later
-        self.bus.write_byte_data(self.address, self.GYRO_CONFIG, 0x00)
+        self.bus.write_byte_data(self.bus_addr, self.GYRO_CONFIG, 0x00)
 
         # Write the new range to the ACCEL_CONFIG register
-        self.bus.write_byte_data(self.address, self.GYRO_CONFIG, gyro_range)
+        self.bus.write_byte_data(self.bus_addr, self.GYRO_CONFIG, gyro_range)
 
     def read_gyro_range(self, raw = False):
         """Reads the range the gyroscope is set to.
@@ -210,7 +212,7 @@ class mpu6050:
         If raw is False, it will return 250, 500, 1000, 2000 or -1. If the
         returned value is equal to -1 something went wrong.
         """
-        raw_data = self.bus.read_byte_data(self.address, self.GYRO_CONFIG)
+        raw_data = self.bus.read_byte_data(self.bus_addr, self.GYRO_CONFIG)
 
         if raw is True:
             return raw_data
@@ -263,6 +265,7 @@ class mpu6050:
         gyro = self.get_gyro_data()
 
         return [accel, gyro, temp]
+
 
 if __name__ == "__main__":
     mpu = mpu6050(0x68)
