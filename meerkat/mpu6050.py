@@ -28,13 +28,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from meerkat.base import DeviceData
+from meerkat.data import CSVWriter, JSONWriter
+
 
 class mpu6050:
 
     # Global Variables
     GRAVITIY_MS2 = 9.80665
-    address = None
-    bus = None
+
+    # State Variables
+    accel_range = None
+    gyro_range = None
 
     # Scale Modifiers
     ACCEL_SCALE_MODIFIER_2G = 16384.0
@@ -75,14 +80,43 @@ class mpu6050:
     ACCEL_CONFIG = 0x1C
     GYRO_CONFIG = 0x1B
 
-    def __init__(self, bus, i2c_addr=0x68):
-        
+    def __init__(self, bus, i2c_addr=0x68, output='csv'):
+
         # i2c bus
         self.bus_addr = i2c_addr
         self.bus = bus
         
         # Wake up the MPU-6050 since it starts in sleep mode
         self.bus.write_byte_data(self.bus_addr, self.PWR_MGMT_1, 0x00)
+
+        # information about this device
+        self.device = DeviceData('MPU-6050')
+        self.device.description = ('TDK InvenSense Gyro & Accelerometer')
+        self.device.urls = 'https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/'
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(bus)
+        self.device.manufacturer = 'TDK'
+        self.device.version_hw = '0.1'
+        self.device.version_sw = '0.1'
+        self.device.gyro_accuracy = '+/-3%, +/-2% cross axis'
+        self.device.gyro_precision = '16bit'
+        self.device.gyro_noise = '0.05 deg/s-rms'
+        self.device.accel_accuracy = '+/-0.5%, +/-2 cross axis'
+        self.device.accel_precision = '16bit'
+        self.device.accel_noise = 'PSD 400 ug / Hz**1/2'
+        self.device.calibration_date = None
+
+        # data recording method
+        if output == 'csv':
+            self.writer = CSVWriter('MPU-6050', time_format='std_time_ms')
+            self.writer.header = ['description', 'sample_n', 'arange', 'grange', 
+                                  'ax', 'ay', 'az', 'gx', 'gy', 'gz', 'temp_C']
+        elif output == 'json':
+            self.writer = JSONWriter('MPU-6050', time_format='std_time_ms')
+        else: 
+            pass  # holder for another writer or change in default  
+        self.writer.device = self.device.values()
 
     # I2C communication methods
 
@@ -124,6 +158,9 @@ class mpu6050:
         accel_range -- the range to set the accelerometer to. Using a
         pre-defined range is advised.
         """
+
+        self.accel_range = accel_range # set here for now
+
         # First change it to 0x00 to make sure we write the correct value later
         self.bus.write_byte_data(self.bus_addr, self.ACCEL_CONFIG, 0x00)
 
@@ -198,6 +235,9 @@ class mpu6050:
         gyro_range -- the range to set the gyroscope to. Using a pre-defined
         range is advised.
         """
+
+        self.gyro_range = gyro_range # set here for now
+
         # First change it to 0x00 to make sure we write the correct value later
         self.bus.write_byte_data(self.bus_addr, self.GYRO_CONFIG, 0x00)
 
@@ -266,15 +306,64 @@ class mpu6050:
 
         return [accel, gyro, temp]
 
+    def _get_all_data(self, description, m):
+        accel_data = self.get_accel_data()
+        gyro_data = self.get_gyro_data()
+        temp_data = self.get_temp()
+        if self.writer.media_type == 'text/csv':
+            data = ([description, m] + 
+                    [self.accel_range, self.gyro_range] + 
+                    [accel_data['x'], accel_data['y'], accel_data['z']] + 
+                    [gyro_data['x'], gyro_data['y'], gyro_data['z']] + 
+                    [temp_data])
+        else:
+            data = {'desc': description, 'n': m, 
+                    'arange': self.accel_range,
+                    'grange': self.gyro_range,
+                    'accel_data': accel_data, 'gyro_data': gyro_data,
+                    'temp_C': temp_data}
+        return data
 
-if __name__ == "__main__":
-    mpu = mpu6050(0x68)
-    print(mpu.get_temp())
-    accel_data = mpu.get_accel_data()
-    print(accel_data['x'])
-    print(accel_data['y'])
-    print(accel_data['z'])
-    gyro_data = mpu.get_gyro_data()
-    print(gyro_data['x'])
-    print(gyro_data['y'])
-    print(gyro_data['z'])
+    def get_all_burst(self, description='no_description', n=1):
+        """Get formatted output.
+        
+        Parameters
+        ----------
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
+        
+        Returns
+        -------
+        data : list, data that will be saved to disk with self.write containing:
+            description : str
+            m : sample count number
+            accel_range : int, g range of accelerometer
+            gyro_range : int, g range of gyroscope
+            ax, ay, az : ints, acceleration on x, y, z axes
+            gx, gy, gz : ints, gyroscopic rotation about x, y, z axes
+        """
+        data_list = []
+        for m in range(1,n+1):
+            data_list.append(self._get_all_data(description, m))
+            if n == 1:
+                return data_list[0]        
+        return data_list
+
+    def write_all(self, description='no_description', n=1):
+        """Format output and save to file, formatted as either .csv or .json.
+        
+        Parameters
+        ----------
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
+
+        Returns
+        -------
+        None, writes to disk the following data: 
+            description : str, description of sample
+            sample_n : int, sample number in this burst
+            mux : str, multiplexer input used
+            voltage : float, voltage measurement
+        """
+        for m in range(1,n+1):        
+            self.writer.write(self._get_all_data(description, m))
