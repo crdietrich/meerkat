@@ -28,7 +28,7 @@ class AtlasI2C(object):
 
         # default i2c addresses, override if there's a conflict
         self.do_default_address = 0x61
-        # self.ox_default_address = 0x62
+        self.ox_default_address = 0x62
         self.ph_default_address = 0x63
         self.ec_default_address = 0x64
 
@@ -61,7 +61,7 @@ class AtlasI2C(object):
     def connect(self):
         """Instance each sensor on the i2c bus"""
         self.do = atlas_rpi_i2c.atlas_i2c(address=0x61, bus=self.i2c_bus)
-        # self.ox = atlas_rpi_i2c.atlas_i2c(address=0x62, bus=self.i2c_bus)
+        self.ox = atlas_rpi_i2c.atlas_i2c(address=0x62, bus=self.i2c_bus)
         self.ph = atlas_rpi_i2c.atlas_i2c(address=0x63, bus=self.i2c_bus)
         self.ec = atlas_rpi_i2c.atlas_i2c(address=0x64, bus=self.i2c_bus)
 
