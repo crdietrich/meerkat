@@ -1,19 +1,19 @@
 # Meerkat Development Roadmap
 
-The overall goal of Meerkat is to streamline hardware use in MicroPython, enabling rapid reliable deployment of
-embedded systems running MicroPython and other devices.
+The overall goal of Meerkat is to streamline hardware data collection using Python, enabling rapid reliable deployment of
+embedded systems.
 
 ## Priorities
 1. Spatial and temporal data: GPS and Time.  All IoT data must be space and time stamped, so GPS and RTC must be available first.
-1. Power measurement.  INA219 and related, as well as adc + resistor method for simple power profiling.  When implementing new senors, if similar enough but one is more power efficient, the lower power sensor should be implemented first.
-1. Preference on bus based sensors for flexibility and common electrical connections.  Analog sensors only where no digitial version is available - if so, electrical circuit implementation must be included in code source.
+1. Power measurement.  INA219 and related, as well as ADC + resistor method for simple power profiling.  When implementing new sensors, if similar enough but one is more power efficient, the lower power sensor should be implemented first.
+1. Preference on bus based sensors for flexibility and common electrical connections.  Analog sensors only where no digital version is available - if so, electrical circuit implementation must be included in code source.
 
 ## General Concepts
-1. Numpy Docstring style - if we want to keep company with the SciPy stack, act like it
+1. Numpy Docstring style
 1. Base attribute class for all devices, exposing common information and methods
 1. Class attributes identical within a type of measurement - allowing hardware swapping without refactor
-1. Serialization of data based on device class - json, xml, ?
-1. Parser to Pandas for serialized device data - see pandas.DataFrame.to_json, pandas.read_json
+1. Serialization of data using JSON
+1. Parser to Pandas
 1. Parent Class methods for direct visualization - see Vega project http://vega.github.io/
 
 ## TODOs and Thoughts
@@ -33,6 +33,4 @@ embedded systems running MicroPython and other devices.
 1. More specific using ADC
 
 ## The name
-Meerkats are small, furry critters from Africa that work in groups - kind of like hardware connected to a microcontroller.
-Except not as furry or cute.  Or from Africa.  Ok, I just watched Meerkat Manor and we already have an animal
-theme with Python and Pandas.
+Meerkats are small animals from Africa that work in groups - kind of like hardware connected to a microcontroller.
