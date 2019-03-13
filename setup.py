@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(name='meerkat',
-                 version='0.1',
+                 version='0.2',
                  description='A data aquiisition library for Raspberry Pi and MicroPython',
                  long_description=long_description,
                  long_description_content_type="text/markdown",
