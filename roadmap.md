@@ -1,6 +1,6 @@
 # Meerkat Development Roadmap
 
-The overall goal of Meerkat is to streamline hardware data collection using Python, enabling rapid reliable deployment of
+The goal of Meerkat is to streamline hardware data collection using Python, enabling rapid reliable deployment of
 embedded systems.
 
 ## Priorities
@@ -9,9 +9,9 @@ embedded systems.
 1. Preference on bus based sensors for flexibility and common electrical connections.  Analog sensors only where no digital version is available - if so, electrical circuit implementation must be included in code source.
 
 ## General Concepts
-1. Numpy Docstring style
+1. Use [Numpy Docstring style](https://numpydoc.readthedocs.io/en/latest/format.html)
 1. Base attribute class for all devices, exposing common information and methods
-1. Class attributes identical within a type of measurement - allowing hardware swapping without refactor
+1. Class attributes identical within a type of measurement to allow hardware swapping without refactor
 1. Serialization of data using JSON
 1. Parser to Pandas
 1. Parent Class methods for direct visualization - see Vega project http://vega.github.io/
@@ -28,9 +28,9 @@ embedded systems.
 1. All on MicroPython website
 1. INA21x current chips - fork ina21x and refactor
 1. Atlas scientific - fork and refactor lighthouse i2c repos
-1. General NMEA gps - fork (pynmea2)[https://github.com/Knio/pynmea2] library
+1. General NMEA gps - fork [pynmea2](https://github.com/Knio/pynmea2) library
 1. CO2 sensors
-1. More specific using ADC
+1. Analog based sensors using ADC
 
 ## The name
-Meerkats are small animals from Africa that work in groups - kind of like hardware connected to a microcontroller.
+[Meerkats](https://en.wikipedia.org/wiki/Meerkat) are small animals from Africa that work in groups - kind of like hardware connected to a microcontroller.
