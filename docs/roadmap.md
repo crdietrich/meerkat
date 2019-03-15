@@ -10,7 +10,9 @@ embedded systems.
 
 ## General Concepts
 1. Use [Numpy Docstring style](https://numpydoc.readthedocs.io/en/latest/format.html)
+1. Naming convention for devices will be as follows 'Controller' for device on bus that generates the clock and initiates communication; 'Worker' for device that receives the clock and responds when addressed by the Controller.  Data transmitted from Controller to Workers will be referred to as 'messages'.
 1. Base attribute class for all devices, exposing common information and methods
+    1. Class initialized with i2c bus number
 1. Class attributes identical within a type of measurement to allow hardware swapping without refactor
 1. Serialization of data using JSON
 1. Parser to Pandas
