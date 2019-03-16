@@ -2,7 +2,7 @@
 Author: Colin Dietrich 2018
 """
 
-from meerkat.base import DeviceData
+from meerkat.base import I2C, DeviceData, time 
 from meerkat.data import CSVWriter, JSONWriter
 
 # chip register address
@@ -26,11 +26,11 @@ REG_CONFIG_ALERTPOL    = 0x0002
 REG_CONFIG_ALERTMODE   = 0x0001
 
 class MCP9808(object):
-    def __init__(self, bus, i2c_addr=0x18, output='csv'):
+    def __init__(self, bus, bus_addr=0x18, output='csv'):
     
         # i2c bus
-        self.bus = bus
-        self.bus_addr = i2c_addr
+        self.bus = I2C(bus=bus, bus_addr=bus_addr)
+        #self.bus_addr = i2c_addr
 
         # register values and defaults
         # TODO: do the constant values need to be specified?
@@ -96,7 +96,7 @@ class MCP9808(object):
         """
         reg_addr = self.reg_map[reg_name]
 
-        self.bus.write_byte(self.bus_addr, reg_addr)
+        self.bus.write_byte(reg_addr)
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
@@ -121,7 +121,9 @@ class MCP9808(object):
         """
 
         reg_addr = self.reg_map[reg_name]
-        ub, lb = self.bus.read_i2c_block_data(self.bus_addr, reg_addr, 2)
+        ulb = self.bus.read_register_16bit(reg_addr)
+        ub = ulb >> 8 
+        lb = ulb & 0xff
         return ub, lb
 
     def get_status(self):
@@ -205,7 +207,7 @@ class MCP9808(object):
                 return data_list[0]        
         return data_list
 
-    def write(self, description='no_description', n=1):
+    def write(self, description='no_description', n=1, delay=None):
         """Format output and save to file, formatted as either
         .csv or .json.
         
@@ -224,3 +226,6 @@ class MCP9808(object):
         self.writer.header = ['description', 'sample_n', 'temperature']
         for m in range(1,n+1):        
             self.writer.write([description, m, self.get_temp()])
+            if delay is not None:
+                time.sleep(delay)
+
