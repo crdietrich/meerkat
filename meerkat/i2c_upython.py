@@ -14,9 +14,11 @@ class WrapI2C:
         ----------
         bus_n : int, i2c bus connected to worker devices
         bus_addr : hex, address of worker device on i2c bus
+        frequency : int, frequency of i2c bus.  Note MicroPython arg is 'frequencey'
+            whereas PyCom term is 'baudrate'
         """
 
-        self.bus = I2C(bus_n, I2C.MASTER, freq=frequency)
+        self.bus = I2C(bus_n, I2C.MASTER, baudrate=frequency)
         self.bus_addr = bus_addr
 
     def read_byte(self):

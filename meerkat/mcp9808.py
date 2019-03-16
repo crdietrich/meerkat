@@ -25,12 +25,12 @@ REG_CONFIG_ALERTSEL    = 0x0002
 REG_CONFIG_ALERTPOL    = 0x0002
 REG_CONFIG_ALERTMODE   = 0x0001
 
+
 class MCP9808(object):
-    def __init__(self, bus, bus_addr=0x18, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x18, output='csv'):
     
         # i2c bus
-        self.bus = I2C(bus=bus, bus_addr=bus_addr)
-        #self.bus_addr = i2c_addr
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
         # register values and defaults
         # TODO: do the constant values need to be specified?
@@ -57,7 +57,7 @@ class MCP9808(object):
         self.device.urls = 'https://www.microchip.com/datasheet/MCP9808'
         self.device.active = None
         self.device.error = None
-        self.device.bus = repr(bus)
+        self.device.bus = repr(self.bus)
         self.device.manufacturer = 'Microchip'
         self.device.version_hw = '0.1'
         self.device.version_sw = '0.1'
@@ -224,7 +224,7 @@ class MCP9808(object):
             temperature : float, temperature in degrees Celcius
         """
         self.writer.header = ['description', 'sample_n', 'temperature']
-        for m in range(1,n+1):        
+        for m in range(1, n+1):
             self.writer.write([description, m, self.get_temp()])
             if delay is not None:
                 time.sleep(delay)
