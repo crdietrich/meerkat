@@ -2,16 +2,9 @@
 Author: Colin Dietrich 2017
 """
 
-from time import sleep
-
-from meerkat.base import DeviceData, twos_comp_to_dec
+from meerkat.base import I2C, DeviceData, twos_comp_to_dec, time
 from meerkat.data import CSVWriter, JSONWriter
 
-# chip register address
-REG_CONVERT = 0b00000000
-REG_CONFIG  = 0b00000001
-REG_LO      = 0b00000010
-REG_HI      = 0b00000011
 
 # config bit masks
 BIT_OS        = 32767
@@ -26,11 +19,18 @@ BIT_COMP_QUE  = 3
 
 
 class ADS1115(object):
-    def __init__(self, bus, i2c_addr=0x48, output='csv'):
-        
+    def __init__(self, bus_n, bus_addr=0x48, output='csv'):
+        """Initialize worker device on i2c bus.
+
+        Parameters
+        ----------
+        bus_n : int, i2c bus number on Controller
+        bus_addr : int, i2c bus number of this Worker device        
+        """
+
         # i2c bus
-        self.bus = bus
-        self.bus_addr = i2c_addr
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        #self.bus_addr = i2c_addr
 
         # time to wait for conversion to finish
         self.delay = 0.009  # units = seconds
@@ -91,7 +91,7 @@ class ADS1115(object):
         self.device.urls = 'www.ti.com/product/ADS1115'
         self.device.active = None
         self.device.error = None
-        self.device.bus = repr(bus)
+        self.device.bus = repr(self.bus)
         self.device.manufacturer = 'Texas Instruments'
         self.device.version_hw = '1.0'
         self.device.version_sw = '1.0'
@@ -118,7 +118,7 @@ class ADS1115(object):
     def set_pointer(self, reg_name):
         """Set the pointer register address
         
-        Allowed address name parameters:
+        Allowed register names:
             'conversion'
             'config'
             'lo_thres'
@@ -130,10 +130,17 @@ class ADS1115(object):
         """
         reg_addr = self.reg_map[reg_name]
 
-        self.bus.write_byte(self.bus_addr, reg_addr)
+        self.bus.write_byte(reg_addr)
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
+
+        Allowed register names:
+            'conversion'
+            'config'
+            'lo_thres'
+            'hi_thresh'
+        
         Parameters
         ----------
         reg_name : str, name of registry to read
@@ -143,19 +150,27 @@ class ADS1115(object):
         16 bit registry value
         """
 
-        # read_i2_block_data is all that's needed:
-        # W 0x48 0x01 R 0x48 0xNN 0xMM
         reg_addr = self.reg_map[reg_name]
-        x, y = self.bus.read_i2c_block_data(self.bus_addr, reg_addr, 2)
-        return (x << 8) | y
+        return self.bus.read_register_16bit(reg_addr)
 
 
     def write_register_16bit(self, reg_name, data):
-        """Write a 16 bit register"""
+        """Write a 16 bits of data to register
+        
+        Allowed register names:
+            'conversion'
+            'config'
+            'lo_thres'
+            'hi_thresh'
+
+        Parameters
+        ----------
+        reg_name : str, name of registry to read
+        data : int, 16 bit value to write to register
+        """
+
         reg_addr = self.reg_map[reg_name]
-        self.bus.write_i2c_block_data(self.bus_addr, reg_addr, 
-                                      [(data >> 8) & 0xff,
-                                        data & 0xff])
+        self.bus.write_register_16bit(reg_addr, data)
         return True
 
 
@@ -251,7 +266,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MUX)
                              | (self.str_mux[x] << 12))
         self.set_config()
-        sleep(self.delay)
+        time.sleep(self.delay)
         self.mux_value = (self.config_value >> 12) & 0b111
 
 
@@ -267,7 +282,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_PGA)
                              | (self.str_pga[x] << 9))
         self.set_config()
-        sleep(self.delay)  # needs at least 7 ms to complete
+        time.sleep(self.delay)  # needs at least 7 ms to complete
         self.pga_value = (self.config_value >> 9) & 0b111
         self.pga_float = self.bin_pga[self.pga_value]
 
@@ -283,7 +298,7 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MODE)
                              | (self.str_mode[x] << 8))
         self.set_config()
-        sleep(self.delay)
+        time.sleep(self.delay)
         self.mode_value = (self.config_value >> 8) & 0b1
 
 
@@ -372,7 +387,7 @@ class ADS1115(object):
         """
 
         self.os()
-        sleep(self.delay)
+        time.sleep(self.delay)
         self.get_conversion()
 
 
