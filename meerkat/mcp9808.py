@@ -28,7 +28,14 @@ REG_CONFIG_ALERTMODE   = 0x0001
 
 class MCP9808(object):
     def __init__(self, bus_n, bus_addr=0x18, output='csv'):
-    
+        """Initialize worker device on i2c bus.
+
+        Parameters
+        ----------
+        bus_n : int, i2c bus number on Controller
+        bus_addr : int, i2c bus number of this Worker device        
+        """
+        
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
