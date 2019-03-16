@@ -21,6 +21,7 @@ except ImportError:
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
 
+
 def generate_UUID():
     # placeholder for UUID
     return 'non-compliant-UUID'
