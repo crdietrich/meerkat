@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# files used in MicroPython, not Meerkat
+boot.py
+main.py
+
 # Data files output by meerkat
 *.csv
 *_JSON_data.txt
