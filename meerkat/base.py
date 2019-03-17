@@ -9,6 +9,18 @@ try:
 except ImportError:
     import json
 
+try: 
+    import utime as time
+except ImportError:
+    import time
+
+try:
+    from meerkat import i2c_upython
+    I2C = i2c_upython.WrapI2C
+except ImportError:
+    from meerkat import i2c_pi
+    I2C = i2c_pi.WrapI2C
+
 
 def generate_UUID():
     # placeholder for UUID

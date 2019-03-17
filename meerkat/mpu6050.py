@@ -28,7 +28,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from meerkat.base import DeviceData
+from meerkat.base import I2C, DeviceData
 from meerkat.data import CSVWriter, JSONWriter
 
 
@@ -80,22 +80,21 @@ class mpu6050:
     ACCEL_CONFIG = 0x1C
     GYRO_CONFIG = 0x1B
 
-    def __init__(self, bus, i2c_addr=0x68, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x68, output='csv'):
 
         # i2c bus
-        self.bus_addr = i2c_addr
-        self.bus = bus
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
         
         # Wake up the MPU-6050 since it starts in sleep mode
-        self.bus.write_byte_data(self.bus_addr, self.PWR_MGMT_1, 0x00)
-
+        self.bus.write_n_bytes(self.PWR_MGMT_1)
+        
         # information about this device
         self.device = DeviceData('MPU-6050')
         self.device.description = ('TDK InvenSense Gyro & Accelerometer')
         self.device.urls = 'https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/'
         self.device.active = None
         self.device.error = None
-        self.device.bus = repr(bus)
+        self.device.bus = repr(self.bus)
         self.device.manufacturer = 'TDK'
         self.device.version_hw = '0.1'
         self.device.version_sw = '0.1'
@@ -126,11 +125,8 @@ class mpu6050:
         register -- the first register to read from.
         Returns the combined read results.
         """
-        # Read the data from the registers
-        high = self.bus.read_byte_data(self.bus_addr, register)
-        low = self.bus.read_byte_data(self.bus_addr, register + 1)
-
-        value = (high << 8) + low
+        
+        value = self.bus.read_register_16bit(register)
 
         if value >= 0x8000:
             return -((65535 - value) + 1)
@@ -162,10 +158,10 @@ class mpu6050:
         self.accel_range = accel_range # set here for now
 
         # First change it to 0x00 to make sure we write the correct value later
-        self.bus.write_byte_data(self.bus_addr, self.ACCEL_CONFIG, 0x00)
+        self.bus.write_register_16bit(self.ACCEL_CONFIG, 0x00)
 
         # Write the new range to the ACCEL_CONFIG register
-        self.bus.write_byte_data(self.bus_addr, self.ACCEL_CONFIG, accel_range)
+        self.bus.write_register_16bit(self.ACCEL_CONFIG, accel_range)
 
     def read_accel_range(self, raw = False):
         """Reads the range the accelerometer is set to.
@@ -175,7 +171,7 @@ class mpu6050:
         If raw is False, it will return an integer: -1, 2, 4, 8 or 16. When it
         returns -1 something went wrong.
         """
-        raw_data = self.bus.read_byte_data(self.bus_addr, self.ACCEL_CONFIG)
+        raw_data = self.bus.read_register_16bit(self.ACCEL_CONFIG)
 
         if raw is True:
             return raw_data
@@ -198,9 +194,10 @@ class mpu6050:
         If g is False, it will return the data in m/s^2
         Returns a dictionary with the measurement results.
         """
-        x = self.read_i2c_word(self.ACCEL_XOUT0)
-        y = self.read_i2c_word(self.ACCEL_YOUT0)
-        z = self.read_i2c_word(self.ACCEL_ZOUT0)
+        
+        x = self.bus.read_register_16bit(self.ACCEL_XOUT0)
+        y = self.bus.read_register_16bit(self.ACCEL_YOUT0)
+        z = self.bus.read_register_16bit(self.ACCEL_ZOUT0)
 
         accel_scale_modifier = None
         accel_range = self.read_accel_range(True)
@@ -239,10 +236,10 @@ class mpu6050:
         self.gyro_range = gyro_range # set here for now
 
         # First change it to 0x00 to make sure we write the correct value later
-        self.bus.write_byte_data(self.bus_addr, self.GYRO_CONFIG, 0x00)
+        self.bus.write_register_16bit(self.GYRO_CONFIG, 0x00)
 
         # Write the new range to the ACCEL_CONFIG register
-        self.bus.write_byte_data(self.bus_addr, self.GYRO_CONFIG, gyro_range)
+        self.bus.write_register_16bit(self.GYRO_CONFIG, gyro_range)
 
     def read_gyro_range(self, raw = False):
         """Reads the range the gyroscope is set to.
@@ -252,7 +249,8 @@ class mpu6050:
         If raw is False, it will return 250, 500, 1000, 2000 or -1. If the
         returned value is equal to -1 something went wrong.
         """
-        raw_data = self.bus.read_byte_data(self.bus_addr, self.GYRO_CONFIG)
+        
+        raw_data = self.bus.read_register_16bit(self.GYRO_CONFIG)
 
         if raw is True:
             return raw_data
@@ -367,3 +365,4 @@ class mpu6050:
         """
         for m in range(1,n+1):        
             self.writer.write(self._get_all_data(description, m))
+
