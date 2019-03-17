@@ -36,9 +36,9 @@ class WrapI2C:
         data : int, 8 bits of data
         """
         self.bus.write_bytes(self.bus_addr, data)
-        
-    def read_register_16bit(self, reg_addr):
-        """Get the values from one registry
+
+    def read_register_8bit(self, reg_addr):
+        """Get the values from one 8 bit register
         
         Parameters
         ----------
@@ -46,7 +46,34 @@ class WrapI2C:
 
         Returns
         -------
-        16 bit value of registry
+        8 bit value of register
+        """
+
+        self.bus.write_bytes(self.bus_addr, reg_addr)
+        value = self.bus.get(self.bus_addr, 1)[0]
+        return int.from_bytes(value, byteorder='big')
+
+    def write_register_8bit(self, reg_addr, data):
+        """Write a 8 bit register
+
+        Parameters
+        ----------
+        reg_addr : int, register internal to the worker device
+        data : int, 8 bit value to write
+        
+        """
+        self.bus.write_bytes(self.bus_addr, reg_addr, data)
+        
+    def read_register_16bit(self, reg_addr):
+        """Get the values from one register
+        
+        Parameters
+        ----------
+        reg_addr : int, registry internal to the worker device to read
+
+        Returns
+        -------
+        16 bit value of register
         """
 
         self.bus.write_bytes(self.bus_addr, reg_addr)
