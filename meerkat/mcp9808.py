@@ -2,7 +2,7 @@
 Author: Colin Dietrich 2018
 """
 
-from meerkat.base import DeviceData
+from meerkat.base import I2C, DeviceData, time 
 from meerkat.data import CSVWriter, JSONWriter
 
 # chip register address
@@ -25,12 +25,19 @@ REG_CONFIG_ALERTSEL    = 0x0002
 REG_CONFIG_ALERTPOL    = 0x0002
 REG_CONFIG_ALERTMODE   = 0x0001
 
+
 class MCP9808(object):
-    def __init__(self, bus, i2c_addr=0x18, output='csv'):
-    
+    def __init__(self, bus_n, bus_addr=0x18, output='csv'):
+        """Initialize worker device on i2c bus.
+
+        Parameters
+        ----------
+        bus_n : int, i2c bus number on Controller
+        bus_addr : int, i2c bus number of this Worker device        
+        """
+        
         # i2c bus
-        self.bus = bus
-        self.bus_addr = i2c_addr
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
         # register values and defaults
         # TODO: do the constant values need to be specified?
@@ -57,7 +64,7 @@ class MCP9808(object):
         self.device.urls = 'https://www.microchip.com/datasheet/MCP9808'
         self.device.active = None
         self.device.error = None
-        self.device.bus = repr(bus)
+        self.device.bus = repr(self.bus)
         self.device.manufacturer = 'Microchip'
         self.device.version_hw = '0.1'
         self.device.version_sw = '0.1'
@@ -96,7 +103,7 @@ class MCP9808(object):
         """
         reg_addr = self.reg_map[reg_name]
 
-        self.bus.write_byte(self.bus_addr, reg_addr)
+        self.bus.write_byte(reg_addr)
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
@@ -121,7 +128,9 @@ class MCP9808(object):
         """
 
         reg_addr = self.reg_map[reg_name]
-        ub, lb = self.bus.read_i2c_block_data(self.bus_addr, reg_addr, 2)
+        ulb = self.bus.read_register_16bit(reg_addr)
+        ub = ulb >> 8 
+        lb = ulb & 0xff
         return ub, lb
 
     def get_status(self):
@@ -205,7 +214,7 @@ class MCP9808(object):
                 return data_list[0]        
         return data_list
 
-    def write(self, description='no_description', n=1):
+    def write(self, description='no_description', n=1, delay=None):
         """Format output and save to file, formatted as either
         .csv or .json.
         
@@ -222,5 +231,8 @@ class MCP9808(object):
             temperature : float, temperature in degrees Celcius
         """
         self.writer.header = ['description', 'sample_n', 'temperature']
-        for m in range(1,n+1):        
+        for m in range(1, n+1):
             self.writer.write([description, m, self.get_temp()])
+            if delay is not None:
+                time.sleep(delay)
+

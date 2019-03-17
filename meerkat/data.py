@@ -18,7 +18,7 @@ class Writer(object):
     def __init__(self, name, time_format='std_time'):
         # data and file attributes
         self.name = name
-        #self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
+        # self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
         self.title = None
         self.description = None
         self.format = None
@@ -52,7 +52,7 @@ class Writer(object):
 
         # timestamp formatter
         self.time_format = time_format
-        self.timepiece = TimePiece(format=self.time_format)
+        self.timepiece = TimePiece(time_format=self.time_format)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -67,7 +67,7 @@ class Writer(object):
         """
         d = {}
         for k, v in self.__dict__.items():
-            if (k[0] != '_'):
+            if k[0] != '_':
                 d[k] = v
         return d
 
@@ -221,7 +221,7 @@ class JSONWriter(Writer):
         -------
         str, JSON formatted metadata describing JSON data format
         """
-        return json.dumps({'metadata': self.values}) #, 'uuid': self.uuid})
+        return json.dumps({'metadata': self.values})  # , 'uuid': self.uuid})
 
     def create_data(self, data, indent=None):
         data_out = {}
@@ -301,7 +301,7 @@ class HTMLWriter(Writer):
 
     def write_header(self):
         with open(self.path, 'w') as f:
-            f.write(self.header + self.line_terminator)
+            f.write(self.header() + self.line_terminator)
 
     def append(self, data):
         with open(self.path, 'w') as f:

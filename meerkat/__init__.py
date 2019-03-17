@@ -1,1 +1,1 @@
-name = 'meerkat'
+version = 0.3
