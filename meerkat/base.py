@@ -9,6 +9,18 @@ try:
 except ImportError:
     import json
 
+try: 
+    import utime as time
+except ImportError:
+    import time
+
+try:
+    from meerkat import i2c_upython
+    I2C = i2c_upython.WrapI2C
+except ImportError:
+    from meerkat import i2c_pi
+    I2C = i2c_pi.WrapI2C
+
 
 def generate_UUID():
     # placeholder for UUID
@@ -127,7 +139,7 @@ class TimeFormats(Base):
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, format='std_time'):
+    def __init__(self, time_format='std_time'):
         super().__init__()
         try:
             import pyb  # pyboard import
@@ -152,19 +164,12 @@ class TimePiece(Base):
                     raise
 
         self.formats_available = TimeFormats()
-        self.format_used = format
+        self.format_used = time_format
 
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
         format citation based on the attributes of the TimeFormats class.
 
-        Parameters
-        ----------
-        format : str, type of format to return.  Allowable options are:
-            'std_time'
-            'std_time_ms'
-            'iso_time'
-            'file_time'
         Returns
         -------
         str, formatted current time based on input argument
@@ -236,7 +241,7 @@ class DeviceData(Base):
 
         self.bus = None
         self.state = None  # TODO: clarify what these mean
-        self.active = None #
+        self.active = None
         self.error = None
         self.dtype = None
         self.calibration_date = None

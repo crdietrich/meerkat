@@ -2,16 +2,9 @@
 Author: Colin Dietrich 2017
 """
 
-from time import sleep
-
-from meerkat.base import DeviceData, twos_comp_to_dec
+from meerkat.base import I2C, DeviceData, twos_comp_to_dec, time
 from meerkat.data import CSVWriter, JSONWriter
 
-# chip register address
-REG_CONVERT = 0b00000000
-REG_CONFIG  = 0b00000001
-REG_LO      = 0b00000010
-REG_HI      = 0b00000011
 
 # config bit masks
 BIT_OS        = 32767
@@ -26,11 +19,17 @@ BIT_COMP_QUE  = 3
 
 
 class ADS1115(object):
-    def __init__(self, bus, i2c_addr=0x48, output='csv'):
-        
+    def __init__(self, bus_n, bus_addr=0x48, output='csv'):
+        """Initialize worker device on i2c bus.
+
+        Parameters
+        ----------
+        bus_n : int, i2c bus number on Controller
+        bus_addr : int, i2c bus number of this Worker device        
+        """
+
         # i2c bus
-        self.bus = bus
-        self.bus_addr = i2c_addr
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
         # time to wait for conversion to finish
         self.delay = 0.009  # units = seconds
@@ -83,15 +82,14 @@ class ADS1115(object):
         self.str_comp_que = {'1': 0b00, '2': 0b01, '3': 0b10, 'off': 0b11}
         self.bin_comp_que = {v: k for k, v in self.str_comp_que.items()}
 
-
         # information about this device
         self.device = DeviceData('ADS1115')
         self.device.description = ('Texas Instruments 16-bit 860SPS' +
-            ' 4-Ch Delta-Sigma ADC with PGA')
+                                   ' 4-Ch Delta-Sigma ADC with PGA')
         self.device.urls = 'www.ti.com/product/ADS1115'
         self.device.active = None
         self.device.error = None
-        self.device.bus = repr(bus)
+        self.device.bus = repr(self.bus)
         self.device.manufacturer = 'Texas Instruments'
         self.device.version_hw = '1.0'
         self.device.version_sw = '1.0'
@@ -118,7 +116,7 @@ class ADS1115(object):
     def set_pointer(self, reg_name):
         """Set the pointer register address
         
-        Allowed address name parameters:
+        Allowed register names:
             'conversion'
             'config'
             'lo_thres'
@@ -130,10 +128,17 @@ class ADS1115(object):
         """
         reg_addr = self.reg_map[reg_name]
 
-        self.bus.write_byte(self.bus_addr, reg_addr)
+        self.bus.write_byte(reg_addr)
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
+
+        Allowed register names:
+            'conversion'
+            'config'
+            'lo_thres'
+            'hi_thresh'
+        
         Parameters
         ----------
         reg_name : str, name of registry to read
@@ -143,26 +148,31 @@ class ADS1115(object):
         16 bit registry value
         """
 
-        # read_i2_block_data is all that's needed:
-        # W 0x48 0x01 R 0x48 0xNN 0xMM
         reg_addr = self.reg_map[reg_name]
-        x, y = self.bus.read_i2c_block_data(self.bus_addr, reg_addr, 2)
-        return (x << 8) | y
-
+        return self.bus.read_register_16bit(reg_addr)
 
     def write_register_16bit(self, reg_name, data):
-        """Write a 16 bit register"""
-        reg_addr = self.reg_map[reg_name]
-        self.bus.write_i2c_block_data(self.bus_addr, reg_addr, 
-                                      [(data >> 8) & 0xff,
-                                        data & 0xff])
-        return True
+        """Write a 16 bits of data to register
+        
+        Allowed register names:
+            'conversion'
+            'config'
+            'lo_thres'
+            'hi_thresh'
 
+        Parameters
+        ----------
+        reg_name : str, name of registry to read
+        data : int, 16 bit value to write to register
+        """
+
+        reg_addr = self.reg_map[reg_name]
+        self.bus.write_register_16bit(reg_addr, data)
+        return True
 
     def set_config(self):
         self.write_register_16bit('config', self.config_value)
         return True
-
 
     def get_conversion(self):
         """Read the ADC conversion register at address 0x00
@@ -172,7 +182,6 @@ class ADS1115(object):
         self.conversion_value = self.read_register_16bit('conversion')
         return self.conversion_value
 
-
     def get_config(self):
         """Read the configuration register at address 0x01
         Default value from chip is 0x8583 = 34179 = '0b1000010110000110'
@@ -181,7 +190,6 @@ class ADS1115(object):
 
         self.config_value = self.read_register_16bit('config')
         self.update_attributes()
-
 
     def update_attributes(self):
         """Update all attributes
@@ -207,7 +215,6 @@ class ADS1115(object):
         # Operational status / Single-shot conversion start
         self.os_value = self.config_value >> 15
 
-
     def get_lo(self):
         """Read the low threshold register at address 0x02
         Default value from chip is 0x8000
@@ -216,7 +223,6 @@ class ADS1115(object):
         self.lo_thres_value = self.read_register_16bit('lo_thresh')
         return self.lo_thres_value
 
-
     def get_hi(self):
         """Read the high threshold register at address 0x03
         Default value from chip is 0x7FFF
@@ -224,7 +230,6 @@ class ADS1115(object):
 
         self.hi_thres_value = self.read_register_16bit('hi_thresh')
         return self.hi_thres_value
-
 
     def os(self):
         """Set the operational status
@@ -236,7 +241,6 @@ class ADS1115(object):
         self.config_value = (self.config_value & BIT_OS) | (0b1 << 15)
         self.set_config()
         self.os_value = self.config_value >> 15
-
 
     def mux(self, x):
         """Set multiplexer pin pair, ADS1115 only.
@@ -251,9 +255,8 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MUX)
                              | (self.str_mux[x] << 12))
         self.set_config()
-        sleep(self.delay)
+        time.sleep(self.delay)
         self.mux_value = (self.config_value >> 12) & 0b111
-
 
     def pga(self, x):
         """Set programmable gain amplifier range.
@@ -267,10 +270,9 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_PGA)
                              | (self.str_pga[x] << 9))
         self.set_config()
-        sleep(self.delay)  # needs at least 7 ms to complete
+        time.sleep(self.delay)  # needs at least 7 ms to complete
         self.pga_value = (self.config_value >> 9) & 0b111
         self.pga_float = self.bin_pga[self.pga_value]
-
 
     def mode(self, x):
         """Set operating mode to either single or continuous.
@@ -283,9 +285,8 @@ class ADS1115(object):
         self.config_value = ((self.config_value & BIT_MODE)
                              | (self.str_mode[x] << 8))
         self.set_config()
-        sleep(self.delay)
+        time.sleep(self.delay)
         self.mode_value = (self.config_value >> 8) & 0b1
-
 
     def data_rate(self, x):
         """Set data rate of sampling
@@ -303,7 +304,6 @@ class ADS1115(object):
         self.set_config()
         self.dr_value = (self.config_value >> 5) & 0b111
 
-
     def comp_mode(self, x):
         """Set comparator mode
         ADS1114 and ADS1115 only, changes bit 4
@@ -315,7 +315,6 @@ class ADS1115(object):
                              | (self.str_comp_mode[x] << 4))
         self.set_config()
         self.comp_mode_value = (self.config_value >> 4) & 0b1
-
 
     def comp_polarity(self, x):
         """Set polarity of ALERT/RDY pin when active.
@@ -330,7 +329,6 @@ class ADS1115(object):
                              | (self.str_comp_pol[x] << 3))
         self.set_config()
         self.comp_pol_value = (self.config_value >> 3) & 0b1
-
 
     def comp_latching(self, x):
         """Set whether the ALERT/RDY pin latches or clears when conversions
@@ -348,7 +346,6 @@ class ADS1115(object):
         self.set_config()
         self.comp_lat_value = (self.config_value >> 2) & 0b1
 
-
     def comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
         is set high
@@ -362,7 +359,6 @@ class ADS1115(object):
                              | (self.str_comp_lat[x] << 0))
         self.set_config()
         self.comp_que_value = self.config_value & 0b11
-        
 
     def single_shot(self):
         """Write 0x1 to bit 15 of the configuration register to initialize
@@ -372,9 +368,8 @@ class ADS1115(object):
         """
 
         self.os()
-        sleep(self.delay)
+        time.sleep(self.delay)
         self.get_conversion()
-
 
     def voltage(self):
         """Calculate the voltage measured by the chip based on conversion
@@ -388,7 +383,6 @@ class ADS1115(object):
         _x = twos_comp_to_dec(self.conversion_value, 16)
         self.volts = _x * (self.pga_float / 2**15)
         return self.volts
-
 
     def print_attributes(self):
         """Print to console current attributes"""
@@ -405,7 +399,6 @@ class ADS1115(object):
         print(' Latching:', self.bin_comp_lat[self.comp_lat_value])
         print(' Polarity: Active', self.bin_comp_pol[self.comp_pol_value])
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
-
 
     def get(self, description='no_description', n=1):
         """Get formatted output.
@@ -447,4 +440,3 @@ class ADS1115(object):
         self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
         for m in range(1,n+1):        
             self.writer.write([description, m, self.mux_value, self.voltage()])
-
