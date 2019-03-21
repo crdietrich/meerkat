@@ -54,28 +54,17 @@ class Atlas:
         # device name, pH, conductivity, etc
         self.name = None
 
-
-    def read(self, n=31, verbose=False):
-        """Read a specified number of bytes from I2C, then parse the result
-
-        Parameters
-        ----------
-        n : int, number of bytes of data to read
-        flip_MSB : bool, flip MSB of bytes
-        verbose : bool, print debug statements
-
-        Returns
-        -------
-        (bool, str) : Success/Error, values read from sensor
-        """
-
-        r = self.bus.read_n_bytes(n)
-        return r
-
     def query(self, command, n=31, delay=None, verbose=False):
         """Write a command to the i2c device and read the reply, 
         delay between reply based on command value.
-        
+
+        First byte repsonse codes
+        -------------------------        
+           1 = successful request
+           2 = syntax error
+         254 = still processing, not ready
+         255 = no data to send
+
         Parameters
         ----------
         command : str, command to execute on the device
@@ -106,6 +95,22 @@ class Atlas:
 
         if n != 0:
             return self.bus.read_n_bytes(n=n)
+
+    def led_on(self):
+        """Turn on status LED until another character is set"""
+        self.query(b'L,1', n=0)
+
+    def led_off(self):
+        """Turn off status LED"""
+        self.query(b'L,0', n=0)
+
+    def find_start(self):
+        """Blink white LED until another character is set"""
+        self.query(b'Find', n=0)
+
+    def find_stop(self):
+        """Stop white LED from blinking"""
+        self.query(0x01, n=0)
 
     def info(self):
         """Get device information
@@ -181,14 +186,6 @@ class Atlas:
 class pH(Atlas):
     def __init__(self, bus_n, bus_addr=0x63):
         super(pH, self).__init__(bus_n, bus_addr)
-        
-    def start_find(self):
-        """Blink white LED until another character is set"""
-        self.query(b'Find', n=0)
-
-    def stop_find(self):
-        """Stop white LED from blinking"""
-        self.query(b'Stop', n=0)
 
     def cal_set_mid(self, n):
         """Single point calibration at midpoint.  Manual says delay 900ms,
@@ -313,7 +310,7 @@ class pH(Atlas):
 
         Returns
         -------
-        str : measurement to three decimal places
+        float : measurement to three decimal places
         """
         
         _r = self.query(b'R', n=7, delay=950, verbose=verbose)
@@ -326,21 +323,208 @@ class Oxygen(Atlas):
         pass
 
 class Conductivity(Atlas):
-    def __init__(self):
-        pass
+    def __init__(self, bus_n, bus_addr=0x64):
+        super(Conductivity, self).__init__(bus_n, bus_addr)
 
-#if verbose:
-#    print("Bytes reply:", r)
+    def cal_set_dry(self):
+        """Execute dry calibration.  Manual says delay 600ms,
+        delay set here to 650ms.
 
-# 1 == successful request
-#if (r[0] == 1):
-#    return True, r
-#   2 = syntax error
-# 254 = still processing, not ready
-# 255 = no data to send
-#else:
-#    return False, "Error " + str(r[0])
+        Parameters
+        ----------
+        n : int, calibration value
+        """
+        _r = self.query(b"CAL,dry", n=0, delay=650)
 
-#restart_code = {'P': 'powered off', 'S': 'software reset',
-#                            'B': 'brown out', 'W': 'watchdog',
-#                            'U': 'unknown'}
+    def cal_set_one(self, n):
+        """Single point calibration.  Manual says delay 600ms,
+        delay set here to 650ms.
+
+        Parameters
+        ----------
+        n : int, calibration value
+        """
+        _r = self.query(bytes("CAL,{}".format(n), encoding='utf-8'), 
+                        n=0,
+                        delay=650)
+
+    def cal_set_low(self, n):
+        """Low point of two point calibration.  Manual says delay 600ms,
+        delay set here to 650ms.
+
+        Parameters
+        ----------
+        n : int, calibration value
+        """
+        _r = self.query(bytes("CAL,low,{}".format(n), encoding='utf-8'), 
+                        n=0,
+                        delay=650)
+
+    def cal_set_high(self, n):
+        """High point of two point calibration.  Manual says delay 600ms,
+        delay set here to 950ms.
+
+        Parameters
+        ----------
+        n : int, calibration value
+        """
+        _r = self.query(bytes("CAL,high,{}".format(n), encoding='utf-8'), 
+                        n=0,
+                        delay=650)
+
+    def cal_clear(self):
+        """Clear calibration points (dry, one, low, high)"""
+
+        _r = self.query(bytes("CAL,clear", encoding='utf-8'), 
+                        n=0,
+                        delay=0)
+
+    def cal_get(self, verbose=False):
+        """Get calibration status:
+            0 = no calibration
+            1 = 1 point calibration
+            2 = 2 point calibration
+
+        Parameters
+        ----------
+        verbose : bool, print debug statements
+
+        Returns
+        -------
+        int, number of calibration points
+        """
+        
+        _r = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
+        _r = _r.decode('utf-8') 
+        _r = _r.split(",")
+        return int(_r[1])
+        return _r
+
+    def set_probe_type(self, k, verbose=False):
+        """Set the probe type.
+
+        Parameters
+        ----------
+        k : float, K value for probe being used
+
+        """
+
+        _r = self.query(bytes("K,{}".format(k), encoding='utf-8'), n=0)
+
+    def get_probe_type(self, verbose=False):
+        """Return the probe type.
+
+        Returns
+        -------
+        k : float, K value for probe being used
+
+        """
+
+        _r = self.query(bytes("K,?", encoding='utf-8'), n=10, delay=350)
+        _r = _r.decode('utf-8')
+        _r = _r.split(",")
+        k = float(_r[1])
+        return k
+
+    def temp_set(self, t, verbose=False):
+        """Set the temperature for compensation calculations
+
+        Parameters
+        ----------
+        t : float, temperature in degrees C accurate to 2 decimal places
+        verbose: bool, print debug statements
+        
+        Returns
+        -------
+        boolean, command success
+        """
+        _r = self.query(bytes("T,{:.2f}".format(t), encoding='utf-8'), 
+                        n=0,
+                        verbose=verbose)
+
+    def temp_get(self, verbose=False):
+        """Get temperature currently set for compensation calculations
+
+        Parameters
+        ----------
+        verbose: bool, print debug statements
+        
+        Returns
+        -------
+        float, temperature in degrees C accurate to 2 decimal places
+        """
+
+        _r = self.query(b'T,?', n=9, delay=350, verbose=verbose)
+        _r = _r.decode('utf-8')
+        _r = _r.split(',')
+        temp = float(_r[1])        
+        return temp
+
+    def output_conductivity_on(self):
+        """Turn on conductivity output"""
+
+        _r = self.query(b"O,EC,1", n=0)
+        
+    def output_conductivity_off(self):
+        """Turn off conductivity output"""
+
+        _r = self.query(b"O,EC,0", n=0)
+
+    def output_TDS_on(self):
+        """Turn on TDS output"""
+
+        _r = self.query(b"O,TDS,1", n=0)
+        
+    def output_TDS_off(self):
+        """Turn off TDS output"""
+
+        _r = self.query(b"O,TDS,0", n=0)
+
+    def output_salinity_on(self):
+        """Turn on salinity output"""
+
+        _r = self.query(b"O,S,1", n=0)
+        
+    def output_salinity_off(self):
+        """Turn off salinity output"""
+
+        _r = self.query(b"O,S,0", n=0)
+
+    def output_specific_gravity_on(self):
+        """Turn on specific gravity output"""
+
+        _r = self.query(b"O,SG,1", n=0)
+        
+    def output_specific_gravity_off(self):
+        """Turn off specific gravity  output"""
+
+        _r = self.query(b"O,SG,0", n=0)
+
+    def output_get(self):
+        """Get status for all output formats: EC, TDS, S, SG
+
+        Returns
+        -------
+        str : each output format displayed or 'no output' if all disabled
+        """
+
+        _r = self.query(b'O,?', n=20, delay=350)
+        _r = _r.decode('utf-8')
+        return _r
+
+    def measure(self, verbose=False):
+        """Take a Conductivity measurement
+
+        Parameters
+        ----------
+        verbose : bool, print debug statements
+
+        Returns
+        -------
+        int : conductivity measurement
+        """
+        
+        _r = self.query(b'R', n=40, delay=650, verbose=verbose)
+        _r = _r.decode('utf-8')
+        return _r
+
