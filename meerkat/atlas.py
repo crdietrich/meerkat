@@ -3,221 +3,235 @@
 2018 Colin Dietrich
 MIT License"""
 
-import io
-import fcntl
-import time
 
+from meerkat.base import I2C, DeviceData, time 
+from meerkat.data import CSVWriter, JSONWriter
+
+
+def scan(bus_n):
+    """Scan I2C bus for devices
+
+    Parameters
+    ----------
+    bus_n : int, I2C bus to scan
+    """
+    
+    device_descriptions = [[0x61, "DO", "Dissolved Oxygen"], 
+                           [0x62, "ORP", "Oxidation Reduction"],
+                           [0x63, "pH", "pH"],
+                           [0x64, "EC", "Conductivity"]]
+    
+    for bus_addr, code, description in devices:
+        try:
+            dev = Atlas(bus_n=bus_n, bus_addr=bus_addr)
+            device, firmware = dev.info()
+            print("{} found at: {}".format(description, bus_addr))
+        except:
+            pass
 
 class Atlas:
     """Base class for Atlas Scientific sensors"""
 
-    long_timeout    = 1.5 # the timeout needed to query readings and calibrations
-    short_timeout   = 0.3 # timeout for regular commands
-    default_bus     = 1   # the default i2c bus newer pis, older ones used 0
 
-    def __init__(self, bus, i2c_addr):
+    def __init__(self, bus_n, bus_addr, output='csv'):
+        """Initialize worker device on i2c bus.
 
-        self.file_read = io.open("/dev/i2c-"+str(bus), "rb", buffering = 0)
-        self.file_write = io.open("/dev/i2c-"+str(bus), "wb", buffering = 0)
+        Parameters
+        ----------
+        bus_n : int, i2c bus number on Controller
+        bus_addr : int, i2c bus number of this Worker device        
+        """
 
-        # initializes I2C to either a user specified or default address
-        self.set_i2c_address(i2c_addr)
+        # i2c bus
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
+
+        # time to wait for conversions to finish
+        self.short_delay   = 0.3  # seconds for regular commands
+        self.long_delay    = 1.5  # seconds for readings
+        self.cal_delay     = 3.0  # seconds for calibrations
+
+        # device name, pH, conductivity, etc
         self.name = None
 
-    def get_name(self):
-        """For terminal printing and identification, move to subclass?"""
-        names = {"DO": "Dissolved Oxygen", "ORP": "Oxidation Reduction",
-                 "EC": "Conductivity", "pH": "pH", }
-
-        while self.name is None:
-            try:
-                q = self.query("I")
-                info = string.split(q[1], ",")[1]
-                self.name = names[info]
-            except IndexError:
-                pass
-            except KeyError:
-                pass
-
-
-    def set_i2c_address(self, bus_addr):
-        """Set the I2C communications slave address. The commands for I2C dev 
-        using the ioctl functions are specified in the i2c-dev.h file 
-        from i2c-tools.
-        
-        Parameters
-        ----------
-        bus_addr : int or hex number
-        """
-        I2C_SLAVE = 0x703
-        fcntl.ioctl(self.file_read, I2C_SLAVE, bus_addr)
-        fcntl.ioctl(self.file_write, I2C_SLAVE, bus_addr)
-
-    def write(self, b):
-        """Write to the i2c bus
-        
-        Parameters
-        ----------
-        b : bytes, values to write to i2c device
-        """
-        self.file_write.write(b)
-        
-    def _read(self, n=31):
-        """Read from the i2c bus.  Will continue to read even if device has nothing
-        more to send, extra bytes will be zeros.
-        
-        Parameters
-        ----------
-        n : int, number of bytes to read
-        """
-        return self.file_read.read(n)
 
     def read(self, n=31, verbose=False):
-        """Read a specified number of bytes from I2C, then parses and displays the result
+        """Read a specified number of bytes from I2C, then parse the result
 
         Parameters
         ----------
-        num_of_bytes : int, number of bytes of data to read
+        n : int, number of bytes of data to read
+        flip_MSB : bool, flip MSB of bytes
+        verbose : bool, print debug statements
 
         Returns
         -------
         (bool, str) : Success/Error, values read from sensor
         """
 
-        r = self.file_read.read(n)
-        if verbose:
-            print("Bytes reply:", r)
-        
-        # 1 == successful request
-        if (r[0] == 1):
-            # change MSB to 0 to handle pi behavior
-            r_str = "".join([chr(x & ~0x80) for x in r[1:] if x != 0])
-            return True, r_str
-        #   2 = syntax error
-        # 254 = still processing, not ready
-        # 255 = no data to send
-        else:
-            return False, "Error " + str(r[0])
+        r = self.bus.read_n_bytes(n)
+        return r
 
-    def query(self, command, n=31, verbose=False):
-        """Write a command to the i2c device and read the reply, delay between reply
-        based on command value.
+    def query(self, command, n=31, delay=None, verbose=False):
+        """Write a command to the i2c device and read the reply, 
+        delay between reply based on command value.
         
         Parameters
         ----------
         command : str, command to execute on the device
         n : int, number of bytes to read
+        delay : float, number of milliseconds to delay before reading response
         verbose : bool, print debug statements
         
         Returns
         -------
-        str : response from device, may include commas and require further parsing
+        str : response, may require further parsing
         """
         
-        if type(command) == str:
-            byte_command = bytes(command, 'utf-8')
-        else:
+        if verbose:        
+            print("Input Type: ", type(command))
+
+        if (type(command) == int) or (type(command) == bytes):
             byte_command = command
-            command = command.decode('utf-8')
+        else:
+            byte_command = [ord(x) for x in command]
 
         if verbose:
             print("Bytes sent:", command)
 
-        self.write(byte_command)
+        self.bus.write_n_bytes(*byte_command)
         
-        if command.upper().startswith("R"):
-            time.sleep(self.long_timeout)
-        elif command.upper().startswith("CAL"):
-            time.sleep(4)
-        else:
-            time.sleep(self.short_timeout)
+        if delay is not None:
+            time.sleep(delay/1000)
 
-        return self.read(n=n, verbose=verbose)
+        if n != 0:
+            return self.bus.read_n_bytes(n=n)
 
-    def _command(self, command, value=None, verbose=False):
-        if value is None:
-            b = bytes(command, 'utf-8')
-        else:
-            b = bytes("{},{:.2f}".format(command, value), 'utf-8')
-        c, v = self.query(b)
-        if verbose:
-            print(c, v)
-        return c
-
-    def info(self, verbose=False):
+    def info(self):
         """Get device information
-
-        Parameters
-        ----------
-        verbose : bool, print debug statements
 
         Returns
         -------
-        str : device type and firmware version delimited with a comma
+        device: str, device type 
+        firmware : str, firmware version
         """
-        c, v = self._command("i", verbose=verbose)
-        if c:
-            v = v.split(",")
-            return ",".join(v[1:])
-        else:
-            return v
 
-    def status(self, verbose=False):
-        c, v = self.query('Status', verbose=verbose)
-        if c:        
-            v = v.split(",")
-            restart_code = {'P': 'powered off', 'S': 'software reset',
-                            'B': 'brown out', 'W': 'watchdog',
-                            'U': 'unknown'}[v[1]]
-            return restart_code, v[2]
-        else:
-            return v
+        _r = self.query(b'i', n=15, delay=350)
+        _r = _r.decode('utf-8')
+        _, device, firmware = _r.split(",")
+        return device, firmware
 
-    def plock_status(self, verbose=False):
-        c, v = self.query('Plock,?', verbose=verbose)
-        if c:
-            return v
+    def status(self):
+        """Get device status
+
+        Returns
+        -------
+        restart code : str, one character meaning
+            P = power off
+            S = software reset
+            B = brown out
+            W = watchdog
+            U = unknown
+        vcc : float, supply voltage of input to device
+        """
+        _r = self.query(b'Status', n=15, delay=350)
+        _r = _r.decode('utf-8')
+        _, restart_code, vcc = _r.split(",")
+        return restart_code, float(vcc)
+
+    def sleep(self):
+        """Put device to sleep.  Any byte sent wakes."""
+        _r = self.query(b'Sleep', n=0)
+    
+    def wake(self):
+        """Wake device from sleep state"""
+        _r = self.query(0x01, n=0)
+
+    def plock_status(self):
+        """Get protocol lock status"""
+        _r = self.query(b'Plock,?', n=9, delay=350, verbose=verbose)
+        _r = _r.decode('utf-8')
+        _, plock_state = _r.split(",")
+        return int(plock_state)
 
     def plock_on(self):
-        pass
+        """Lock device into I2C mode"""
+        _r = self.query(b'Plock,1', n=0)
 
     def plock_off(self):
-        pass
+        """Unlock device from I2C mode"""
+        _r = self.query(b'Plock,0', n=0)
 
-    def close(self):
-        """Close both io file objects bound to the i2c bus"""
-        self.file_read.close()
-        self.file_write.close()
+    def reset(self):
+        """Completely reset device.  Clears calibration, sets LED on and 
+        enables reponse codes"""
+        _r = self.query(b'Factory', n=0)
+
+    def change_i2c_bus_address(self, n):
+        """Change the device I2C bus address - device will not be accessible
+        until contacted at new I2C address.  Response is device reboot.
+
+        Parameters
+        ----------
+        n : int, I2C address, can be any number 1-127 inclusive
+        """
+        _r = self.query(bytes("I2C,{}".format(n), encoding='utf-8'), n=0)
 
 
 class pH(Atlas):
-    def __init__(self, bus, i2c_addr):
-        super(pH, self).__init__(bus, i2c_addr)
+    def __init__(self, bus_n, bus_addr=0x63):
+        super(pH, self).__init__(bus_n, bus_addr)
         
     def start_find(self):
         """Blink white LED until another character is set"""
-        self.write(b'Find')
+        self.query(b'Find', n=0)
 
     def stop_find(self):
         """Stop white LED from blinking"""
-        self.write(b'Stop')
+        self.query(b'Stop', n=0)
 
-    def cal_set_low(self, value, verbose=False):
-        c = self._command('CAL,low', value, verbose=verbose)
-        return c        
+    def cal_set_mid(self, n):
+        """Single point calibration at midpoint.  Manual says delay 900ms,
+        delay set here to 950ms.
 
-    def cal_set_mid(self, value, verbose=False):
-        c = self._command('CAL,mid', value, verbose=verbose)
-        return c
+        Parameters
+        ----------
+        n : float, calibration value to 2 decimal places
+        """
+        _r = self.query(bytes("CAL,mid,{:.2f}".format(n), encoding='utf-8'), 
+                        n=0,
+                        delay=950)
 
-    def cal_set_high(self, value, verbose=False):
-        c = self._command('CAL,high', value, verbose=verbose)
-        return c
+    def cal_set_low(self, n):
+        """Single point calibration at lowpoint.  Manual says delay 900ms,
+        delay set here to 950ms.
 
-    def cal_clear(self, verbose=False):
-        c = self._command(b'CAL,clear', verbose=verbose)
-        return c
+        Parameters
+        ----------
+        n : float, calibration value to 2 decimal places
+        """
+        _r = self.query(bytes("CAL,low,{:.2f}".format(n), encoding='utf-8'), 
+                        n=0,
+                        delay=950)
+
+    def cal_set_high(self, n):
+        """Single point calibration at highpoint.  Manual says delay 900ms,
+        delay set here to 950ms.
+
+        Parameters
+        ----------
+        n : float, calibration value to 2 decimal places
+        """
+        _r = self.query(bytes("CAL,high,{:.2f}".format(n), encoding='utf-8'), 
+                        n=0,
+                        delay=950)
+
+    def cal_clear(self):
+        """Clear calibration points (mid, low, high)"""
+
+        _r = self.query(bytes("CAL,clear", encoding='utf-8'), 
+                        n=0,
+                        delay=0)
 
     def cal_get(self, verbose=False):
         """Get calibration status:
@@ -229,14 +243,17 @@ class pH(Atlas):
         Parameters
         ----------
         verbose : bool, print debug statements
+
+        Returns
+        -------
+        int, number of calibration points
         """
         
-        c, v = self.query("Cal,?", verbose=verbose)
-        if c:
-            v = v.split(",")
-            return v[1]
-        else:
-            return v
+        _r = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
+        _r = _r.decode('utf-8') 
+        _r = _r.split(",")
+        return int(_r[1])
+        return _r
 
     def cal_slope(self, verbose=False):
         """Return the calibration error relative to acid and base ideals
@@ -246,12 +263,12 @@ class pH(Atlas):
         a : float, precentage delta from ideal fit
         b : float, precentage delta from ideal fit
         """
-        c, v = self.query("Slope,?", verbose=verbose)
-        if c:
-            v = v.split(",")
-            return v[2], v[3]
-        else:
-            return v
+        _r = self.query(b'Slope,?', n=24, delay=350, verbose=verbose)
+        _r = _r.decode('utf-8')
+        _r = _r.split(",")
+        acid_cal = float(_r[1])
+        base_cal = float(_r[2])
+        return acid_cal, base_cal
 
     def temp_set(self, t, verbose=False):
         """Set the temperature for compensation calculations
@@ -265,9 +282,9 @@ class pH(Atlas):
         -------
         boolean, command success
         """
-
-        c = self._command('T', t, verbose=verbose)
-        return c
+        _r = self.query(bytes("T,{:.2f}".format(t), encoding='utf-8'), 
+                        n=0,
+                        verbose=verbose)
 
     def temp_get(self, verbose=False):
         """Get temperature currently set for compensation calculations
@@ -281,15 +298,14 @@ class pH(Atlas):
         float, temperature in degrees C accurate to 2 decimal places
         """
 
-        c, v = self.query("T,?", verbose=verbose)
-        if c:
-            v = v.split(",")
-            return v[1]
-        else:
-            return v
-
+        _r = self.query(b'T,?', n=9, delay=350, verbose=verbose)
+        _r = _r.decode('utf-8')
+        _r = _r.split(',')
+        temp = float(_r[1])        
+        return temp
+        
     def measure(self, verbose=False):
-        """Make a measurement
+        """Take a pH measurement
 
         Parameters
         ----------
@@ -300,9 +316,10 @@ class pH(Atlas):
         str : measurement to three decimal places
         """
         
-        c, v = self.query("R", verbose=verbose)
-        if c:
-            return v
+        _r = self.query(b'R', n=7, delay=950, verbose=verbose)
+        _r = _r.decode('utf-8')
+        _r = float(_r)
+        return _r
 
 class Oxygen(Atlas):
     def __init__(self):
@@ -312,3 +329,18 @@ class Conductivity(Atlas):
     def __init__(self):
         pass
 
+#if verbose:
+#    print("Bytes reply:", r)
+
+# 1 == successful request
+#if (r[0] == 1):
+#    return True, r
+#   2 = syntax error
+# 254 = still processing, not ready
+# 255 = no data to send
+#else:
+#    return False, "Error " + str(r[0])
+
+#restart_code = {'P': 'powered off', 'S': 'software reset',
+#                            'B': 'brown out', 'W': 'watchdog',
+#                            'U': 'unknown'}
