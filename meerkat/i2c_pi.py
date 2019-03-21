@@ -75,16 +75,26 @@ class WrapI2C:
         
         self.bus.write_bytes(self.bus_addr, *data)
         
-    def read_n_bytes(self, n):
-        """Write bytes (n total) to worker device
+    def read_n_bytes(self, n, flip_MSB=True):
+        """Write bytes (n total) to worker device, handle MSB flip behavior
+        on Raspberry Pi.  Tested on Pi3 B v1.2.  Atlas Sci source pointed 
+        to this solution.
+
+        # TODO: confirm this doesn't break other drivers.
         
         Parameters
         ----------
         n : int, number of bytes to read
+        flip_MSB : bool, flip the Most Significant Bit (MSB)
         
         Returns
         -------
         iterable of bytes
         """
         
-        return self.bus.get(self.bus_addr, n)
+        values = self.bus.get(self.bus_addr, n)[0]
+        if flip_MSB:
+            return bytes(bytearray(c & ~0x80 for c in values[1:] if c != 0))
+        else:
+            return values
+
