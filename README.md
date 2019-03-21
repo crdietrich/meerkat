@@ -17,3 +17,6 @@ As well a style and development [roadmap.](roadmap.md)
 
 ### 0.3  
 * Add I2C wrapper class, support Raspberry Pi and MicroPython
+
+### 0.35
+* Add Atlas Scientific pH and conductivity classes
