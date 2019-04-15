@@ -253,7 +253,7 @@ class pH(Atlas):
         super(pH, self).__init__(bus_n, bus_addr)
 
         # information about this device
-        self.device = DeviceData('Atlas_pH')
+        self.device.name = 'Atlas_pH'
         self.device.description = ('')
         self.device.urls = 'www.atlas-scientific.com/ph.html'
         self.device.active = None
@@ -409,7 +409,7 @@ class Conductivity(Atlas):
         super(Conductivity, self).__init__(bus_n, bus_addr)
 
         # information about this device
-        self.device = DeviceData('Atlas_Conductivity')
+        self.device.name = 'Atlas_Conductivity'
         self.device.description = ('Water conductivity')
         self.device.urls = 'www.atlas-scientific.com/conductivity.html'
         self.device.active = None
