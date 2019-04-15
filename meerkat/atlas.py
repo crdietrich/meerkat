@@ -68,11 +68,12 @@ class Atlas:
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('Atlas_Base', time_format='std_time_ms')
-            self.writer.header = ['description', 'sample_n', 'measurement']
+            
         elif output == 'json':
             self.writer = JSONWriter('Atlas_Base', time_format='std_time_ms')
         else: 
-            pass  # holder for another writer or change in default  
+            pass  # holder for another writer or change in default
+        self.writer.header = ['description', 'sample_n', 'not_set']
         self.writer.device = self.device.values()
 
         # data recording information
@@ -223,7 +224,7 @@ class Atlas:
 
         data_list = []
         for m in range(1,n+1):
-            data_list.append([description, m, self.measure()])
+            data_list.append([description, m] + self.measure())
             if n == 1:
                 return data_list[0]        
         return data_list
@@ -243,9 +244,9 @@ class Atlas:
             sample_n : int, sample number in this burst
             measurement : float, measurement of sensor
         """
-        self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
+        
         for m in range(1,n+1):        
-            self.writer.write([description, m, self.measure()])
+            self.writer.write([description, m] + self.measure())
             time.sleep(self.long_delay)
 
 class pH(Atlas):
@@ -408,6 +409,12 @@ class Conductivity(Atlas):
     def __init__(self, bus_n, bus_addr=0x64):
         super(Conductivity, self).__init__(bus_n, bus_addr)
 
+
+        self.measure_mapper = {'EC': 'conductivity',
+                               'TDS': 'total_dissolved_solids',
+                               'S': 'salinity',
+                               'SG': 'specific_gravity'}
+
         # information about this device
         self.device.name = 'Atlas_Conductivity'
         self.device.description = ('Water conductivity')
@@ -419,12 +426,14 @@ class Conductivity(Atlas):
         self.device.version_hw = '1.0'
         self.device.version_sw = '1.0'
         self.device.units = 'uS/cm'  # this assumes it's in conductivity mode!
-        self.device.accuracy = '+/-2%
+        self.device.accuracy = '+/-2%'
         self.device.precision = '0.07-500000 uS/cm'
         self.device.calibration_date = None
 
         self.writer.name = "Atlas_Conductivity"
-        self.writer.header = ['description', 'sample_n', 'conductivity']
+
+        _measure_types = [self.measure_mapper[m] for m in self.output_get()]
+        self.writer.header = ['description', 'sample_n'] + _measure_types
 
     def cal_set_dry(self):
         """Execute dry calibration.  Manual says delay 600ms,
@@ -605,11 +614,12 @@ class Conductivity(Atlas):
 
         Returns
         -------
-        str : each output format displayed or 'no output' if all disabled
+        list : each output format displayed or 'no output' if all disabled
         """
 
         _r = self.query(b'O,?', n=20, delay=350)
         _r = _r.decode('utf-8')
+        _r = _r[:-1].split(',')[1:]
         return _r
 
     def measure(self, verbose=False):
@@ -621,10 +631,12 @@ class Conductivity(Atlas):
 
         Returns
         -------
-        int : conductivity measurement
+        str : conductivity, total solids, salinity, specific gravity 
+            measurement, depending on state as 
         """
         
         _r = self.query(b'R', n=40, delay=650, verbose=verbose)
         _r = _r.decode('utf-8')
+        _r = [float(m) for m in _r.split(',')]
         return _r
 
