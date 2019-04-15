@@ -51,8 +51,32 @@ class Atlas:
         self.long_delay    = 1.5  # seconds for readings
         self.cal_delay     = 3.0  # seconds for calibrations
 
-        # device name, pH, conductivity, etc
-        self.name = None
+        # information about this device
+        self.device = DeviceData('Atlas_Base')
+        self.device.description = ('')
+        self.device.urls = 'www.atlas-scientific.com'
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(self.bus)
+        self.device.manufacturer = 'Atlas Scientific'
+        self.device.version_hw = '1.0'
+        self.device.version_sw = '1.0'
+        self.device.accuracy = None
+        self.device.precision = 'Varies'
+        self.device.calibration_date = None
+
+        # data recording method
+        if output == 'csv':
+            self.writer = CSVWriter('Atlas_Base', time_format='std_time_ms')
+            self.writer.header = ['description', 'sample_n', 'measurement']
+        elif output == 'json':
+            self.writer = JSONWriter('Atlas_Base', time_format='std_time_ms')
+        else: 
+            pass  # holder for another writer or change in default  
+        self.writer.device = self.device.values()
+
+        # data recording information
+        self.sample_id = None
 
     def query(self, command, n=31, delay=None, verbose=False):
         """Write a command to the i2c device and read the reply, 
@@ -182,10 +206,68 @@ class Atlas:
         """
         _r = self.query(bytes("I2C,{}".format(n), encoding='utf-8'), n=0)
 
+    def get(self, description='no_description', n=1):
+        """Get formatted output, assumes subclass has method 'measure'
+
+        Parameters
+        ----------
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
+        
+        Returns
+        -------
+        data : list, data that will be saved to disk with self.write containing:
+            description : str
+            c : float, conductivity measurement
+        """
+
+        data_list = []
+        for m in range(1,n+1):
+            data_list.append([description, m, self.measure()])
+            if n == 1:
+                return data_list[0]        
+        return data_list
+
+    def write(self, description='no_description', n=1):
+        """Format output and save to file, formatted as either .csv or .json.
+        
+        Parameters
+        ----------
+        description : char, description of data sample collected
+        n : int, number of samples to record in this burst
+
+        Returns
+        -------
+        None, writes to disk the following data: 
+            description : str, description of sample
+            sample_n : int, sample number in this burst
+            measurement : float, measurement of sensor
+        """
+        self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
+        for m in range(1,n+1):        
+            self.writer.write([description, m, self.measure()])
+            time.sleep(self.long_delay)
 
 class pH(Atlas):
     def __init__(self, bus_n, bus_addr=0x63):
         super(pH, self).__init__(bus_n, bus_addr)
+
+        # information about this device
+        self.device = DeviceData('Atlas_pH')
+        self.device.description = ('')
+        self.device.urls = 'www.atlas-scientific.com/ph.html'
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(self.bus)
+        self.device.manufacturer = 'Atlas Scientific'
+        self.device.version_hw = '1.0'
+        self.device.version_sw = '1.0'
+        self.device.accuracy = None
+        self.device.precision = 'Varies'
+        self.device.calibration_date = None
+
+        self.writer.name = "Atlas_pH"
+        self.writer.header = ['description', 'sample_n', 'pH']
 
     def cal_set_mid(self, n):
         """Single point calibration at midpoint.  Manual says delay 900ms,
@@ -325,6 +407,24 @@ class Oxygen(Atlas):
 class Conductivity(Atlas):
     def __init__(self, bus_n, bus_addr=0x64):
         super(Conductivity, self).__init__(bus_n, bus_addr)
+
+        # information about this device
+        self.device = DeviceData('Atlas_Conductivity')
+        self.device.description = ('Water conductivity')
+        self.device.urls = 'www.atlas-scientific.com/conductivity.html'
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(self.bus)
+        self.device.manufacturer = 'Atlas Scientific'
+        self.device.version_hw = '1.0'
+        self.device.version_sw = '1.0'
+        self.device.units = 'uS/cm'  # this assumes it's in conductivity mode!
+        self.device.accuracy = '+/-2%
+        self.device.precision = '0.07-500000 uS/cm'
+        self.device.calibration_date = None
+
+        self.writer.name = "Atlas_Conductivity"
+        self.writer.header = ['description', 'sample_n', 'conductivity']
 
     def cal_set_dry(self):
         """Execute dry calibration.  Manual says delay 600ms,
