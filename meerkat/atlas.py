@@ -223,7 +223,7 @@ class Atlas:
         """
 
         data_list = []
-        for m in range(1,n+1):
+        for m in range(n):
             data_list.append([description, m] + self.measure())
             if n == 1:
                 return data_list[0]        
@@ -245,7 +245,7 @@ class Atlas:
             measurement : float, measurement of sensor
         """
         
-        for m in range(1,n+1):        
+        for m in range(n):        
             self.writer.write([description, m] + self.measure())
             time.sleep(self.long_delay)
 
@@ -406,8 +406,8 @@ class Oxygen(Atlas):
         pass
 
 class Conductivity(Atlas):
-    def __init__(self, bus_n, bus_addr=0x64):
-        super(Conductivity, self).__init__(bus_n, bus_addr)
+    def __init__(self, bus_n, bus_addr=0x64, output='csv'):
+        super(Conductivity, self).__init__(bus_n, bus_addr, output)
 
 
         self.measure_mapper = {'EC': 'conductivity',
