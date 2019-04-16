@@ -205,50 +205,52 @@ class JSONWriter(Writer):
         self.media_type = 'text/json'
 
         # how often to write a metadata JSON packet
-        self.metadata_interval = 100
-        self.metadata_file_i = 0
-        self.metadata_stream_i = 0
+        self.metadata_interval = 10
+        self.metadata_file_i = 1
+        self.metadata_stream_i = 1
 
         # header is the JSON key values for the JSON value data
         self.header = None
         self._file_init = False
 
-    def create_metadata(self):
+    def create_metadata(self, indent=None):
         """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
 
         Returns
         -------
         str, JSON formatted metadata describing JSON data format
+        indent, None or int - passed to json.dump builtin
         """
-        return json.dumps({'metadata': self.values})  # , 'uuid': self.uuid})
-
-    def create_data(self, data, indent=None):
-        data_out = {}
-        if self.metadata_file_i == self.metadata_interval:
-            self.metadata_file_i = 0
-        if self.metadata_stream_i == self.metadata_interval:
-            self.metadata_stream_i = 0
-        if (self.metadata_file_i == 0) or (self.metadata_stream_i == 0):
-            data_out['metadata'] = self.values()
-        data_out['data'] = data
-        data_out[self.time_format] = self.timepiece.get_time()
-        # data_out['uuid'] = self.uuid  #TODO: uuid support
-        return json.dumps(data_out, indent=indent)
+        return self.to_json(indent=indent)
 
     def write(self, data, indent=None):
-        """Write metadata to file path location self.path"""
+        """Write JSON data and metadata to file path location self.path"""
+        data_out = {'data':data}
+        data_out[self.time_format] = self.timepiece.get_time()
 
         if self.path is None:
             self.path = self.timepiece.file_time() + '_JSON_data.txt'
 
+        if self.metadata_file_i == self.metadata_interval:
+            self.metadata_file_i = 0
+            data_out['metadata'] = self.create_metadata(indent=indent)
+
         with open(self.path, 'a') as f:
-            f.write(self.create_data(data, indent=indent) + self.line_terminator)
+            f.write(json.dumps(data_out, indent=indent) + self.line_terminator)
         self.metadata_file_i += 1
 
     def stream(self, data, indent=None):
+        """Stream JSON"""
+        data_out = {'data':data}
+        data_out[self.time_format] = self.timepiece.get_time()
+
+        if self.metadata_stream_i == self.metadata_interval:
+            self.metadata_stream_i = 1
+            data_out['metadata'] = self.create_metadata(indent=indent)
+
         self.metadata_stream_i += 1
-        return self.create_data(data, indent=indent)
+        return json.dumps(data_out, indent=indent)
 
 
 class SerialStreamer(JSONWriter):
