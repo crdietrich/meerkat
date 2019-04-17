@@ -224,9 +224,13 @@ class Atlas:
 
         data_list = []
         for m in range(n):
-            data_list.append([description, m] + self.measure())
+            measure = self.measure()
+            if isinstance(measure, float):
+                measure = [measure]
+            data = self.writer.get([description, m] + measure)
+            data_list.append(data)
             if n == 1:
-                return data_list[0]        
+                return data_list[0]
         return data_list
 
     def write(self, description='no_description', n=1):
@@ -245,13 +249,16 @@ class Atlas:
             measurement : float, measurement of sensor
         """
         
-        for m in range(n):        
-            self.writer.write([description, m] + self.measure())
+        for m in range(n):
+            measure = self.measure()
+            if isinstance(measure, float):
+                measure = [measure]
+            self.writer.write([description, m] + measure)
             time.sleep(self.long_delay)
 
 class pH(Atlas):
-    def __init__(self, bus_n, bus_addr=0x63):
-        super(pH, self).__init__(bus_n, bus_addr)
+    def __init__(self, bus_n, bus_addr=0x63, output='csv'):
+        super(pH, self).__init__(bus_n, bus_addr, output)
 
         # information about this device
         self.device.name = 'Atlas_pH'
