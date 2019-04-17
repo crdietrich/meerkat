@@ -163,8 +163,15 @@ class TimePiece(Base):
                 except ImportError:
                     raise
 
-        self.formats_available = TimeFormats()
-        self.format_used = time_format
+        #self.formats_available = TimeFormats()
+
+        self.formats_available = {'std_time': '%Y-%m-%d %H:%M:%S',
+                                  'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
+                                  'iso_time': '%Y-%m-%dT%H:%M:%S.%f%z',
+                                  'file_time': '%Y_%m_%d_%H_%M_%S_%f'}
+
+        self.format = time_format        
+        self.strfmtime = self.formats_available[time_format]
 
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
@@ -176,7 +183,7 @@ class TimePiece(Base):
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
                     'iso_time': self.iso_time, 'file_time': self.file_time}
-        _method = _formats[self.format_used]
+        _method = _formats[self.format]
         return _method()
 
     def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
