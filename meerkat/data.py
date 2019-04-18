@@ -212,16 +212,17 @@ class JSONWriter(Writer):
         self.header = None
         self._file_init = False
 
-    def create_metadata(self, indent=None):
-        """Generate JSON metadata and format it with
-        a leading shebang sequence, '#!'
+    def create_metadata(self, data_out):
+        """Generate dict metadata
 
         Returns
         -------
-        str, JSON formatted metadata describing JSON data format
-        indent, None or int - passed to json.dump builtin
+        dict : public attributes from self.values method
         """
-        return self.to_json(indent=indent)
+        md = self.values()            
+        for k,v in md.items():           
+            data_out[k] = v
+        return data_out
 
     def get(self, data, indent=None):
         """Return JSON data and at intervals, metadata
@@ -239,24 +240,23 @@ class JSONWriter(Writer):
 
         if self.metadata_stream_i == self.metadata_interval:
             self.metadata_stream_i = 0
-            md = self.values()            
-            for k,v in md.items():           
-                data_out[k] = v
+            data_out = self.create_metadata(data_out)
 
         self.metadata_stream_i += 1
         return json.dumps(data_out, indent=indent)
 
     def write(self, data, indent=None):
         """Write JSON data and metadata to file path location self.path"""
-        data_out = {k:v for k,v in zip(self.header, data)}        
-        data_out[self.time_format] = self._timepiece.get_time()
 
         if self.path is None:
             self.path = self._timepiece.file_time() + '_JSON_data.txt'
 
+        data_out = {k:v for k,v in zip(self.header, data)}        
+        data_out[self.time_format] = self._timepiece.get_time()
+
         if self.metadata_file_i == self.metadata_interval:
             self.metadata_file_i = 0
-            data_out['metadata'] = self.create_metadata(indent=indent)
+            data_out = self.create_metadata(data_out)
 
         with open(self.path, 'a') as f:
             f.write(json.dumps(data_out, indent=indent) + self.line_terminator)
