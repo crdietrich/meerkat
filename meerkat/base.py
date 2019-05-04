@@ -99,6 +99,12 @@ def twos_comp_to_dec(value, bits):
 class Base:
     """Common methods for classes"""
 
+    def __init__(self):
+        self.name = None
+        self.description = None
+        self.urls = None
+        self.manufacturer = None
+
     def __repr__(self):
         return str(self.values())
 
@@ -238,9 +244,7 @@ class DeviceData(Base):
     def __init__(self, device_name):
 
         self.name = device_name
-        self.description = None
-        self.urls = None
-        self.manufacturer = None
+
         self.version_hw = None
         self.version_sw = None
         self.accuracy = None
@@ -251,30 +255,13 @@ class DeviceData(Base):
         self.active = None
         self.error = None
         self.dtype = None
-        self.calibration_date = None
 
 
 class DeviceCalibration(Base):
     """Base class for device calibration"""
     def __init__(self):
-        self.name = None
-        self.description = None
-        self.urls = None
-        self.manufacturer = None
+
         self.version = None
         self.dtype = None
         self.date = None
-
-    def to_file(self, filepath):
-        """Write calibration information to a file in JSON.
-        """
-        with open(filepath, 'w') as f:
-            f.write(self.to_json())
-
-    def from_file(self, filepath):
-        """Read JSON calibration information from file.
-        all data must be JSON on 1st line.
-        """
-        with open(filepath, 'r') as f:
-            self.from_json(f.readline())
 
