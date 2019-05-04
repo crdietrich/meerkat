@@ -36,7 +36,38 @@ class WrapI2C:
         data : int, 8 bits of data
         """
         self.bus.write_bytes(self.bus_addr, data)
+
+    def read_register_nbit(self, reg_addr, n):
+        """Get the values from one registry
         
+        Parameters
+        ----------
+        reg_addr : int, registry internal to the worker device to read
+        n : int, number of bits to read
+
+        Returns
+        -------
+        n bit values
+        """
+
+        self.bus.write_bytes(self.bus_addr, reg_addr)
+        return self.bus.get(self.bus_addr, n)[0]
+
+    def read_register_8bit(self, reg_addr):
+        """Get the values from one registry
+        
+        Parameters
+        ----------
+        reg_addr : int, registry internal to the worker device to read
+
+        Returns
+        -------
+        16 bit value of registry
+        """
+
+        value = self.read_register_nbit(reg_addr, 1)
+        return int.from_bytes(value, byteorder='big')
+
     def read_register_16bit(self, reg_addr):
         """Get the values from one registry
         
@@ -49,9 +80,21 @@ class WrapI2C:
         16 bit value of registry
         """
 
-        self.bus.write_bytes(self.bus_addr, reg_addr)
-        value = self.bus.get(self.bus_addr, 2)[0]
+        value = self.read_register_nbit(reg_addr, 2)
         return int.from_bytes(value, byteorder='big')
+
+    def write_register_8bit(self, reg_addr, data):
+        """Write a 16 bit register.  Breaks 16 bit data into list of 
+        8 bit values.
+
+        Parameters
+        ----------
+        reg_addr : int, register internal to the worker device
+        data : int, 8 bit value to write
+        
+        """
+        self.bus.write_bytes(self.bus_addr, reg_addr, data)
+        
 
     def write_register_16bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of 
@@ -76,7 +119,7 @@ class WrapI2C:
         self.bus.write_bytes(self.bus_addr, *data)
         
     def read_n_bytes(self, n, flip_MSB=True):
-        """Write bytes (n total) to worker device, handle MSB flip behavior
+        """Read bytes (n total) to worker device, handle MSB flip behavior
         on Raspberry Pi.  Tested on Pi3 B v1.2.  Atlas Sci source pointed 
         to this solution.
 
