@@ -31,6 +31,16 @@ def scan_I2C(i2c_bus):
     found_address = i2c_bus.scan()
     print('Found I2C devices at:', found_address)
 
+def bprint(v, n=16):
+    """Print binary value with index numbers below in two rows
+    Example register 14 = 1
+                          4
+    """
+    b = bin(v)[2:]
+    print(b.zfill(n))
+    m = [str(x).zfill(2) for x in reversed(range(n))]
+    print("".join([x[0] for x in m]))
+    print("".join([x[1] for x in m]))
 
 def bit_get(idx, value):
     """Get bit at index idx in value
