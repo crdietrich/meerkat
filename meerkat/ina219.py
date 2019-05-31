@@ -1,7 +1,7 @@
 """Texas Instruments INA219 current and power measurement
 2019 Colin Dietrich"""
 
-from meerkat import base
+from meerkat import base, tools
 from meerkat.data import CSVWriter, JSONWriter
 
 
@@ -82,11 +82,11 @@ class INA219:
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('INA219', time_format='std_time_ms')
-            self.writer.header = ['description', 'sample_n', 'voltage', 'current']
         elif output == 'json':
             self.writer = JSONWriter('INA219', time_format='std_time_ms')
         else: 
             pass  # holder for another writer or change in default  
+        self.writer.header = ['description', 'sample_n', 'voltage', 'current']
         self.writer.device = self.device.values()
 
         # data recording information
@@ -172,7 +172,7 @@ class INA219:
             print("Writing to '{}' registry # {}".format(reg_name, reg_addr))
             print("Sending HEX value: ", hex(data))
             print("Sending Binary value:")
-            base.bprint(data)
+            tools.bprint(data)
         self.bus.write_register_16bit(reg_addr, data)
 
     def write_config(self, data):
