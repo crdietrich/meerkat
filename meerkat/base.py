@@ -9,6 +9,18 @@ try:
 except ImportError:
     import json
 
+try: 
+    import utime as time
+except ImportError:
+    import time
+
+try:
+    from meerkat import i2c_upython
+    I2C = i2c_upython.WrapI2C
+except ImportError:
+    from meerkat import i2c_pi
+    I2C = i2c_pi.WrapI2C
+
 
 def generate_UUID():
     # placeholder for UUID
@@ -127,7 +139,7 @@ class TimeFormats(Base):
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, format='std_time'):
+    def __init__(self, time_format='std_time'):
         super().__init__()
         try:
             import pyb  # pyboard import
@@ -151,27 +163,27 @@ class TimePiece(Base):
                 except ImportError:
                     raise
 
-        self.formats_available = TimeFormats()
-        self.format_used = format
+        #self.formats_available = TimeFormats()
+
+        self.formats_available = {'std_time': '%Y-%m-%d %H:%M:%S',
+                                  'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
+                                  'iso_time': '%Y-%m-%dT%H:%M:%S.%f%z',
+                                  'file_time': '%Y_%m_%d_%H_%M_%S_%f'}
+
+        self.format = time_format        
+        self.strfmtime = self.formats_available[time_format]
 
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
         format citation based on the attributes of the TimeFormats class.
 
-        Parameters
-        ----------
-        format : str, type of format to return.  Allowable options are:
-            'std_time'
-            'std_time_ms'
-            'iso_time'
-            'file_time'
         Returns
         -------
         str, formatted current time based on input argument
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
                     'iso_time': self.iso_time, 'file_time': self.file_time}
-        _method = _formats[self.format_used]
+        _method = _formats[self.format]
         return _method()
 
     def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
@@ -236,7 +248,7 @@ class DeviceData(Base):
 
         self.bus = None
         self.state = None  # TODO: clarify what these mean
-        self.active = None #
+        self.active = None
         self.error = None
         self.dtype = None
         self.calibration_date = None
