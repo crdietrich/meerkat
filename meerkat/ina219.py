@@ -170,8 +170,6 @@ class INA219:
         reg_addr = self.reg_map[reg_name]
         if self.verbose:
             print("Writing to '{}' registry # {}".format(reg_name, reg_addr))
-            print("Sending HEX value: ", hex(data))
-            print("Sending Binary value:")
             tools.bprint(data)
         self.bus.write_register_16bit(reg_addr, data)
 
