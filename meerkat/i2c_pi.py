@@ -94,7 +94,6 @@ class WrapI2C:
         
         """
         self.bus.write_bytes(self.bus_addr, reg_addr, data)
-        
 
     def write_register_16bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of 

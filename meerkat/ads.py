@@ -113,6 +113,9 @@ class ADS1115(object):
         # data recording information
         self.sample_id = None
 
+        # initialize class attributes from device registry
+        self.get_config()
+
     def set_pointer(self, reg_name):
         """Set the pointer register address
         
