@@ -163,10 +163,10 @@ class GroveMotor:
         self.bus.write_n_bytes(0xaa, self.direction, 0x01)
     
     def set_mode(self, mode_type="dc"):
-        if mode_type == "step":
+        if (mode_type == "full_step") or (mode_type == "micro_step"):
             self.set_speed(motor_id=1, motor_speed=255)
             self.set_speed(motor_id=2, motor_speed=255)
-            self.mode = "step"
+            self.mode = mode_type
         else:
             self.mode = "dc"
 
@@ -196,7 +196,7 @@ class GroveMotor:
             self.stop()
             return
         
-        self.set_mode(mode_type="step")  # set speed to 255, i.e. full current
+        self.set_mode(mode_type="full_step")  # set speed to 255, i.e. full current
         
         for _ in range(abs(steps)):
             for sc in step_codes:
@@ -232,7 +232,7 @@ class GroveMotor:
             self.stop()
             return
         
-        self.set_mode(mode_type="step")  # set speed to 255, i.e. full current
+        self.set_mode(mode_type="micro_step")  # set speed to 255, i.e. full current
         
         for _ in range(abs(steps)):
             if verbose: print("n >>", _)
