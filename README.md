@@ -6,3 +6,6 @@ The application uses the DS3231 or the internet to set the time on your Pycom bo
 
 Here it is the DS3231 module I used and how to connect it to the Pycom Expansion Board:
 ![DS3231 module](ds3231.jpg)
+![DS3231 connected to the Pycom Expansion Board](expboard-ds3231.jpg)
+
+More info at [mindeon.com](https://mindeon.com/posts/coding-journal/pycom-ds3231-rtc/)
