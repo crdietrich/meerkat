@@ -14,6 +14,32 @@ class Single:
         
         self.state_mapper = {0: "closed", 1: "open"}
         
+        # information about this device
+        self.device = DeviceData("Qwiic Relay")
+        self.device.description = ("Sparkfun Single Pole Double Throw Relay")
+        self.device.urls = "https://learn.sparkfun.com/tutorials/qwiic-single-relay-hookup-guide/all"
+        self.device.active = None
+        self.device.error = None
+        self.device.bus = repr(self.bus)
+        self.device.manufacturer = "Sparkfun"
+        self.device.version_hw = "1"
+        self.device.version_sw = "1"
+        
+        self.application = "test"
+        
+        del self.device.accuracy
+        del self.device.precision
+        del self.device.dtype
+        
+        # data recording method
+        if output == 'csv':
+            self.writer = CSVWriter("Qwiic Relay", time_format='std_time_ms')
+            self.writer.device = self.device.__dict__
+            self.writer.header = ["sample_id", "state"]
+
+        elif output == 'json':
+            self.writer = JSONWriter("Qwiic Relay", time_format='std_time_ms')
+        
     def get_version(self):
         """Get the firmware version of the relay
         
@@ -82,3 +108,37 @@ class Single:
         self.bus.write_register_8bit(0x03, new_address)
         if verbose:
             print("Relay I2C address changed to 0x{:02x}".format(new_address))
+            
+    def get(self, description='no_description'):
+        """Get formatted output of relay state.
+        
+        Parameters
+        ----------
+        description : char, description of data sample collected
+        
+        Returns
+        -------
+        data : list, data containing:
+            description: str, description of sample under test
+            state : int, where 0 == relay is open / not connected 
+                               1 == relay is closed / connected
+        """       
+        return [description, self.get_status()]
+    
+    def write(self, description='no_description', delay=None):
+        """Format output and save to file, formatted as either
+        .csv or .json.
+        
+        Parameters
+        ----------
+        description : char, description of data sample collected
+
+        Returns
+        -------
+        None, writes to disk the following data:
+            description : str, description of sample
+            state : int, where 0 == relay is open / not connected 
+                               1 == relay is closed / connected
+        """
+        self.writer.header = ["sample_id", "state"]
+        self.writer.write([description, self.get_status()])
