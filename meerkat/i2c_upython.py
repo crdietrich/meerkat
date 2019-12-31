@@ -21,6 +21,19 @@ class WrapI2C:
         self.bus = I2C(bus_n, I2C.MASTER, baudrate=frequency)
         self.bus_addr = bus_addr
 
+    def scan(self):
+        """Scan I2C bus for devices
+
+        Returns
+        -------
+        list of addresses found, in hex notation
+        """
+        #
+        #
+        #
+        #
+        return [hex(a) for a in self.bus.scan()]
+
     ### 1 byte = 8 bits ###
 
     def read_byte(self):
