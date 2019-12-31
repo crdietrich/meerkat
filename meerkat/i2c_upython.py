@@ -54,7 +54,7 @@ class WrapI2C:
         """
         self.bus.writeto(self.bus_addr, data)
 
-    ### nbit ###
+    ### nbytes ###
 
     def read_n_bytes(self, n):
         """Read bytes (n total) from worker device.

@@ -21,6 +21,19 @@ class WrapI2C:
         self.bus = i2c_quickwire.I2CMaster(n=bus_n)
         self.bus_addr = bus_addr
 
+    def scan(self):
+        """Scan I2C bus for devices
+
+        Returns
+        -------
+        list of addresses found, in hex notation
+        """
+        import subprocess
+        bash_command = "i2cdetect -y 1"
+        process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+        output, error = process.communicate()
+        return ["0x"+a.decode() for a in output.split()[16:] if (b":" not in a) and (a != b"--")]
+        
     ### 1 byte = 8 bits ###
         
     def read_byte(self):
