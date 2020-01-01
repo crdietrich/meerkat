@@ -14,3 +14,6 @@ main.py
 # Jupyter Notebook / IDE files
 \.idea/
 \.ipynb_checkpoints/
+
+# Archive of development files
+/archive
