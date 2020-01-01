@@ -235,13 +235,13 @@ class JSONWriter(Writer):
             data_out = self.create_metadata(data_out)
 
         self.metadata_stream_i += 1
-        return json.dumps(data_out, indent=indent)
+        return json.dumps(data_out)
 
     def write(self, data, indent=None):
         """Write JSON data and metadata to file path location self.path"""
 
         if self.path is None:
-            self.path = self._timepiece.file_time() + '.json'
+            self.path = self._timepiece.file_time() + '.jsontxt'
 
         data_out = {k:v for k,v in zip(self.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
