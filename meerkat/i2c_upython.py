@@ -7,7 +7,7 @@ from machine import I2C
 
 
 class WrapI2C:
-    def __init__(self, bus_n, bus_addr, frequency=400000):
+    def __init__(self, bus_n, bus_addr, frequency=100000):
         """Set the I2C communications to the worker device specified by
         the address
 
@@ -99,7 +99,7 @@ class WrapI2C:
         16 bit value of registry
         """
         value = self.bus.readfrom_mem(self.bus_addr, reg_addr, 1)
-        return value
+        return int.from_bytes(value, byteorder='big')
 
     def write_register_8bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of
