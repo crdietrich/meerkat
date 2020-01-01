@@ -72,18 +72,8 @@ class Writer(object):
                 d[k] = v
         return d
 
-    def to_json(self, indent=None):
-        """Return all class objects from __dict__ except
-        those prefixed with underscore ('_')
-
-        Returns
-        -------
-        str, JSON formatted (attribute: value) pairs
-        """
-        return json.dumps(self,
-                          default=lambda o: o.values(),
-                          sort_keys=True,
-                          indent=indent)
+    def to_json(self):
+        return json.dumps(self.values())
 
     def create_data(self, data, indent=None):
         """Placeholder method to keep classes consistent"""
@@ -126,7 +116,8 @@ class CSVWriter(Writer):
         self._file_init = False
         self._stream_init = False
 
-    def create_metadata(self, indent=None):
+    #def create_metadata(self, indent=None):
+    def create_metadata(self):
         """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
 
@@ -135,7 +126,8 @@ class CSVWriter(Writer):
         str, metadata in JSON with '#!' at the beginning
         indent, None or int - passed to json.dump builtin
         """
-        return '#!' + self.to_json(indent=indent)
+        #return '#!' + self.to_json(indent=indent)
+        return '#!' + self.to_json()
 
     def create_data(self, data, indent=None):
         return ','.join([str(d) for d in data])
@@ -219,8 +211,8 @@ class JSONWriter(Writer):
         -------
         dict : public attributes from self.values method
         """
-        md = self.values()            
-        for k,v in md.items():           
+        md = self.values()
+        for k,v in md.items():
             data_out[k] = v
         return data_out
 
@@ -249,9 +241,9 @@ class JSONWriter(Writer):
         """Write JSON data and metadata to file path location self.path"""
 
         if self.path is None:
-            self.path = self._timepiece.file_time() + '_JSON_data.txt'
+            self.path = self._timepiece.file_time() + '.json'
 
-        data_out = {k:v for k,v in zip(self.header, data)}        
+        data_out = {k:v for k,v in zip(self.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self.metadata_file_i == self.metadata_interval:
@@ -259,7 +251,7 @@ class JSONWriter(Writer):
             data_out = self.create_metadata(data_out)
 
         with open(self.path, 'a') as f:
-            f.write(json.dumps(data_out, indent=indent) + self.line_terminator)
+            f.write(json.dumps(data_out) + self.line_terminator)
         self.metadata_file_i += 1
 
 
