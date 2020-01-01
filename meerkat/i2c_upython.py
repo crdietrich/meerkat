@@ -99,7 +99,7 @@ class WrapI2C:
         16 bit value of registry
         """
         value = self.bus.readfrom_mem(self.bus_addr, reg_addr, 1)
-        return int.from_bytes(value, byteorder='big')
+        return int.from_bytes(value, 'big')
 
     def write_register_8bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of
@@ -110,7 +110,9 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 8 bit value to write
         """
-        self.bus.write_bytes(self.bus_addr, reg_addr, data)
+        buff = bytearray(1)
+        buff[0] = data
+        self.bus.writeto_mem(self.bus_addr, reg_addr, buff)
 
     ### 16bit Register ###
 
