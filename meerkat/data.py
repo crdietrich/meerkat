@@ -216,8 +216,8 @@ class JSONWriter(Writer):
             data_out[k] = v
         return data_out
 
-    def get(self, data, indent=None):
-        """Return JSON data and at intervals, metadata
+    def get(self, data):
+        """Return JSON data and metadata at intervals set by self.metadata_interval
 
         Parameters
         ----------
@@ -237,9 +237,14 @@ class JSONWriter(Writer):
         self.metadata_stream_i += 1
         return json.dumps(data_out)
 
-    def write(self, data, indent=None):
-        """Write JSON data and metadata to file path location self.path"""
+    def write(self, data):
+        """Write JSON data and metadata at intervals set by self.metadata_interval
+        to file location self.path
 
+        Parameters
+        ----------
+        data : list, data to be zipped with header descriptions
+        """
         if self.path is None:
             self.path = self._timepiece.file_time() + '.jsontxt'
 
