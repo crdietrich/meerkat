@@ -9,7 +9,7 @@ try:
 except ImportError:
     import json
 
-try: 
+try:
     import utime as time
 except ImportError:
     import time
@@ -176,7 +176,7 @@ class TimePiece(Base):
                                   'iso_time': '%Y-%m-%dT%H:%M:%S.%f%z',
                                   'file_time': '%Y_%m_%d_%H_%M_%S_%f'}
 
-        self.format = time_format        
+        self.format = time_format
         self.strfmtime = self.formats_available[time_format]
 
     def get_time(self):
@@ -264,4 +264,3 @@ class DeviceCalibration(Base):
         self.version = None
         self.dtype = None
         self.date = None
-
