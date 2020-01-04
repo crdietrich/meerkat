@@ -4,22 +4,22 @@ __author__ = "Colin Dietrich"
 __copyright__ = "2018"
 __license__ = "MIT"
 
-try:
-    import ujson as json
-except ImportError:
+import sys
+
+if sys.platform == "linux":
     import json
-
-try:
-    import utime as time
-except ImportError:
     import time
-
-try:
-    from meerkat import i2c_upython
-    I2C = i2c_upython.WrapI2C
-except ImportError:
+    
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
+    
+if sys.platform in ["Fipy"]:
+    import ujson as json
+    import utime as time
+    
+    from meerkat import i2c_upython
+    I2C = i2c_upython.WrapI2C
+
 
 def bit_set_old(idx, value):
     """Set bit at index idx in value to 1
