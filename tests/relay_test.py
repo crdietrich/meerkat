@@ -11,24 +11,26 @@ else:
     i2c_bus = 0
 
 r = relay.Single(i2c_bus, 0x18, "json")
-
-print("Status: {}".format(r.get_status()))
-print("---")
+r.writer.metadata_interval = 3
+print("> Status: {}".format(r.get_status()))
+print("-"*20)
 
 r.off()
-print("Relay set to off")
-print("Status: {}".format(r.get_status()))
-print("---")
+print("> Relay set to off")
+print("> Status: {}".format(r.get_status()))
+print("-"*20)
 time.sleep(1)
 
 r.on()
-print("Relay set to on")
-print("Status: {}".format(r.get_status()))
-print("---")
+print("> Relay set to on")
+print("> Status: {}".format(r.get_status()))
+print("-"*20)
 
 # this should generate a header file of json metadata, then lines of data
-for n in range(5):
+for n in range(7):
     r.toggle(verbose=True)
     r.write(description="toggle {}".format(n))
-    print("---")
+    print(r.get(description="toggle {}".format(n)))
+    print(r.get(description="toggle {}".format(n), dtype="list"))
+    print("-"*20)
     time.sleep(1)
