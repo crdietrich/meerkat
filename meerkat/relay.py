@@ -34,12 +34,13 @@ class Single:
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter("Qwiic Relay", time_format='std_time_ms')
-            self.writer.device = self.device.__dict__
-            self.writer.header = ["sample_id", "state"]
-
+        
         elif output == 'json':
             self.writer = JSONWriter("Qwiic Relay", time_format='std_time_ms')
         
+        self.writer.device = self.device.__dict__
+        self.writer.header = ["sample_id", "state"]
+    
     def get_version(self):
         """Get the firmware version of the relay
         
@@ -109,12 +110,14 @@ class Single:
         if verbose:
             print("Relay I2C address changed to 0x{:02x}".format(new_address))
             
-    def get(self, description='no_description'):
+    def get(self, description='no_description', dtype='json'):
         """Get formatted output of relay state.
         
         Parameters
         ----------
         description : char, description of data sample collected
+        dtype : str, 'json' = JSON output
+                     'list' = list output
         
         Returns
         -------
@@ -122,9 +125,13 @@ class Single:
             description: str, description of sample under test
             state : int, where 0 == relay is open / not connected 
                                1 == relay is closed / connected
-        """       
-        return [description, self.get_status()]
-    
+        """
+        values = [description, self.get_status()]
+        if dtype == "json":
+            return self.writer.get(values)
+        else:
+            return values
+        
     def write(self, description='no_description', delay=None):
         """Format output and save to file, formatted as either
         .csv or .json.
@@ -140,5 +147,4 @@ class Single:
             state : int, where 0 == relay is open / not connected 
                                1 == relay is closed / connected
         """
-        self.writer.header = ["sample_id", "state"]
         self.writer.write([description, self.get_status()])
