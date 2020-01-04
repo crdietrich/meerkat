@@ -4,10 +4,13 @@ __author__ = "Colin Dietrich"
 __copyright__ = "2018"
 __license__ = "MIT"
 
-try:
-    import ujson as json
-except ImportError:
+import sys
+
+if sys.platform == "linux":
     import json
+    
+if sys.platform in ["Fipy"]:
+    import ujson as json
 
 from meerkat.base import TimePiece
 
