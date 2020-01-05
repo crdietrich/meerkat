@@ -8,9 +8,12 @@ import sys
 
 if sys.platform == "linux":
     import json
-    
-if sys.platform in ["Fipy"]:
+
+elif sys.platform in ["FiPy"]:
     import ujson as json
+
+else:
+    print("Error detecting system platform.")
 
 from meerkat.base import TimePiece
 

@@ -9,17 +9,19 @@ import sys
 if sys.platform == "linux":
     import json
     import time
-    
+
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
-    
-if sys.platform in ["Fipy"]:
+
+elif sys.platform in ["FiPy"]:
     import ujson as json
     import utime as time
-    
+
     from meerkat import i2c_upython
     I2C = i2c_upython.WrapI2C
 
+else:
+    print("Error detecting system platform.")
 
 def bit_set_old(idx, value):
     """Set bit at index idx in value to 1
