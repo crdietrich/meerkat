@@ -78,24 +78,6 @@ class Writer(object):
                 d[k] = v
         return d
 
-    def to_json(self):
-        return json.dumps(self.values())
-
-    def create_data(self, data, indent=None):
-        """Placeholder method to keep classes consistent"""
-        return data
-
-    def write(self, data, indent=None):
-        """Write JSON metadata and arbitrary data to a file"""
-
-        if self.path is None:
-            self.path = self.name + '_' + self.timepiece.file_time() + '.txt'
-        h = self.to_json(indent).encode('string-escape')
-        with open(self.path, 'w') as f:
-            f.write(h + self.line_terminator)
-            for d in data:
-                f.write(d + self.line_terminator)
-
 
 class CSVWriter(Writer):
     """Specific attributes of comma delimited values (CSV) data formatting
@@ -117,7 +99,6 @@ class CSVWriter(Writer):
         self.skip_lines = 1
 
         # attributes
-        self.shebang = True
         self.header = None
         self._file_init = False
         self._stream_init = False
@@ -131,20 +112,7 @@ class CSVWriter(Writer):
         str, metadata in JSON with '#!' at the beginning
         indent, None or int - passed to json.dump builtin
         """
-        #return '#!' + self.to_json(indent=indent)
-        return '#!' + self.to_json()
-
-    def create_data(self, data, indent=None):
-        return ','.join([str(d) for d in data])
-
-    def get(self, data):
-        """Passthrough for child class method that returns a list,
-        included here to support JSON passthrough.
-
-        Parameters
-        ----------
-        data : data to be return"""
-        return data
+        return '#!' + json.dumps(self.values())
 
     def _write_init(self):
         """Write metadata to a header row designated
@@ -155,15 +123,13 @@ class CSVWriter(Writer):
         if self.path is None:
             self.path = self.timepiece.file_time() + '_data.csv'
         with open(self.path, 'w') as f:
-            if self.shebang:
-                f.write(self.create_metadata() + self.line_terminator)
+            f.write(self.create_metadata() + self.line_terminator)
             if self.header is not None:
                 h = ','.join([self.time_format] + self.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
         """Append data to an existing file at location self.path"""
-
         with open(self.path, 'a') as f:
             dc = ','.join([self.timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
@@ -172,10 +138,7 @@ class CSVWriter(Writer):
         """Write data to file, write header if not yet done
         To be called by the child class method 'write'
         with a properly formed data list
-
-        To just initialize metadata and header, pass
-        data = None"""
-
+        """
         if not self._file_init:
             self._write_init()
             self._file_init = True
@@ -200,8 +163,8 @@ class JSONWriter(Writer):
         self.header = None
         self._file_init = False
 
-    def create_metadata(self, data_out):
-        """Generate dict metadata
+    def add_metadata(self, data_out):
+        """Generate writer metadata and append to data_out dictionary
 
         Returns
         -------
@@ -212,7 +175,7 @@ class JSONWriter(Writer):
             data_out[k] = v
         return data_out
 
-    def get(self, data):
+    def publish(self, data):
         """Return JSON data and metadata at intervals set by self.metadata_interval
 
         Parameters
@@ -228,14 +191,14 @@ class JSONWriter(Writer):
 
         if self.metadata_stream_i == self.metadata_interval:
             self.metadata_stream_i = 0
-            data_out = self.create_metadata(data_out)
+            data_out = self.add_metadata(data_out)
 
         self.metadata_stream_i += 1
         return json.dumps(data_out)
 
     def write(self, data):
-        """Write JSON data and metadata at intervals set by self.metadata_interval
-        to file location self.path
+        """Write JSON data and metadata at intervals set by
+        self.metadata_interval to file location self.path
 
         Parameters
         ----------
@@ -249,7 +212,7 @@ class JSONWriter(Writer):
 
         if self.metadata_file_i == self.metadata_interval:
             self.metadata_file_i = 0
-            data_out = self.create_metadata(data_out)
+            data_out = self.add_metadata(data_out)
 
         with open(self.path, 'a') as f:
             f.write(json.dumps(data_out) + self.line_terminator)
