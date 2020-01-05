@@ -122,7 +122,6 @@ class CSVWriter(Writer):
         self._file_init = False
         self._stream_init = False
 
-    #def create_metadata(self, indent=None):
     def create_metadata(self):
         """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
@@ -182,15 +181,6 @@ class CSVWriter(Writer):
             self._file_init = True
         if data is not None:
             self._write_append(data)
-
-    def stream(self, data):
-        """Simple stream of comma delimited data.  Initializes
-        with the shebang JSON then just returns strings of data"""
-        d = ""
-        if not self._stream_init:
-            d = self.create_metadata() + '\n'
-            self._stream_init = True
-        return d + ','.join([str(_x) for _x in data])
 
 
 class JSONWriter(Writer):
@@ -264,61 +254,3 @@ class JSONWriter(Writer):
         with open(self.path, 'a') as f:
             f.write(json.dumps(data_out) + self.line_terminator)
         self.metadata_file_i += 1
-
-
-class SerialStreamer(JSONWriter):
-    def __init__(self, name):
-        super(SerialStreamer, self).__init__(name)
-
-        self.name = name
-        self.serial = None
-        self.metadata_i = 0
-
-    def writer(self, data, indent=None):
-        with self.serial.open() as serial:
-            if self.metadata_i == 0:
-                serial.write(self.to_json(indent))
-                self.metadata_i += 1
-            elif self.metadata_i == self.metadata_interval:
-                self.metadata_i = 0
-                serial.write(json.dumps(data, indent=indent))
-            self.metadata_i += 1
-
-
-class HTMLWriter(Writer):
-    def __init__(self, name):
-        super(HTMLWriter, self).__init__(name)
-
-        self.version = '0.1 Alpha'
-        self.standard = 'HTML5 & TBD'
-        self.media_type = 'text/html'
-
-    def header(self):
-        """Create HTML header"""
-        a = ""
-        _values = self.values()
-        for k, v in _values.items():
-            a = a + "<meta " + str(k) + "='" + str(v) + " >" + self.line_terminator
-
-        h_all = ["<!doctype html>" + self.line_terminator,
-                 "<head>" + self.line_terminator,
-                 "<title>Test of HTML data storage</title>" + self.line_terminator,
-                 "<meta name='description' content='Test of HTML data page'>" + self.line_terminator,
-                 "<meta name='author' content='Colin Dietrich'>" + self.line_terminator,
-                 "<meta charset='utf-8'>" + self.line_terminator,
-                 a + self.line_terminator,
-                 "<style>.mono {{font-family: 'Courier New', Courier, monospace;}}</style>" + self.line_terminator,
-                 "</head>" + self.line_terminator,
-                 "<body class='mono'>" + self.line_terminator]
-        h_all = "".join(h_all)
-        h_all = h_all.encode('ascii', 'xmlcharrefreplace')
-        print(h_all)
-
-    def write_header(self):
-        with open(self.path, 'w') as f:
-            f.write(self.header() + self.line_terminator)
-
-    def append(self, data):
-        with open(self.path, 'w') as f:
-            dc = ','.join([str(_x) for _x in data])
-            f.write('<div>' + dc + self.line_terminator)
