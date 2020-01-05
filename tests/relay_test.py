@@ -11,7 +11,7 @@ else:
     i2c_bus = 0
 
 r = relay.Single(i2c_bus, 0x18, "json")
-r.writer.metadata_interval = 3
+r.json_writer.metadata_interval = 3
 print("> Status: {}".format(r.get_status()))
 print("-"*20)
 
@@ -30,7 +30,17 @@ print("-"*20)
 for n in range(7):
     r.toggle(verbose=True)
     r.write(description="toggle {}".format(n))
-    print(r.get(description="toggle {}".format(n)))
-    print(r.get(description="toggle {}".format(n), dtype="list"))
+    print("List Format:", r.get(description="toggle {}".format(n)))
+    print("JSON Format:", r.publish(description="toggle {}".format(n)))
+    print("-"*20)
+    time.sleep(1)
+
+q = relay.Single(i2c_bus, 0x18, "csv")
+# this should generate a header row of JSON metadata, then csv lines of data
+for n in range(7):
+    q.toggle(verbose=True)
+    q.write(description="toggle {}".format(n))
+    print("List Format:", q.get(description="toggle {}".format(n)))
+    print("JSON Format:", q.publish(description="toggle {}".format(n)))
     print("-"*20)
     time.sleep(1)
