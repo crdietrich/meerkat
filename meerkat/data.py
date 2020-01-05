@@ -57,9 +57,9 @@ class Writer(object):
         self.precision = None
 
         # timestamp formatter
-        self._timepiece = TimePiece(time_format)
-        self.time_format = self._timepiece.format
-        self.strfmtime = self._timepiece.strfmtime
+        self.timepiece = TimePiece(time_format)
+        self.time_format = self.timepiece.format
+        self.strfmtime = self.timepiece.strfmtime
 
     def __repr__(self):
         return str(self.__dict__)
@@ -89,7 +89,7 @@ class Writer(object):
         """Write JSON metadata and arbitrary data to a file"""
 
         if self.path is None:
-            self.path = self.name + '_' + self._timepiece.file_time() + '.txt'
+            self.path = self.name + '_' + self.timepiece.file_time() + '.txt'
         h = self.to_json(indent).encode('string-escape')
         with open(self.path, 'w') as f:
             f.write(h + self.line_terminator)
@@ -154,7 +154,7 @@ class CSVWriter(Writer):
         for each item in self.data
         """
         if self.path is None:
-            self.path = self._timepiece.file_time() + '_data.csv'
+            self.path = self.timepiece.file_time() + '_data.csv'
         with open(self.path, 'w') as f:
             if self.shebang:
                 f.write(self.create_metadata() + self.line_terminator)
@@ -166,7 +166,7 @@ class CSVWriter(Writer):
         """Append data to an existing file at location self.path"""
 
         with open(self.path, 'a') as f:
-            dc = ','.join([self._timepiece.get_time()]+[str(_x) for _x in data])
+            dc = ','.join([self.timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data, indent=None):
@@ -234,7 +234,7 @@ class JSONWriter(Writer):
         data_out : str, JSON formatted data and metadata
         """
         data_out = {k:v for k,v in zip(self.header, data)}
-        data_out[self.time_format] = self._timepiece.get_time()
+        data_out[self.time_format] = self.timepiece.get_time()
 
         if self.metadata_stream_i == self.metadata_interval:
             self.metadata_stream_i = 0
@@ -252,10 +252,10 @@ class JSONWriter(Writer):
         data : list, data to be zipped with header descriptions
         """
         if self.path is None:
-            self.path = self._timepiece.file_time() + '.jsontxt'
+            self.path = self.timepiece.file_time() + '.jsontxt'
 
         data_out = {k:v for k,v in zip(self.header, data)}
-        data_out[self.time_format] = self._timepiece.get_time()
+        data_out[self.time_format] = self.timepiece.get_time()
 
         if self.metadata_file_i == self.metadata_interval:
             self.metadata_file_i = 0
