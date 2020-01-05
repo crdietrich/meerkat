@@ -1,4 +1,5 @@
-"""Tools for I2C devices
+"""Tools for Raspberry Pi, MicroPython and I2C devices
+
 2019 Colin Dietrich"""
 
 def toI2C(n):
@@ -25,3 +26,23 @@ def bprint(v, n=16, indexes=True, verbose=True):
         m = [str(x).zfill(2) for x in reversed(range(n))]
         print("".join([x[0] for x in m]))
         print("".join([x[1] for x in m]))
+
+# for MicroPython memory measurement, see
+# https://forum.micropython.org/viewtopic.php?t=3499
+
+def ufree_disk():
+    """In MicroPython report how much on disk memory is free"""
+    import os
+    s = os.statvfs('//')
+    return ('{0} MB'.format((s[0]*s[3])/1048576))
+
+def ufree(full=False):
+    """In MicroPython report how much RAM memory is free and allocated"""
+    import gc
+    import os
+    F = gc.mem_free()
+    A = gc.mem_alloc()
+    T = F+A
+    P = '{0:.2f}%'.format(F/T*100)
+    if not full: return P
+    else : return ('Total:{0} Free:{1} ({2})'.format(T,F,P))
