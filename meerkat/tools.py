@@ -1,6 +1,4 @@
-"""Tools for Raspberry Pi, MicroPython and I2C devices
-
-2019 Colin Dietrich"""
+"""Tools for Raspberry Pi & MicroPython and I2C devices"""
 
 def toI2C(n):
     """Print read and write address bytes formatted as

@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Meerkat data parsing tools"""
-__author__ = "Colin Dietrich"
-__copyright__ = "2018"
-__license__ = "MIT"
+"""Data parsing tools"""
 
 import json
 import pandas as pd
@@ -10,11 +6,11 @@ import pandas as pd
 
 def csv_resource(fp):
     """Parse a .csv file generated with Meerkat
-    
+
     Parameters
     ----------
     fp : filepath to saved data
-    
+
     Returns
     -------
     meta : dict, metadata describing data

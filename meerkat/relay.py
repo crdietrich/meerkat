@@ -1,6 +1,4 @@
-"""Relays for controlling high current devices
-
-Colin Dietrich 2019"""
+"""Sparkfun Relay for controlling high current devices"""
 
 from meerkat.base import I2C, DeviceData, time
 from meerkat.data import CSVWriter, JSONWriter

@@ -1,7 +1,5 @@
-"""A wrapper API for I2C methods for MicroPython
-
-Copyright (c) 2019 Colin Dietrich
-"""
+"""Wrapper Library for controlling I2C devices connected to MicroPython.
+Tested with PyCom FiPy"""
 
 from machine import I2C
 

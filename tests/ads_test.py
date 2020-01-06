@@ -1,3 +1,5 @@
+"""Test the ADS1115 ADC"""
+
 import smbus
 from meerkat import ads
 from time import sleep

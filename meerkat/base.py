@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Meerkat device methods"""
-__author__ = "Colin Dietrich"
-__copyright__ = "2018"
-__license__ = "MIT"
+"""Basic I2C device classes for Raspberry PI & MicroPython"""
 
 import sys
 
@@ -55,7 +51,7 @@ def twos_comp_to_dec_old(value, bits):
 
 
 class Base:
-    """Common methods for classes"""
+    """Common methods"""
 
     def __init__(self):
         self.name = None

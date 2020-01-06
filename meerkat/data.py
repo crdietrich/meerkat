@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Meerkat data tools"""
-__author__ = "Colin Dietrich"
-__copyright__ = "2018"
-__license__ = "MIT"
+"""CSV and JSON writing and publishing methods"""
 
 import sys
 

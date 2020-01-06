@@ -1,6 +1,4 @@
-"""ADS1x15 I2C ADC for Micropython/Meerkat
-Author: Colin Dietrich 2017
-"""
+"""TI ADS1x15 ADC I2C Driver for Raspberry PI & MicroPython"""
 
 from meerkat.base import I2C, DeviceData, twos_comp_to_dec, time
 from meerkat.data import CSVWriter, JSONWriter
@@ -25,7 +23,7 @@ class ADS1115(object):
         Parameters
         ----------
         bus_n : int, i2c bus number on Controller
-        bus_addr : int, i2c bus number of this Worker device        
+        bus_addr : int, i2c bus number of this Worker device
         """
 
         # i2c bus
@@ -65,7 +63,7 @@ class ADS1115(object):
                         '0G': 0b100, '1G': 0b101, '2G': 0b110, '3G': 0b111}
         self.bin_mux = {v: k for k, v in self.str_mux.items()}
 
-        self.str_pga = {'6.144': 0b000, '4.096': 0b001, '2.048': 0b010, 
+        self.str_pga = {'6.144': 0b000, '4.096': 0b001, '2.048': 0b010,
                         '1.024': 0b011, '0.512': 0b100, '0.256': 0b101}
         self.bin_pga = {v: float(k) for k, v in self.str_pga.items()}
         self.str_mode = {'continuous': 0b0, 'single': 0b1}
@@ -106,8 +104,8 @@ class ADS1115(object):
             self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
         elif output == 'json':
             self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
-        else: 
-            pass  # holder for another writer or change in default  
+        else:
+            pass  # holder for another writer or change in default
         self.writer.device = self.device.values()
 
         # data recording information
@@ -118,7 +116,7 @@ class ADS1115(object):
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
-        
+
         Allowed register names:
             'conversion'
             'config'
@@ -141,7 +139,7 @@ class ADS1115(object):
             'config'
             'lo_thres'
             'hi_thresh'
-        
+
         Parameters
         ----------
         reg_name : str, name of registry to read
@@ -156,7 +154,7 @@ class ADS1115(object):
 
     def write_register_16bit(self, reg_name, data):
         """Write a 16 bits of data to register
-        
+
         Allowed register names:
             'conversion'
             'config'
@@ -247,7 +245,7 @@ class ADS1115(object):
 
     def mux(self, x):
         """Set multiplexer pin pair, ADS1115 only.
-        
+
         Parameters
         ----------
         x : str, positive and negative pin combination.  Based on:
@@ -263,7 +261,7 @@ class ADS1115(object):
 
     def pga(self, x):
         """Set programmable gain amplifier range.
-        
+
         Parameters
         ----------
         x : str, +/- voltage range value.  Supported values:
@@ -279,7 +277,7 @@ class ADS1115(object):
 
     def mode(self, x):
         """Set operating mode to either single or continuous.
-        
+
         Parameters
         ----------
         x: str, either 'single' or 'continuous'
@@ -294,7 +292,7 @@ class ADS1115(object):
     def data_rate(self, x):
         """Set data rate of sampling
         Changes bits [7:5]
-        
+
         Parameters
         ----------
         x : int, samples per second.
@@ -313,7 +311,7 @@ class ADS1115(object):
 
         x : str, 'trad' or 'window'
         """
-        
+
         self.config_value = ((self.config_value & BIT_COMP_MODE)
                              | (self.str_comp_mode[x] << 4))
         self.set_config()
@@ -352,7 +350,7 @@ class ADS1115(object):
     def comp_que(self, x):
         """Disable or set the number of conversions before a ALERT/RDY pin
         is set high
-        
+
         Parameters
         ----------
         x : str, number of conversions '1', '2', '4' or 'off'
@@ -405,12 +403,12 @@ class ADS1115(object):
 
     def get(self, description='no_description', n=1):
         """Get formatted output.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
-        
+
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
@@ -421,12 +419,12 @@ class ADS1115(object):
         for m in range(1,n+1):
             data_list.append([description, m, self.mux_value, self.voltage()])
             if n == 1:
-                return data_list[0]        
+                return data_list[0]
         return data_list
 
     def write(self, description='no_description', n=1):
         """Format output and save to file, formatted as either .csv or .json.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
@@ -434,12 +432,12 @@ class ADS1115(object):
 
         Returns
         -------
-        None, writes to disk the following data: 
+        None, writes to disk the following data:
             description : str, description of sample
             sample_n : int, sample number in this burst
             mux : str, multiplexer input used
             voltage : float, voltage measurement
         """
         self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
-        for m in range(1,n+1):        
+        for m in range(1,n+1):
             self.writer.write([description, m, self.mux_value, self.voltage()])

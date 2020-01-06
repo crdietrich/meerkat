@@ -1,3 +1,5 @@
+"""Realtime Clock I2C Driver for Raspberry PI & MicroPython"""
+
 try:
 	import ucollections
 except ImportError:

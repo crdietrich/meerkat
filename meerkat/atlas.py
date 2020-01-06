@@ -1,10 +1,7 @@
-"""Atlas Scientific I2C Sensors
-
-2018 Colin Dietrich
-MIT License"""
+"""Atlas Scientific I2C Drivers for Raspberry PI & MicroPython"""
 
 
-from meerkat.base import I2C, DeviceData, time 
+from meerkat.base import I2C, DeviceData, time
 from meerkat.data import CSVWriter, JSONWriter
 
 
@@ -15,12 +12,12 @@ def scan(bus_n):
     ----------
     bus_n : int, I2C bus to scan
     """
-    
-    device_descriptions = [[0x61, "DO", "Dissolved Oxygen"], 
+
+    device_descriptions = [[0x61, "DO", "Dissolved Oxygen"],
                            [0x62, "ORP", "Oxidation Reduction"],
                            [0x63, "pH", "pH"],
                            [0x64, "EC", "Conductivity"]]
-    
+
     for bus_addr, code, description in devices:
         try:
             dev = Atlas(bus_n=bus_n, bus_addr=bus_addr)
@@ -39,7 +36,7 @@ class Atlas:
         Parameters
         ----------
         bus_n : int, i2c bus number on Controller
-        bus_addr : int, i2c bus number of this Worker device        
+        bus_addr : int, i2c bus number of this Worker device
         """
 
         # i2c bus
@@ -68,10 +65,10 @@ class Atlas:
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('Atlas_Base', time_format='std_time_ms')
-            
+
         elif output == 'json':
             self.writer = JSONWriter('Atlas_Base', time_format='std_time_ms')
-        else: 
+        else:
             pass  # holder for another writer or change in default
         self.writer.header = ['description', 'sample_n', 'not_set']
         self.writer.device = self.device.values()
@@ -80,11 +77,11 @@ class Atlas:
         self.sample_id = None
 
     def query(self, command, n=31, delay=None, verbose=False):
-        """Write a command to the i2c device and read the reply, 
+        """Write a command to the i2c device and read the reply,
         delay between reply based on command value.
 
         First byte repsonse codes
-        -------------------------        
+        -------------------------
            1 = successful request
            2 = syntax error
          254 = still processing, not ready
@@ -96,13 +93,13 @@ class Atlas:
         n : int, number of bytes to read
         delay : float, number of milliseconds to delay before reading response
         verbose : bool, print debug statements
-        
+
         Returns
         -------
         str : response, may require further parsing
         """
-        
-        if verbose:        
+
+        if verbose:
             print("Input Type: ", type(command))
 
         if (type(command) == int) or (type(command) == bytes):
@@ -114,7 +111,7 @@ class Atlas:
             print("Bytes sent:", command)
 
         self.bus.write_n_bytes(*byte_command)
-        
+
         if delay is not None:
             time.sleep(delay/1000)
 
@@ -142,7 +139,7 @@ class Atlas:
 
         Returns
         -------
-        device: str, device type 
+        device: str, device type
         firmware : str, firmware version
         """
 
@@ -172,7 +169,7 @@ class Atlas:
     def sleep(self):
         """Put device to sleep.  Any byte sent wakes."""
         _r = self.query(b'Sleep', n=0)
-    
+
     def wake(self):
         """Wake device from sleep state"""
         _r = self.query(0x01, n=0)
@@ -193,7 +190,7 @@ class Atlas:
         _r = self.query(b'Plock,0', n=0)
 
     def reset(self):
-        """Completely reset device.  Clears calibration, sets LED on and 
+        """Completely reset device.  Clears calibration, sets LED on and
         enables reponse codes"""
         _r = self.query(b'Factory', n=0)
 
@@ -214,7 +211,7 @@ class Atlas:
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
-        
+
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
@@ -235,7 +232,7 @@ class Atlas:
 
     def write(self, description='no_description', n=1):
         """Format output and save to file, formatted as either .csv or .json.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
@@ -243,12 +240,12 @@ class Atlas:
 
         Returns
         -------
-        None, writes to disk the following data: 
+        None, writes to disk the following data:
             description : str, description of sample
             sample_n : int, sample number in this burst
             measurement : float, measurement of sensor
         """
-        
+
         for m in range(n):
             measure = self.measure()
             if isinstance(measure, float):
@@ -285,7 +282,7 @@ class pH(Atlas):
         ----------
         n : float, calibration value to 2 decimal places
         """
-        _r = self.query(bytes("CAL,mid,{:.2f}".format(n), encoding='utf-8'), 
+        _r = self.query(bytes("CAL,mid,{:.2f}".format(n), encoding='utf-8'),
                         n=0,
                         delay=950)
 
@@ -297,7 +294,7 @@ class pH(Atlas):
         ----------
         n : float, calibration value to 2 decimal places
         """
-        _r = self.query(bytes("CAL,low,{:.2f}".format(n), encoding='utf-8'), 
+        _r = self.query(bytes("CAL,low,{:.2f}".format(n), encoding='utf-8'),
                         n=0,
                         delay=950)
 
@@ -309,14 +306,14 @@ class pH(Atlas):
         ----------
         n : float, calibration value to 2 decimal places
         """
-        _r = self.query(bytes("CAL,high,{:.2f}".format(n), encoding='utf-8'), 
+        _r = self.query(bytes("CAL,high,{:.2f}".format(n), encoding='utf-8'),
                         n=0,
                         delay=950)
 
     def cal_clear(self):
         """Clear calibration points (mid, low, high)"""
 
-        _r = self.query(bytes("CAL,clear", encoding='utf-8'), 
+        _r = self.query(bytes("CAL,clear", encoding='utf-8'),
                         n=0,
                         delay=0)
 
@@ -335,9 +332,9 @@ class pH(Atlas):
         -------
         int, number of calibration points
         """
-        
+
         _r = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
-        _r = _r.decode('utf-8') 
+        _r = _r.decode('utf-8')
         _r = _r.split(",")
         return int(_r[1])
         return _r
@@ -364,12 +361,12 @@ class pH(Atlas):
         ----------
         t : float, temperature in degrees C accurate to 2 decimal places
         verbose: bool, print debug statements
-        
+
         Returns
         -------
         boolean, command success
         """
-        _r = self.query(bytes("T,{:.2f}".format(t), encoding='utf-8'), 
+        _r = self.query(bytes("T,{:.2f}".format(t), encoding='utf-8'),
                         n=0,
                         verbose=verbose)
 
@@ -379,7 +376,7 @@ class pH(Atlas):
         Parameters
         ----------
         verbose: bool, print debug statements
-        
+
         Returns
         -------
         float, temperature in degrees C accurate to 2 decimal places
@@ -388,9 +385,9 @@ class pH(Atlas):
         _r = self.query(b'T,?', n=9, delay=350, verbose=verbose)
         _r = _r.decode('utf-8')
         _r = _r.split(',')
-        temp = float(_r[1])        
+        temp = float(_r[1])
         return temp
-        
+
     def measure(self, verbose=False):
         """Take a pH measurement
 
@@ -402,7 +399,7 @@ class pH(Atlas):
         -------
         float : measurement to three decimal places
         """
-        
+
         _r = self.query(b'R', n=7, delay=950, verbose=verbose)
         _r = _r.decode('utf-8')
         _r = float(_r)
@@ -460,7 +457,7 @@ class Conductivity(Atlas):
         ----------
         n : int, calibration value
         """
-        _r = self.query(bytes("CAL,{}".format(n), encoding='utf-8'), 
+        _r = self.query(bytes("CAL,{}".format(n), encoding='utf-8'),
                         n=0,
                         delay=650)
 
@@ -472,7 +469,7 @@ class Conductivity(Atlas):
         ----------
         n : int, calibration value
         """
-        _r = self.query(bytes("CAL,low,{}".format(n), encoding='utf-8'), 
+        _r = self.query(bytes("CAL,low,{}".format(n), encoding='utf-8'),
                         n=0,
                         delay=650)
 
@@ -484,14 +481,14 @@ class Conductivity(Atlas):
         ----------
         n : int, calibration value
         """
-        _r = self.query(bytes("CAL,high,{}".format(n), encoding='utf-8'), 
+        _r = self.query(bytes("CAL,high,{}".format(n), encoding='utf-8'),
                         n=0,
                         delay=650)
 
     def cal_clear(self):
         """Clear calibration points (dry, one, low, high)"""
 
-        _r = self.query(bytes("CAL,clear", encoding='utf-8'), 
+        _r = self.query(bytes("CAL,clear", encoding='utf-8'),
                         n=0,
                         delay=0)
 
@@ -509,9 +506,9 @@ class Conductivity(Atlas):
         -------
         int, number of calibration points
         """
-        
+
         _r = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
-        _r = _r.decode('utf-8') 
+        _r = _r.decode('utf-8')
         _r = _r.split(",")
         return int(_r[1])
         return _r
@@ -549,12 +546,12 @@ class Conductivity(Atlas):
         ----------
         t : float, temperature in degrees C accurate to 2 decimal places
         verbose: bool, print debug statements
-        
+
         Returns
         -------
         boolean, command success
         """
-        _r = self.query(bytes("T,{:.2f}".format(t), encoding='utf-8'), 
+        _r = self.query(bytes("T,{:.2f}".format(t), encoding='utf-8'),
                         n=0,
                         verbose=verbose)
 
@@ -564,7 +561,7 @@ class Conductivity(Atlas):
         Parameters
         ----------
         verbose: bool, print debug statements
-        
+
         Returns
         -------
         float, temperature in degrees C accurate to 2 decimal places
@@ -573,14 +570,14 @@ class Conductivity(Atlas):
         _r = self.query(b'T,?', n=9, delay=350, verbose=verbose)
         _r = _r.decode('utf-8')
         _r = _r.split(',')
-        temp = float(_r[1])        
+        temp = float(_r[1])
         return temp
 
     def output_conductivity_on(self):
         """Turn on conductivity output"""
 
         _r = self.query(b"O,EC,1", n=0)
-        
+
     def output_conductivity_off(self):
         """Turn off conductivity output"""
 
@@ -590,7 +587,7 @@ class Conductivity(Atlas):
         """Turn on TDS output"""
 
         _r = self.query(b"O,TDS,1", n=0)
-        
+
     def output_TDS_off(self):
         """Turn off TDS output"""
 
@@ -600,7 +597,7 @@ class Conductivity(Atlas):
         """Turn on salinity output"""
 
         _r = self.query(b"O,S,1", n=0)
-        
+
     def output_salinity_off(self):
         """Turn off salinity output"""
 
@@ -610,7 +607,7 @@ class Conductivity(Atlas):
         """Turn on specific gravity output"""
 
         _r = self.query(b"O,SG,1", n=0)
-        
+
     def output_specific_gravity_off(self):
         """Turn off specific gravity  output"""
 
@@ -638,12 +635,11 @@ class Conductivity(Atlas):
 
         Returns
         -------
-        str : conductivity, total solids, salinity, specific gravity 
-            measurement, depending on state as 
+        str : conductivity, total solids, salinity, specific gravity
+            measurement, depending on state as
         """
-        
+
         _r = self.query(b'R', n=40, delay=650, verbose=verbose)
         _r = _r.decode('utf-8')
         _r = [float(m) for m in _r.split(',')]
         return _r
-

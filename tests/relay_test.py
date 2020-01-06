@@ -1,4 +1,5 @@
-# main.py -- put your code here!
+"""Test the Qwiic Relay"""
+
 import sys
 
 from meerkat import relay

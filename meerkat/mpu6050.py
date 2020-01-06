@@ -1,5 +1,5 @@
-"""This program handles the communication over I2C
-between a Raspberry Pi and a MPU-6050 Gyroscope / Accelerometer combo.
+"""MPU-6050 Gyroscope/Accelerometer I2C Driver for Raspberry PI & MicroPython
+
 Made by: MrTijn/Tijndagamer
 Forked 01/02/2019 from https://github.com/Tijndagamer/mpu6050
 and merged into meerkat by: Colin Dietrich / crdietrich
@@ -84,10 +84,10 @@ class mpu6050:
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
-        
+
         # Wake up the MPU-6050 since it starts in sleep mode
         self.bus.write_n_bytes(self.PWR_MGMT_1)
-        
+
         # information about this device
         self.device = DeviceData('MPU-6050')
         self.device.description = ('TDK InvenSense Gyro & Accelerometer')
@@ -109,12 +109,12 @@ class mpu6050:
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('MPU-6050', time_format='std_time_ms')
-            self.writer.header = ['description', 'sample_n', 'arange', 'grange', 
+            self.writer.header = ['description', 'sample_n', 'arange', 'grange',
                                   'ax', 'ay', 'az', 'gx', 'gy', 'gz', 'temp_C']
         elif output == 'json':
             self.writer = JSONWriter('MPU-6050', time_format='std_time_ms')
-        else: 
-            pass  # holder for another writer or change in default  
+        else:
+            pass  # holder for another writer or change in default
         self.writer.device = self.device.values()
 
     # I2C communication methods
@@ -125,7 +125,7 @@ class mpu6050:
         register -- the first register to read from.
         Returns the combined read results.
         """
-        
+
         value = self.bus.read_register_16bit(register)
 
         if value >= 0x8000:
@@ -194,7 +194,7 @@ class mpu6050:
         If g is False, it will return the data in m/s^2
         Returns a dictionary with the measurement results.
         """
-        
+
         x = self.bus.read_register_16bit(self.ACCEL_XOUT0)
         y = self.bus.read_register_16bit(self.ACCEL_YOUT0)
         z = self.bus.read_register_16bit(self.ACCEL_ZOUT0)
@@ -249,7 +249,7 @@ class mpu6050:
         If raw is False, it will return 250, 500, 1000, 2000 or -1. If the
         returned value is equal to -1 something went wrong.
         """
-        
+
         raw_data = self.bus.read_register_16bit(self.GYRO_CONFIG)
 
         if raw is True:
@@ -309,13 +309,13 @@ class mpu6050:
         gyro_data = self.get_gyro_data()
         temp_data = self.get_temp()
         if self.writer.media_type == 'text/csv':
-            data = ([description, m] + 
-                    [self.accel_range, self.gyro_range] + 
-                    [accel_data['x'], accel_data['y'], accel_data['z']] + 
-                    [gyro_data['x'], gyro_data['y'], gyro_data['z']] + 
+            data = ([description, m] +
+                    [self.accel_range, self.gyro_range] +
+                    [accel_data['x'], accel_data['y'], accel_data['z']] +
+                    [gyro_data['x'], gyro_data['y'], gyro_data['z']] +
                     [temp_data])
         else:
-            data = {'desc': description, 'n': m, 
+            data = {'desc': description, 'n': m,
                     'arange': self.accel_range,
                     'grange': self.gyro_range,
                     'accel_data': accel_data, 'gyro_data': gyro_data,
@@ -324,12 +324,12 @@ class mpu6050:
 
     def get_all_burst(self, description='no_description', n=1):
         """Get formatted output.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
-        
+
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
@@ -344,12 +344,12 @@ class mpu6050:
         for m in range(1,n+1):
             data_list.append(self._get_all_data(description, m))
             if n == 1:
-                return data_list[0]        
+                return data_list[0]
         return data_list
 
     def write_all(self, description='no_description', n=1):
         """Format output and save to file, formatted as either .csv or .json.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
@@ -357,12 +357,11 @@ class mpu6050:
 
         Returns
         -------
-        None, writes to disk the following data: 
+        None, writes to disk the following data:
             description : str, description of sample
             sample_n : int, sample number in this burst
             mux : str, multiplexer input used
             voltage : float, voltage measurement
         """
-        for m in range(1,n+1):        
+        for m in range(1,n+1):
             self.writer.write(self._get_all_data(description, m))
-

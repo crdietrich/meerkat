@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Meerkat test device for development"""
-__author__ = "Colin Dietrich"
-__copyright__ = "2018"
-__license__ = "MIT"
+"""Test device for development"""
 
 from meerkat.base import Base, DeviceData
 

@@ -1,5 +1,4 @@
-"""A Python library for controlling I2C devices
-connected to the Raspberry Pi
+"""Library for controlling I2C devices connected to the Raspberry Pi
 
 Copyright (c) 2012 Quick2Wire Limited
 Copyright (c) 2014 Pimoroni Ltd
