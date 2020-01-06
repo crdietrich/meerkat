@@ -57,9 +57,9 @@ class Writer(object):
         self.precision = None
 
         # timestamp formatter
-        self.timepiece = TimePiece(time_format)
-        self.time_format = self.timepiece.format
-        self.strfmtime = self.timepiece.strfmtime
+        self._timepiece = TimePiece(time_format)
+        self.time_format = self._timepiece.format
+        self.strfmtime = self._timepiece.strfmtime
 
     def __repr__(self):
         return str(self.__dict__)
@@ -121,7 +121,7 @@ class CSVWriter(Writer):
         for each item in self.data
         """
         if self.path is None:
-            self.path = self.timepiece.file_time() + '_data.csv'
+            self.path = self._timepiece.file_time() + '_data.csv'
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
             if self.header is not None:
@@ -131,7 +131,7 @@ class CSVWriter(Writer):
     def _write_append(self, data):
         """Append data to an existing file at location self.path"""
         with open(self.path, 'a') as f:
-            dc = ','.join([self.timepiece.get_time()]+[str(_x) for _x in data])
+            dc = ','.join([self._timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data, indent=None):
@@ -187,7 +187,7 @@ class JSONWriter(Writer):
         data_out : str, JSON formatted data and metadata
         """
         data_out = {k:v for k,v in zip(self.header, data)}
-        data_out[self.time_format] = self.timepiece.get_time()
+        data_out[self.time_format] = self._timepiece.get_time()
 
         if self.metadata_stream_i == self.metadata_interval:
             self.metadata_stream_i = 0
@@ -205,10 +205,10 @@ class JSONWriter(Writer):
         data : list, data to be zipped with header descriptions
         """
         if self.path is None:
-            self.path = self.timepiece.file_time() + '.jsontxt'
+            self.path = self._timepiece.file_time() + '.jsontxt'
 
         data_out = {k:v for k,v in zip(self.header, data)}
-        data_out[self.time_format] = self.timepiece.get_time()
+        data_out[self.time_format] = self._timepiece.get_time()
 
         if self.metadata_file_i == self.metadata_interval:
             self.metadata_file_i = 0
