@@ -1,6 +1,6 @@
 """Grove I2C Motor Controller Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, DeviceData, twos_comp_to_dec, time
+from meerkat.base import I2C, DeviceData, time
 from meerkat.data import CSVWriter, JSONWriter
 
 class GroveMotor:
@@ -54,16 +54,16 @@ class GroveMotor:
         self.device.calibration_date = None
 
         # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('Grove Motor', time_format='std_time_ms')
-            self.writer.header = ['description', 'freq',
+        self.writer_output = output
+        self.csv_writer = CSVWriter(self.device.name, time_format='std_time_ms')
+        self.csv_writer.device = self.device.values()
+        self.csv_writer.header = ['description', 'freq',
                                   'm1_speed', 'm2_speed', 'm_direction',
                                   'mode', 'phase', 'steps']
-        elif output == 'json':
-            self.writer = JSONWriter('Grove Motor v1.3', time_format='std_time_ms')
-        else:
-            pass  # holder for another writer or change in default
-        self.writer.device = self.device.values()
+
+        self.json_writer = JSONWriter(self.device.name, time_format='std_time_ms')
+        self.json_writer.device = self.device.values()
+        self.json_writer.header = self.csv_writer.header
 
     def get_info(self):
         pid = self.bus.read_register_16bit(0x00)
@@ -256,12 +256,25 @@ class GroveMotor:
         data : list, data that will be saved to disk with self.write containing:
             description : str
         """
-
         return [description, self.frequency,
                 self.motor_1_speed, self.motor_2_speed,
                 self.direction, self.mode,
                 self.phase, self.steps]
 
+    def publish(self, description='no_description'):
+        """Format output and save to file, formatted as either .csv or .json.
+
+        Parameters
+        ----------
+        description : char, description of data sample collected
+
+        Returns
+        -------
+        None, writes to disk the following data:
+            description : str, description of sample
+        """
+        return self.json_writer.publish(self.get(description=description))
+    
     def write(self, description='no_description'):
         """Format output and save to file, formatted as either .csv or .json.
 
@@ -273,10 +286,12 @@ class GroveMotor:
         -------
         None, writes to disk the following data:
             description : str, description of sample
-
         """
-
-        self.writer.write([description, self.frequency,
-                           self.motor_1_speed, self.motor_2_speed,
-                           self.direction, self.mode,
-                           self.phase, self.steps])
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        wr.write(self.get(description=description))
+        
+        #self.writer.write([description, self.frequency,
+        #                   self.motor_1_speed, self.motor_2_speed,
+        #                   self.direction, self.mode,
+        #                   self.phase, self.steps])
