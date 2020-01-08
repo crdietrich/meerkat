@@ -1,4 +1,4 @@
-"""Test the Grove Motor Controller"""
+"""Test the Grove Motor Controller stepper function"""
 
 from meerkat import motor
 from meerkat.base import time
