@@ -1,9 +1,16 @@
 """Test the Grove Motor Controller stepper function"""
 
+import sys
+
 from meerkat import motor
 from meerkat.base import time
 
-m = motor.GroveMotor(bus_n=1)
+if sys.platform == "linux":
+    i2c_bus = 1
+else:
+    i2c_bus = 0
+
+m = motor.GroveMotor(bus_n=i2c_bus)
 m.stop()
 print("> Initially set to stopped")
 print()
@@ -48,20 +55,20 @@ print("> Get:", m.get("test_3d_full_steps"))
 m.write("test_3e_microsteps")
 print("> JSON: ", m.publish("test_3f_full_steps"))
 time.sleep(1)
-      
+
 for n in [100, 50, 10, 5, 1]:
     print("> {} clockwise full steps".format(n))
     m.step_full(n, delay=0.0001, verbose=False)
     m.write("test_4a_{}_cw_steps".format(n))
     print("JSON Format:", m.publish(description="test_4a_{}_cw_steps".format(n)))
-    
+
     print("> {} counter clockwise full steps".format(n))
     m.step_full(-1*n, delay=0.0001, verbose=False)
     m.write("test_4b_{}_cw_steps".format(n))
     print("JSON Format:", m.publish(description="test_4b_-{}_cw_steps".format(n)))
     print("-"*20)
     time.sleep(1)
-    
+
 print()
 print("All tests done.")
 print("Data saved to file: {}".format(m.csv_writer.path))

@@ -1,9 +1,16 @@
 """Test the Grove Motor Controller stepper function"""
 
+import sys
+
 from meerkat import motor
 from meerkat.base import time
 
-m = motor.GroveMotor(bus_n=1)
+if sys.platform == "linux":
+    i2c_bus = 1
+else:
+    i2c_bus = 0
+
+m = motor.GroveMotor(bus_n=i2c_bus)
 m.stop()
 print("> Initially set to stopped")
 print()
