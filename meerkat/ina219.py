@@ -1,5 +1,4 @@
-"""Texas Instruments INA219 current and power measurement
-2019 Colin Dietrich"""
+"""TI INA219 current measurement driver for Raspberry PI & MicroPython"""
 
 from meerkat import base, tools
 from meerkat.data import CSVWriter, JSONWriter
@@ -24,8 +23,8 @@ class INA219:
         self.reg_power = None
         self.reg_calibration = None
 
-        self.reg_map = {'config': 0x00, 'shunt_voltage': 0x01, 
-                        'bus_voltage': 0x02, 'power': 0x03, 
+        self.reg_map = {'config': 0x00, 'shunt_voltage': 0x01,
+                        'bus_voltage': 0x02, 'power': 0x03,
                         'current': 0x04, 'calibration': 0x05}
 
         # Programable Gain Amplifier
@@ -84,8 +83,8 @@ class INA219:
             self.writer = CSVWriter('INA219', time_format='std_time_ms')
         elif output == 'json':
             self.writer = JSONWriter('INA219', time_format='std_time_ms')
-        else: 
-            pass  # holder for another writer or change in default  
+        else:
+            pass  # holder for another writer or change in default
         self.writer.header = ['description', 'sample_n', 'voltage', 'current']
         self.writer.device = self.device.values()
 
@@ -107,7 +106,7 @@ class INA219:
             'power'
             'current'
             'calibration'
-        
+
         Parameters
         ----------
         reg_name : str, name of registry to read
@@ -152,7 +151,7 @@ class INA219:
 
     def write_register_16bit(self, reg_name, data):
         """Write a 16 bits of data to register
-        
+
         Allowed register names:
             'config'
             'shunt_voltage'
@@ -198,7 +197,7 @@ class INA219:
         self.reg_config = reg_value
         self.device.gain = gain
         self.device.gain_string = self.pga_reg_str_range[self.gain]
-        self.write_config(reg_value) 
+        self.write_config(reg_value)
 
     def set_bus_adc_resolution(self, bits=12):
         """Generate config register for setting ADC resolution"""
@@ -272,7 +271,7 @@ class INA219:
 
         Adafruit's Arduino source has a good step through the calculations:
         https://github.com/adafruit/Adafruit_INA219/blob/master/Adafruit_INA219.cpp
-        
+
         cal_value : int, register value to write
         """
         self.reg_calibration = cal_value
@@ -280,15 +279,15 @@ class INA219:
 
     def get_current_simple(self):
         return self.get_shunt_voltage() / self.device.r_shunt
-        
+
     def get(self, description='no_description', n=1):
         """Get formatted output.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
-        
+
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
@@ -299,16 +298,16 @@ class INA219:
         """
         data_list = []
         for m in range(1,n+1):
-            data_list.append([description, m, 
-                              self.get_bus_voltage(), 
+            data_list.append([description, m,
+                              self.get_bus_voltage(),
                               self.get_current_simple()])
             if n == 1:
-                return data_list[0]        
+                return data_list[0]
         return data_list
 
     def write(self, description='no_description', n=1):
         """Format output and save to file, formatted as either .csv or .json.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
@@ -316,14 +315,13 @@ class INA219:
 
         Returns
         -------
-        None, writes to disk the following data: 
+        None, writes to disk the following data:
             description : str, description of sample
             sample_n : int, sample number in this burst
             voltage, float, Volts measured at the shunt resistor
             current : float, Amps of current accross the shunt resistor
         """
-        for m in range(1,n+1):        
-            self.writer.write([description, m, 
-                              self.get_bus_voltage(), 
+        for m in range(1,n+1):
+            self.writer.write([description, m,
+                              self.get_bus_voltage(),
                               self.get_current_simple()])
-

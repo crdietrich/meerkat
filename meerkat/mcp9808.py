@@ -1,8 +1,6 @@
-"""MCP9808 Temperature Sensor for Micropython/Python
-Author: Colin Dietrich 2018
-"""
+"""MCP9808 Temperature Sensor Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, DeviceData, time 
+from meerkat.base import I2C, DeviceData, time
 from meerkat.data import CSVWriter, JSONWriter
 
 # chip register address
@@ -33,9 +31,9 @@ class MCP9808(object):
         Parameters
         ----------
         bus_n : int, i2c bus number on Controller
-        bus_addr : int, i2c bus number of this Worker device        
+        bus_addr : int, i2c bus number of this Worker device
         """
-        
+
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
@@ -87,7 +85,7 @@ class MCP9808(object):
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
-        
+
         Allowed address names:
             'config'
             'upper_temp'
@@ -107,7 +105,7 @@ class MCP9808(object):
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
-        
+
         Allowed register names:
             'config'
             'upper_temp'
@@ -123,13 +121,13 @@ class MCP9808(object):
 
         Returns
         -------
-        upper byte 
+        upper byte
         lower byte
         """
 
         reg_addr = self.reg_map[reg_name]
         ulb = self.bus.read_register_16bit(reg_addr)
-        ub = ulb >> 8 
+        ub = ulb >> 8
         lb = ulb & 0xff
         return ub, lb
 
@@ -170,7 +168,7 @@ class MCP9808(object):
     def get_device_id(self):
         (self.device_id,
          self.revision) = self.read_register_16bit('device_id')
-        
+
     def get_temp(self):
         """Get temperature in degrees Celcius with 13 bit accuracy
 
@@ -184,7 +182,7 @@ class MCP9808(object):
         self.alert_critial = (ub & 0x80) == 0x80
         self.alert_upper = (ub & 0x40) == 0x40
         self.alert_lower = (ub & 0x20) == 0x20
-        
+
         ub = ub & 0x1F
 
         if (ub & 0x10) == 0x10:
@@ -195,12 +193,12 @@ class MCP9808(object):
 
     def get(self, description='no_description', n=1):
         """Get formatted output.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
-        
+
         Returns
         -------
         data : list, data containing:
@@ -211,13 +209,13 @@ class MCP9808(object):
         for m in range(1,n+1):
             data_list.append([description, m, self.get_temp()])
             if n == 1:
-                return data_list[0]        
+                return data_list[0]
         return data_list
 
     def write(self, description='no_description', n=1, delay=None):
         """Format output and save to file, formatted as either
         .csv or .json.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
@@ -235,4 +233,3 @@ class MCP9808(object):
             self.writer.write([description, m, self.get_temp()])
             if delay is not None:
                 time.sleep(delay)
-

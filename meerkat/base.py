@@ -1,50 +1,25 @@
-# -*- coding: utf-8 -*-
-"""Meerkat device methods"""
-__author__ = "Colin Dietrich"
-__copyright__ = "2018"
-__license__ = "MIT"
+"""Basic I2C device classes for Raspberry PI & MicroPython"""
 
-try:
-    import ujson as json
-except ImportError:
+import sys
+
+if sys.platform == "linux":
     import json
-
-try:
-    import utime as time
-except ImportError:
     import time
 
-try:
-    from meerkat import i2c_upython
-    I2C = i2c_upython.WrapI2C
-except ImportError:
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
 
+elif sys.platform in ["FiPy"]:
+    import ujson as json
+    import utime as time
 
-def generate_UUID():
-    # placeholder for UUID
-    return 'non-compliant-UUID'
+    from meerkat import i2c_upython
+    I2C = i2c_upython.WrapI2C
 
+else:
+    print("Error detecting system platform.")
 
-def scan_I2C(i2c_bus):
-    found_address = i2c_bus.scan()
-    print('Found I2C devices at:', found_address)
-
-
-def bit_get(idx, value):
-    """Get bit at index idx in value
-
-    Parameters
-    ----------
-    idx : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    value : bool, value of bit
-    """
-    return value & (1 << idx) != 0
-
-
-def bit_set(idx, value):
+def bit_set_old(idx, value):
     """Set bit at index idx in value to 1
 
     Parameters
@@ -56,7 +31,7 @@ def bit_set(idx, value):
     return value | (1 << idx)
 
 
-def bit_clear(idx, value):
+def bit_clear_old(idx, value):
     """Set bit at index idx in value to 0
 
     Parameters
@@ -68,28 +43,7 @@ def bit_clear(idx, value):
     return value & ~(1 << idx)
 
 
-def bit_toggle(value, bit, boolean):
-    """Toggle bit in value to boolean
-
-    Parameters
-    ----------
-    value : 16 bit int, value to change bit
-    bit : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    boolean : boolean, direction to toggle bit
-
-    Returns
-    -------
-    value with toggled bit
-    """
-
-    if boolean is True:
-        return bit_set(value, bit)
-    elif boolean is False:
-        return bit_clear(value, bit)
-
-
-def twos_comp_to_dec(value, bits):
+def twos_comp_to_dec_old(value, bits):
     """Convert Two's Compliment format to decimal"""
     if (value & (1 << (bits - 1))) != 0:
         value = value - (1 << bits)
@@ -97,7 +51,7 @@ def twos_comp_to_dec(value, bits):
 
 
 class Base:
-    """Common methods for classes"""
+    """Common methods"""
 
     def __init__(self):
         self.name = None
@@ -134,15 +88,6 @@ class Base:
                           sort_keys=True, indent=indent)
 
 
-class TimeFormats(Base):
-    """Time format descriptions for strftime conversion to datetime objects"""
-    def __init__(self):
-        self.std_time =    '%Y-%m-%d %H:%M:%S'
-        self.std_time_ms = '%Y-%m-%d %H:%M:%S.%f'
-        self.iso_time =    '%Y-%m-%dT%H:%M:%S.%f%z'
-        self.file_time =   '%Y_%m_%d_%H_%M_%S_%f'
-
-
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
     def __init__(self, time_format='std_time'):
@@ -168,8 +113,6 @@ class TimePiece(Base):
                     self._struct_time = _struct_time
                 except ImportError:
                     raise
-
-        #self.formats_available = TimeFormats()
 
         self.formats_available = {'std_time': '%Y-%m-%d %H:%M:%S',
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
@@ -221,22 +164,6 @@ class TimePiece(Base):
         t = self._struct_time()
         st = '{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'
         return st.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
-
-
-class I2C2(object):
-    """Generic I2C Bus standardized API"""
-
-    def __init__(self, i2c_bus):
-        if hasattr(i2c_bus, 'readfrom_mem'):
-            self.mem_read = i2c_bus.readfrom_mem
-        else:
-            self.mem_read = i2c_bus.mem_read
-
-        if hasattr(i2c_bus, 'writeto_mem'):
-            self.mem_write = i2c_bus.writeto_mem
-        else:
-            self.mem_write = i2c_bus.mem_write
-        self.scan = i2c_bus.scan
 
 
 class DeviceData(Base):
