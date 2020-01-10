@@ -74,7 +74,7 @@ class WrapI2C:
         else:
             return values
 
-    def write_n_bytes(self, *data):
+    def write_n_bytes(self, data):
         """Write bytes (n total) to worker device.
 
         Parameters
