@@ -68,11 +68,11 @@ class WrapI2C:
         -------
         iterable of bytes
         """
+        #
+        #
+        #
+        #
         return self.bus.readfrom(self.bus_addr, n)
-        #
-        #
-        #
-        #
 
     def write_n_bytes(self, data):
         """Write bytes (n total) to worker device
@@ -81,7 +81,7 @@ class WrapI2C:
         ----------
         data : iterable of bytes
         """
-        self.bus.writeto(self.bus_addr, data)
+        self.bus.writeto(self.bus_addr, bytes(data))
 
     ### 8bit Register ###
 
@@ -140,7 +140,6 @@ class WrapI2C:
         buff = bytearray(2)
         buff[0] = data >> 8
         buff[1] = data & 0xFF
-
         self.bus.writeto_mem(self.bus_addr, reg_addr, buff)
 
     ### nbit Register ###
