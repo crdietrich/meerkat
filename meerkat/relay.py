@@ -109,7 +109,7 @@ class Single:
         if verbose:
             print("Relay I2C address changed to 0x{:02x}".format(new_address))
 
-    def get(self, description='no_description'):
+    def get(self, description='NA'):
         """Get output of relay state in list format.
 
         Parameters
@@ -125,7 +125,7 @@ class Single:
         """
         return [description, self.get_status()]
 
-    def publish(self, description='no_description', delay=None):
+    def publish(self, description='NA'):
         """Output relay status data in JSON.
 
         Parameters
@@ -141,7 +141,7 @@ class Single:
         """
         return self.json_writer.publish(self.get(description=description))
 
-    def write(self, description='no_description', delay=None):
+    def write(self, description='NA', delay=None):
         """Format output and save to file, formatted as either
         .csv or .json.
 
