@@ -206,6 +206,7 @@ class MCP9808(object):
         data : list, data containing:
             description: str, description of sample under test
             temperature : float, temperature in degrees Celcius
+            delay : float, seconds to delay between samples if n > 1
         """
         data_list = []
         for m in range(1, n+1):
@@ -221,7 +222,7 @@ class MCP9808(object):
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
         delay : float, seconds to delay between samples if n > 1
 
@@ -246,7 +247,7 @@ class MCP9808(object):
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
         delay : float, seconds to delay between samples if n > 1
         

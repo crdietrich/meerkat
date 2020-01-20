@@ -79,15 +79,24 @@ class INA219:
         self.device.r_shunt = 0.1
 
         # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('INA219', time_format='std_time_ms')
-        elif output == 'json':
-            self.writer = JSONWriter('INA219', time_format='std_time_ms')
-        else:
-            pass  # holder for another writer or change in default
-        self.writer.header = ['description', 'sample_n', 'voltage', 'current']
-        self.writer.device = self.device.values()
+        #if output == 'csv':
+        #    self.writer = CSVWriter('INA219', time_format='std_time_ms')
+        #elif output == 'json':
+        #    self.writer = JSONWriter('INA219', time_format='std_time_ms')
+        #else:
+        #    pass  # holder for another writer or change in default
+        #self.writer.header = ['description', 'sample_n', 'voltage', 'current']
+        #self.writer.device = self.device.values()
 
+        self.writer_output = output
+        self.csv_writer = CSVWriter("INA219", time_format='std_time_ms')
+        self.csv_writer.device = self.device.__dict__
+        self.csv_writer.header = ['description', 'sample_n', 'voltage', 'current']
+        
+        self.json_writer = JSONWriter("INA219", time_format='std_time_ms')
+        self.json_writer.device = self.device.__dict__
+        self.json_writer.header = ['description', 'sample_n', 'voltage', 'current']
+        
         # data recording information
         self.sample_id = None
 
@@ -278,16 +287,18 @@ class INA219:
         self.write_calibration(cal_value)
 
     def get_current_simple(self):
+        """Calculate the current from single shot measurements"""
         return self.get_shunt_voltage() / self.device.r_shunt
 
-    def get(self, description='no_description', n=1):
+    def get(self, description='NA', n=1, delay=None):
         """Get formatted output.
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
-
+        delay : float, seconds to delay between samples if n > 1
+        
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
@@ -297,21 +308,50 @@ class INA219:
             current : float, Amps of current accross the shunt resistor
         """
         data_list = []
-        for m in range(1,n+1):
+        for m in range(1, n+1):
             data_list.append([description, m,
                               self.get_bus_voltage(),
                               self.get_current_simple()])
             if n == 1:
                 return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
         return data_list
 
-    def write(self, description='no_description', n=1):
+    def publish(self, description='NA', n=1, delay=None):
+        """Output relay status data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            temperature : float, temperature in degrees Celcius
+        """
+        data_list = []
+        for m in range(n):
+            data_list.append(self.json_writer.publish([description, m, 
+                                                       self.get_bus_voltage(),
+                                                       self.get_current_simple()]))
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
+    
+    def write(self, description='NA', n=1, delay=None):
         """Format output and save to file, formatted as either .csv or .json.
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
 
         Returns
         -------
@@ -320,8 +360,12 @@ class INA219:
             sample_n : int, sample number in this burst
             voltage, float, Volts measured at the shunt resistor
             current : float, Amps of current accross the shunt resistor
-        """
-        for m in range(1,n+1):
-            self.writer.write([description, m,
-                              self.get_bus_voltage(),
-                              self.get_current_simple()])
+        """ 
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m,
+                      self.get_bus_voltage(),
+                      self.get_current_simple()])
+            if delay is not None:
+                time.sleep(delay)
