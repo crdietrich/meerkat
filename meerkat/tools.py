@@ -31,10 +31,15 @@ def bprint(v, n=16, indexes=True, verbose=True):
 def ufree_disk():
     """In MicroPython report how much on disk memory is free"""
     import os
-    s = os.statvfs('//')
-    return ('{0} MB'.format((s[0]*s[3])/1048576))
+    # note: this would work on PyCom devices but not implemented
+    fs_stat = os.statvfs('//')
+    fs_size = fs_stat[0] * fs_stat[2]
+    fs_free = fs_stat[0] * fs_stat[3]
+    fs_per = fs_free / fs_size
+    return("Total: {:,} Free: {:,} ({0:.2f}%)".format(fs_size, fs_free, fs_per))
 
-def ufree(full=False):
+
+def ufree(verbose=False):
     """In MicroPython report how much RAM memory is free and allocated"""
     import gc
     import os
@@ -42,5 +47,33 @@ def ufree(full=False):
     A = gc.mem_alloc()
     T = F+A
     P = '{0:.2f}%'.format(F/T*100)
-    if not full: return P
-    else : return ('Total:{0} Free:{1} ({2})'.format(T,F,P))
+    if not verbose:
+        return P
+    return ('Total: {} Free: {} ({})'.format(T ,F, P))
+
+def clean_files(ftype, remove=False):
+    """Remove files from the current directory
+
+    Parameters
+    ----------
+    ftype : str, file extension or unique string in filename to find
+    remove : bool, remove files if True, return list of files if False
+    """
+    import os
+    files = os.listdir()
+    found_files = [f for f in files if ftype in f]
+    if remove:
+        for ff in found_files:
+            os.remove(ff)
+            print("Removed {}".format(ff))
+    else:
+        return found_files
+
+def dev_clean():
+    """Clean out files in current directory created during development"""
+    clean_files("csv", True)
+    clean_files("jsontxt", True)
+
+def ls():
+    import os
+    return os.listdir()
