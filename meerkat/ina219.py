@@ -23,9 +23,12 @@ class INA219:
         self.reg_power = None
         self.reg_calibration = None
 
-        self.reg_map = {'config': 0x00, 'shunt_voltage': 0x01,
-                        'bus_voltage': 0x02, 'power': 0x03,
-                        'current': 0x04, 'calibration': 0x05}
+        self.reg_map = {'config':        0x00, 
+                        'shunt_voltage': 0x01,
+                        'bus_voltage':   0x02, 
+                        'power':         0x03,
+                        'current':       0x04, 
+                        'calibration':   0x05}
 
         # Programable Gain Amplifier
         self.pga_reg_to_gain = {0:1, 1:2, 2:4, 3:8}
@@ -88,6 +91,9 @@ class INA219:
         #self.writer.header = ['description', 'sample_n', 'voltage', 'current']
         #self.writer.device = self.device.values()
 
+        # data recording information
+        self.sample_id = None
+        
         self.writer_output = output
         self.csv_writer = CSVWriter("INA219", time_format='std_time_ms')
         self.csv_writer.device = self.device.__dict__
@@ -96,9 +102,6 @@ class INA219:
         self.json_writer = JSONWriter("INA219", time_format='std_time_ms')
         self.json_writer.device = self.device.__dict__
         self.json_writer.header = ['description', 'sample_n', 'voltage', 'current']
-        
-        # data recording information
-        self.sample_id = None
 
         # intialized configuration values
         self.get_config()
