@@ -30,7 +30,10 @@ class INA219:
                         'current':       0x04, 
                         'calibration':   0x05}
 
-        # Programable Gain Amplifier
+        # bus voltage range
+        self.bv_reg_to_bv = {0: 16, 1:32}
+        
+        # programable gain amplifier
         self.pga_reg_to_gain = {0:1, 1:2, 2:4, 3:8}
         self.pga_gain_to_reg = {1:0, 2:1, 4:2, 8:3}
         self.pga_reg_str_range = {1: "+/- 40 mV",
@@ -57,8 +60,8 @@ class INA219:
         self.device.calibration_date = None
 
         # chip defaults on power up or reset command
-        self.device.bus_voltage_range = 32
-        self.device.gain = 8
+        self.device.bus_voltage_range = self.bv_reg_to_bv[1]
+        self.device.gain = self.pga_reg_to_gain[0b11]
         self.device.gain_string = self.pga_reg_str_range[self.device.gain]
 
         self.device.bus_adc_resolution = 12
@@ -81,19 +84,10 @@ class INA219:
         # Adafruit INA219 breakout board as a 0.1 ohm 1% 2W resistor
         self.device.r_shunt = 0.1
 
-        # data recording method
-        #if output == 'csv':
-        #    self.writer = CSVWriter('INA219', time_format='std_time_ms')
-        #elif output == 'json':
-        #    self.writer = JSONWriter('INA219', time_format='std_time_ms')
-        #else:
-        #    pass  # holder for another writer or change in default
-        #self.writer.header = ['description', 'sample_n', 'voltage', 'current']
-        #self.writer.device = self.device.values()
-
         # data recording information
         self.sample_id = None
         
+        # data recording method
         self.writer_output = output
         self.csv_writer = CSVWriter("INA219", time_format='std_time_ms')
         self.csv_writer.device = self.device.__dict__
@@ -106,10 +100,8 @@ class INA219:
         # intialized configuration values
         self.get_config()
 
-    def read_register_16bit(self, reg_name):
+    def read_register(self, reg_name):
         """Get the values from one registry
-
-        TODO: remove _15bit from method name?
 
         Allowed register names:
             'config'
@@ -132,36 +124,58 @@ class INA219:
         return self.bus.read_register_16bit(reg_addr)
 
     def get_config(self):
-        r = self.read_register_16bit('config')
+        r = self.read_register('config')
         self.reg_config = r
+        self.device.bus_voltage_range = self.bv_reg_to_bv[(r >> 13) & 0b1]
+        self.device.gain = self.pga_reg_to_gain[(r >> 11) & 0b11]
+        
+        if self.verbose:
+            print("Bus Voltage Range:", 
+                  self.device.bus_voltage_range, "V")
+            print("PGA Range: {}x or {}".format(self.device.gain, 
+                  self.pga_reg_str_range[self.device.gain]))
+            print("Configuration Register:")
+            tools.bprint(r)
         return r
 
     def get_shunt_voltage(self):
-        """Read the shunt voltage register where LSB = 10uV"""
-        return (self.read_register_16bit('shunt_voltage') * 10) / 1e6
+        """Read the shunt voltage register where LSB = 10uV
+
+        Note: datasheet calculations result in mV, see section 8.5.1
+        
+        Returns
+        -------
+        float : shunt voltage in volts (not millivolts)
+        """
+        return self.read_register('shunt_voltage') * 0.00001
 
     def get_bus_voltage(self):
         """Read the bus voltage register where LSB = 4mV.
-        Notes: Right most 3 bits of bus voltage register are 0, CNVR, OVF
-               32 volt range => 0 to 32 VDC
-               16 volt range => 0 to 16 VDC
+        
+        Note: Right most 3 bits of bus voltage register are 0, CNVR, OVF
+              32 volt range => 0 to 32 VDC
+              16 volt range => 0 to 16 VDC
+        
+        Returns
+        -------
+        float : bus voltage in volts (not millivolts)
         """
-        r = self.read_register_16bit('bus_voltage')
-        return ((r >> 3) * 4.0) / 1000
+        r = self.read_register('bus_voltage')
+        return (r >> 3)  * 4.0 * 0.001
 
     def get_power(self):
-        r = self.read_register_16bit('power')
+        r = self.read_register('power')
         return r
 
     def get_current(self):
-        r = self.read_register_16bit('current')
+        r = self.read_register('current')
         return r
 
     def get_calibration(self):
-        r = self.read_register_16bit('calibration')
+        r = self.read_register('calibration')
         return r
 
-    def write_register_16bit(self, reg_name, data):
+    def write_register(self, reg_name, data):
         """Write a 16 bits of data to register
 
         Allowed register names:
@@ -185,10 +199,10 @@ class INA219:
         self.bus.write_register_16bit(reg_addr, data)
 
     def write_config(self, data):
-        self.write_register_16bit('config', data)
+        self.write_register('config', data)
 
     def write_calibration(self, data):
-        self.write_register_16bit('calibration', data)
+        self.write_register('calibration', data)
 
     def reset(self):
         self.write_config(self.reg_config | 0b1000000000000000)
