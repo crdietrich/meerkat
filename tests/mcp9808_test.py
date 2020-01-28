@@ -10,7 +10,7 @@ if sys.platform == "linux":
     i2c_bus = 1
 else:
     i2c_bus = 0
-    
+
 dev = mcp9808.MCP9808(bus_n=i2c_bus)
 
 print("Current MCP9808 Status:")
@@ -43,5 +43,5 @@ print()
 print("Write measurements to CSV")
 print("-------------------------")
 dev.writer_output = 'csv'
-dev.write(description='test_2', n=30)
+dev.write(description='test_4', n=30)
 print("Data written to: {}".format(dev.csv_writer.path))

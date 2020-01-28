@@ -10,18 +10,41 @@ def toI2C(n):
     rb = (n << 1) | 0b000001
     print("{} 0x{:02x} Address Read".format(rb, rb))
 
+def left_fill(s, n, x="0"):
+    """Cross platform string left fill method, defaults to zero filling.
+
+    Parameters
+    ----------
+    s : str, string to left pad
+    n : int, number of total places to pad to
+    x : str, optional, character to fill, defaults to "0"
+    """
+    sl = len(s)
+    zn = n - sl
+    if zn > 0:
+        return zn*"0" + s
+    else:
+        return s
+
 def bprint(v, n=16, indexes=True, verbose=True):
-    """Print binary value with index numbers below in two rows
+    """Print binary value, optionally with index numbers below in two rows
     Example register 14 = 1
                           4
+
+    Parameters
+    ----------
+    v : int or hex, value to string print
+    b : int, number of bytes in representation
+    indexes : bool, print indexes below binary string representation
+    verbose : bool, print debug statements
     """
     if verbose:
         print("HEX value:", hex(v))
         print("Binary value:")
     b = bin(v)[2:]
-    print(b.zfill(n))
+    print(left_fill(b, n))
     if indexes:
-        m = [str(x).zfill(2) for x in reversed(range(n))]
+        m = [left_fill(str(x), 2) for x in reversed(range(n))]
         print("".join([x[0] for x in m]))
         print("".join([x[1] for x in m]))
 
