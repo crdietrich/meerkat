@@ -62,6 +62,7 @@ class Atlas:
         self.device.precision = 'Varies'
         self.device.calibration_date = None
 
+        """
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('Atlas_Base', time_format='std_time_ms')
@@ -72,9 +73,20 @@ class Atlas:
             pass  # holder for another writer or change in default
         self.writer.header = ['description', 'sample_n', 'not_set']
         self.writer.device = self.device.values()
-
+        """
+        
         # data recording information
         self.sample_id = None
+        
+        # data recording method
+        self.writer_output = output
+        self.csv_writer = CSVWriter("Atlas_Base", time_format='std_time_ms')
+        self.csv_writer.device = self.device.__dict__
+        self.csv_writer.header = ['description', 'sample_n', 'not_set']
+        
+        self.json_writer = JSONWriter("Atlas_Base", time_format='std_time_ms')
+        self.json_writer.device = self.device.__dict__
+        self.json_writer.header = self.csv_writer.header
 
     def query(self, command, n=31, delay=None, verbose=False):
         """Write a command to the i2c device and read the reply,
@@ -110,7 +122,7 @@ class Atlas:
         if verbose:
             print("Bytes sent:", command)
 
-        self.bus.write_n_bytes(*byte_command)
+        self.bus.write_n_bytes(*[byte_command])
 
         if delay is not None:
             time.sleep(delay/1000)
@@ -204,19 +216,20 @@ class Atlas:
         """
         _r = self.query(bytes("I2C,{}".format(n), encoding='utf-8'), n=0)
 
-    def get(self, description='no_description', n=1):
+    def get(self, description='no_description', n=1, delay=0):
         """Get formatted output, assumes subclass has method 'measure'
 
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
 
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
             description : str
-            c : float, conductivity measurement
+            c : float, sensor measurement
         """
 
         data_list = []
@@ -224,12 +237,39 @@ class Atlas:
             measure = self.measure()
             if isinstance(measure, float):
                 measure = [measure]
-            data = self.writer.get([description, m] + measure)
+            data = [description, m] + measure
             data_list.append(data)
             if n == 1:
                 return data_list[0]
+            time.sleep(max(self.long_delay, delay))
         return data_list
 
+    def publish(self, description='NA', n=1, delay=0):
+        """Output relay status data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            measurement : float, measurement made
+        """
+        data_list = []
+        for m in range(n):
+            measure = self.measure()
+            if isinstance(measure, float):
+                measure = [measure]
+            data_list.append(self.json_writer.publish([description, m] + measure))
+            if n == 1:
+                return data_list[0]
+            time.sleep(max(self.long_delay, delay))
+        return data_list
+    '''
     def write(self, description='no_description', n=1):
         """Format output and save to file, formatted as either .csv or .json.
 
@@ -251,8 +291,32 @@ class Atlas:
             if isinstance(measure, float):
                 measure = [measure]
             self.writer.write([description, m] + measure)
-            time.sleep(self.long_delay)
+            time.sleep(max(self.long_delay, delay))
+    '''
+    
+    def write(self, description='NA', n=1, delay=0):
+        """Format output and save to file, formatted as either .csv or .json.
 
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        None, writes to disk the following data:
+            description : str, description of sample
+            sample_n : int, sample number in this burst
+            voltage, float, Volts measured at the shunt resistor
+            current : float, Amps of current accross the shunt resistor
+        """ 
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m, self.measure()])
+            time.sleep(max(self.long_delay, delay))
+            
 class pH(Atlas):
     def __init__(self, bus_n, bus_addr=0x63, output='csv'):
         super(pH, self).__init__(bus_n, bus_addr, output)
@@ -271,8 +335,10 @@ class pH(Atlas):
         self.device.precision = 'Varies'
         self.device.calibration_date = None
 
-        self.writer.name = "Atlas_pH"
-        self.writer.header = ['description', 'sample_n', 'pH']
+        self.csv_writer.name = "Atlas_pH"
+        self.csv_writer.header = ['description', 'sample_n', 'pH']
+        self.json_writer.header = self.json_writer.header
+        self.json_writer.header = self.csv_writer.header
 
     def cal_set_mid(self, n):
         """Single point calibration at midpoint.  Manual says delay 900ms,
