@@ -314,7 +314,7 @@ class Atlas:
         wr = {"csv": self.csv_writer,
               "json": self.json_writer}[self.writer_output]
         for m in range(n):
-            wr.write([description, m, self.measure()])
+            wr.write([description, m] + self.measure())
             time.sleep(max(self.long_delay, delay))
             
 class pH(Atlas):
@@ -500,11 +500,20 @@ class Conductivity(Atlas):
         self.device.precision = '0.07-500000 uS/cm'
         self.device.calibration_date = None
 
-        self.writer.name = "Atlas_Conductivity"
-
-        _measure_types = [self.measure_mapper[m] for m in self.output_get()]
-        self.writer.header = ['description', 'sample_n'] + _measure_types
-
+        # metadata information
+        self.csv_writer.name = "Atlas_Conductivity"
+        self.json_writer.name = self.csv_writer.name
+        
+        # update the output header
+        _o = self.output_get()
+        
+        #self.csv_writer.header = ['description', 'sample_n', 'conductivity']
+        #self.json_writer.header = self.csv_writer.header
+        
+        #_measure_types = [self.measure_mapper[m] for m in self.output_get()]
+        #self.csv_writer.header = ['description', 'sample_n'] + _measure_types
+        #self.json_writer.header = self.csv_writer.header
+        
     def cal_set_dry(self):
         """Execute dry calibration.  Manual says delay 600ms,
         delay set here to 650ms.
@@ -573,11 +582,11 @@ class Conductivity(Atlas):
         int, number of calibration points
         """
 
-        _r = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
-        _r = _r.decode('utf-8')
-        _r = _r.split(",")
-        return int(_r[1])
-        return _r
+        _n = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
+        _n = _n.decode('utf-8')
+        _n = _n.split(",")
+        _n = int(_n[1])
+        return _n
 
     def set_probe_type(self, k, verbose=False):
         """Set the probe type.
@@ -689,7 +698,12 @@ class Conductivity(Atlas):
 
         _r = self.query(b'O,?', n=20, delay=350)
         _r = _r.decode('utf-8')
-        _r = _r[:-1].split(',')[1:]
+        _r = _r.split(',')[1:]
+        
+        _measure_types = [self.measure_mapper[m] for m in _r]
+        self.csv_writer.header = ['description', 'sample_n'] + _measure_types
+        self.json_writer.header = self.csv_writer.header
+        
         return _r
 
     def measure(self, verbose=False):
