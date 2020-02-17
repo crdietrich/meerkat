@@ -19,6 +19,8 @@ elif sys.platform in ["FiPy"]:
 else:
     print("Error detecting system platform.")
 
+'''
+    
 def bit_set_old(idx, value):
     """Set bit at index idx in value to 1
 
@@ -48,7 +50,7 @@ def twos_comp_to_dec_old(value, bits):
     if (value & (1 << (bits - 1))) != 0:
         value = value - (1 << bits)
     return value
-
+'''
 
 class Base:
     """Common methods"""

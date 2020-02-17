@@ -1,6 +1,6 @@
 """TI ADS1x15 ADC I2C Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, DeviceData, twos_comp_to_dec, time
+from meerkat.base import I2C, DeviceData, time #twos_comp_to_dec, time
 from meerkat.data import CSVWriter, JSONWriter
 
 
@@ -98,6 +98,7 @@ class ADS1115(object):
         # current settings of this device
         self.device.pga_gain = self.pga_float
 
+        '''
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
@@ -110,10 +111,30 @@ class ADS1115(object):
 
         # data recording information
         self.sample_id = None
-
+        '''
+        
+        # data recording information
+        self.sample_id = None
+        
+        # data recording method
+        self.writer_output = output
+        self.csv_writer = CSVWriter("ADS1115", time_format='std_time_ms')
+        self.csv_writer.device = self.device.__dict__
+        self.csv_writer.header = ['description', 'sample_n', 'mux', 'voltage']
+        
+        self.json_writer = JSONWriter("ADS1115", time_format='std_time_ms')
+        self.json_writer.device = self.device.__dict__
+        self.json_writer.header = self.csv_writer.header
+        
         # initialize class attributes from device registry
         self.get_config()
 
+    def twos_comp_to_dec(self, value, bits):
+        """Convert Two's Compliment format to decimal"""
+        if (value & (1 << (bits - 1))) != 0:
+            value = value - (1 << bits)
+        return value
+        
     def set_pointer(self, reg_name):
         """Set the pointer register address
 
@@ -381,7 +402,7 @@ class ADS1115(object):
             self.single_shot()
         else:
             self.get_conversion()
-        _x = twos_comp_to_dec(self.conversion_value, 16)
+        _x = self.twos_comp_to_dec(self.conversion_value, 16)
         self.volts = _x * (self.pga_float / 2**15)
         return self.volts
 
@@ -401,27 +422,62 @@ class ADS1115(object):
         print(' Polarity: Active', self.bin_comp_pol[self.comp_pol_value])
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
 
-    def get(self, description='no_description', n=1):
+    def get(self, description='no_description', n=1, delay=None):
         """Get formatted output.
 
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
 
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
             description : str
+            n : sample number in this burst
+            mux : XXX, multiplexer pin pair the voltage reading was taken with
             v : float, voltage measurement
         """
         data_list = []
         for m in range(1,n+1):
-            data_list.append([description, m, self.mux_value, self.voltage()])
+            data_list.append([description, m, 
+                              self.bin_mux[self.mux_value], 
+                              self.voltage()])
             if n == 1:
                 return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
         return data_list
 
+    def publish(self, description='NA', n=1, delay=None):
+        """Output relay status data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description : str
+            n : sample number in this burst
+            mux : XXX, multiplexer pin pair the voltage reading was taken with
+            v : float, voltage measurement
+        """
+        data_list = []
+        for m in range(n):
+            data_list.append(self.json_writer.publish([description, m, 
+                                                       self.bin_mux[self.mux_value], 
+                                                       self.voltage()]))
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
+    '''
     def write(self, description='no_description', n=1):
         """Format output and save to file, formatted as either .csv or .json.
 
@@ -441,3 +497,30 @@ class ADS1115(object):
         self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
         for m in range(1,n+1):
             self.writer.write([description, m, self.mux_value, self.voltage()])
+        '''
+    
+    def write(self, description='NA', n=1, delay=None):
+        """Format output and save to file, formatted as either .csv or .json.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        None, writes to disk the following data:
+            description : str
+            n : sample number in this burst
+            mux : XXX, multiplexer pin pair the voltage reading was taken with
+            v : float, voltage measurement
+        """ 
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m, 
+                      self.bin_mux[self.mux_value], 
+                      self.voltage()])
+            if delay is not None:
+                time.sleep(delay)
