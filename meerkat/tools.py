@@ -1,4 +1,13 @@
-"""Tools for Raspberry Pi & MicroPython and I2C devices"""
+"""Tools for Raspberry Pi & MicroPython and I2C devices
+
+To scan the I2C bus,
+On Raspberry Pi:
+    $ i2cdetect -y 1
+On MicroPython:
+>>> from machine import I2C
+>>> I2C = I2C(0, I2C.MASTER)
+>>> I2C.scan()
+"""
 
 def toI2C(n):
     """Print read and write address bytes formatted as
@@ -91,6 +100,21 @@ def clean_files(ftype, remove=False):
             print("Removed {}".format(ff))
     else:
         return found_files
+
+def crc(line):
+    """Calculate the cyclic redundancy check (CRC) for a string
+
+    Parameters
+    ----------
+    line : str, characters to calculate crc
+    Returns
+    -------
+    crc : str, in hex notation
+    """
+    crc = ord(line[0:1])
+    for n in range(1, len(line)-1):
+        crc = crc ^ ord(line[n:n+1])
+    return '%X' % crc
 
 def dev_clean():
     """Clean out files in current directory created during development"""
