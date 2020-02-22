@@ -134,9 +134,10 @@ class Atlas:
             # the trailing b"\x00" are due to requesting a fix length return
             _r = _r.strip(b"\x00")
             _r = _r.decode('utf-8')
-            _r = _r.replace
-            _r = _r.encode('unicode_escape')
-            _r = _r.decode('utf-8')
+            print(type(_r))
+            #_r = _r.replace
+            #_r = _r.encode('unicode_escape')
+            #_r = _r.decode('utf-8')
             _r = _r.replace(r'\x0', '')
 
             return _r
