@@ -74,16 +74,16 @@ class Atlas:
         self.writer.header = ['description', 'sample_n', 'not_set']
         self.writer.device = self.device.values()
         """
-        
+
         # data recording information
         self.sample_id = None
-        
+
         # data recording method
         self.writer_output = output
         self.csv_writer = CSVWriter("Atlas_Base", time_format='std_time_ms')
         self.csv_writer.device = self.device.__dict__
         self.csv_writer.header = ['description', 'sample_n', 'not_set']
-        
+
         self.json_writer = JSONWriter("Atlas_Base", time_format='std_time_ms')
         self.json_writer.device = self.device.__dict__
         self.json_writer.header = self.csv_writer.header
@@ -128,7 +128,18 @@ class Atlas:
             time.sleep(delay/1000)
 
         if n != 0:
-            return self.bus.read_n_bytes(n=n)
+            _r = self.bus.read_n_bytes(n=n)
+
+            # this seems extreme, check bytes format
+            # the trailing b"\x00" are due to requesting a fix length return
+            _r = _r.strip(b"\x00")
+            _r = _r.decode('utf-8')
+            _r = _r.replace
+            _r = _r.encode('unicode_escape')
+            _r = _r.decode('utf-8')
+            _r = _r.replace(r'\x0', '')
+
+            return _r
 
     def led_on(self):
         """Turn on status LED until another character is set"""
@@ -156,7 +167,7 @@ class Atlas:
         """
 
         _r = self.query(b'i', n=15, delay=350)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _, device, firmware = _r.split(",")
         return device, firmware
 
@@ -174,7 +185,7 @@ class Atlas:
         vcc : float, supply voltage of input to device
         """
         _r = self.query(b'Status', n=15, delay=350)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _, restart_code, vcc = _r.split(",")
         return restart_code, float(vcc)
 
@@ -189,7 +200,7 @@ class Atlas:
     def plock_status(self):
         """Get protocol lock status"""
         _r = self.query(b'Plock,?', n=9, delay=350, verbose=verbose)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _, plock_state = _r.split(",")
         return int(plock_state)
 
@@ -293,7 +304,7 @@ class Atlas:
             self.writer.write([description, m] + measure)
             time.sleep(max(self.long_delay, delay))
     '''
-    
+
     def write(self, description='NA', n=1, delay=0):
         """Format output and save to file, formatted as either .csv or .json.
 
@@ -310,13 +321,13 @@ class Atlas:
             sample_n : int, sample number in this burst
             voltage, float, Volts measured at the shunt resistor
             current : float, Amps of current accross the shunt resistor
-        """ 
+        """
         wr = {"csv": self.csv_writer,
               "json": self.json_writer}[self.writer_output]
         for m in range(n):
             wr.write([description, m] + self.measure())
             time.sleep(max(self.long_delay, delay))
-            
+
 class pH(Atlas):
     def __init__(self, bus_n, bus_addr=0x63, output='csv'):
         super(pH, self).__init__(bus_n, bus_addr, output)
@@ -400,7 +411,7 @@ class pH(Atlas):
         """
 
         _r = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = _r.split(",")
         return int(_r[1])
         return _r
@@ -414,7 +425,7 @@ class pH(Atlas):
         b : float, precentage delta from ideal fit
         """
         _r = self.query(b'Slope,?', n=24, delay=350, verbose=verbose)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = _r.split(",")
         acid_cal = float(_r[1])
         base_cal = float(_r[2])
@@ -449,7 +460,7 @@ class pH(Atlas):
         """
 
         _r = self.query(b'T,?', n=9, delay=350, verbose=verbose)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = _r.split(',')
         temp = float(_r[1])
         return temp
@@ -467,7 +478,7 @@ class pH(Atlas):
         """
 
         _r = self.query(b'R', n=7, delay=950, verbose=verbose)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = float(_r)
         return _r
 
@@ -501,19 +512,11 @@ class Conductivity(Atlas):
         self.device.calibration_date = None
 
         # metadata information
-        self.csv_writer.name = "Atlas_Conductivity"
-        self.json_writer.name = self.csv_writer.name
-        
+        self.csv_writer.name = self.json_writer.name = "Atlas_Conductivity"
+
         # update the output header
         _o = self.output_get()
-        
-        #self.csv_writer.header = ['description', 'sample_n', 'conductivity']
-        #self.json_writer.header = self.csv_writer.header
-        
-        #_measure_types = [self.measure_mapper[m] for m in self.output_get()]
-        #self.csv_writer.header = ['description', 'sample_n'] + _measure_types
-        #self.json_writer.header = self.csv_writer.header
-        
+
     def cal_set_dry(self):
         """Execute dry calibration.  Manual says delay 600ms,
         delay set here to 650ms.
@@ -583,7 +586,7 @@ class Conductivity(Atlas):
         """
 
         _n = self.query(b'Cal,?', n=7, delay=950, verbose=verbose)
-        _n = _n.decode('utf-8')
+        #_n = _n.decode('utf-8')
         _n = _n.split(",")
         _n = int(_n[1])
         return _n
@@ -609,7 +612,7 @@ class Conductivity(Atlas):
         """
 
         _r = self.query(bytes("K,?", encoding='utf-8'), n=10, delay=350)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = _r.split(",")
         k = float(_r[1])
         return k
@@ -643,7 +646,7 @@ class Conductivity(Atlas):
         """
 
         _r = self.query(b'T,?', n=9, delay=350, verbose=verbose)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = _r.split(',')
         temp = float(_r[1])
         return temp
@@ -697,13 +700,27 @@ class Conductivity(Atlas):
         """
 
         _r = self.query(b'O,?', n=20, delay=350)
-        _r = _r.decode('utf-8')
+        #_r = _r.decode('utf-8')
         _r = _r.split(',')[1:]
-        
-        _measure_types = [self.measure_mapper[m] for m in _r]
+
+        """
+        for k in self.measure_mapper.keys():
+            print(k)
+
+        for m in _r:
+            print("|", m, "|")
+            try:
+                print(self.measure_mapper[m.strip()])
+            except:
+                for i in m:
+                    print('='*5)
+                    print(i)
+                    print("-"*5)
+        """
+        _measure_types = [self.measure_mapper[m.strip()] for m in _r]
         self.csv_writer.header = ['description', 'sample_n'] + _measure_types
         self.json_writer.header = self.csv_writer.header
-        
+
         return _r
 
     def measure(self, verbose=False):
@@ -720,6 +737,8 @@ class Conductivity(Atlas):
         """
 
         _r = self.query(b'R', n=40, delay=650, verbose=verbose)
-        _r = _r.decode('utf-8')
-        _r = [float(m) for m in _r.split(',')]
+        #_r = _r.decode('utf-8')
+        #_r = _r.strip("\x00")
+        #_r = [float(m) for m in _r.split(',')]
+        _r = [m for m in _r.split(',')]
         return _r
