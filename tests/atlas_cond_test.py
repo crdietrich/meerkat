@@ -10,9 +10,9 @@ if sys.platform == "linux":
     i2c_bus = 1
 else:
     i2c_bus = 0
-    
+
 # instance device and set output format to .csv (which is default)
-dev = atlas.Conductivity(bus_n=1, output='csv')
+dev = atlas.Conductivity(bus_n=i2c_bus, output='csv')
 
 # device information: device type, firmware version
 time.sleep(0.5)
@@ -35,6 +35,7 @@ print(dev.measure())
 print("Five measurements:")
 print(dev.get('test_2', n=5))
 
+
 # set the metadata publishing interval to every third sample
 dev.json_writer.metadata_interval = 3
 
@@ -42,11 +43,13 @@ print("Publish in JSON:")
 print(dev.publish(description='test_3', n=5))
 
 # write 5 samples to .csv file with description
-print("Write CSV data to file {}".format(dev.csv_writer_path))
 dev.write(description='test_4', n=5)
+print("Wrote CSV data to file {}".format(dev.csv_writer.path))
 
+# switch to JSON output
 dev.writer_output = "json"
 
 # get 7 samples with a description
-print("Write JSON data to file {}".format(dev.json_writer_path))
 dev.write(description='test_5', n=7)
+print("Wrote JSON data to file {}".format(dev.json_writer.path))
+print("Test Done!")
