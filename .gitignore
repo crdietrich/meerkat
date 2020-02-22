@@ -9,8 +9,11 @@ main.py
 
 # Data files output by meerkat
 *.csv
-*_JSON_data.txt
+*.jsontxt
 
 # Jupyter Notebook / IDE files
 \.idea/
 \.ipynb_checkpoints/
+
+# Archive of development files
+/archive

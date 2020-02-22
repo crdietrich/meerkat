@@ -1,10 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Meerkat thermistor calculation methods 
-and Semitec 103AT-2 thermistor driver
-using ADS1x15 ADC"""
-__author__ = "Colin Dietrich"
-__copyright__ = "2018"
-__license__ = "MIT"
+"""Thermistor calculation methods, Semitec 103AT-2 thermistor using
+ADS1x15 ADC I2C Driver for Raspberry PI & MicroPython"""
 
 from math import log
 
@@ -92,22 +87,22 @@ def compose_array(t1, t2, t3, r1, r2, r3, degrees='celcius', verbose=False):
 
 def gauss(A):
     """Solve a linear system of equations with Gaussian Elimination
-    Taken almost wholesale from:  
+    Taken almost wholesale from:
     https://martin-thoma.com/solving-linear-equations-with-gaussian-elimination/
-    
+
     Parameters
     ----------
     A : nested list of 3 rows and 4 columns (a0, a1, a2, T)
-    
+
     Returns
     -------
     list of floats, coefficients for a0, a1, a2
     """
-    
+
     # prevent inplace changing of source A
     _A = [x.copy() for x in A]
     n = len(_A)
-    
+
     for i in range(0, n):
         # Search for maximum in this column
         maxEl = abs(_A[i][i])

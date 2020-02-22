@@ -1,8 +1,4 @@
-"""Telaire 67xx I2C CO2 sensor
-Colin Dietrich 2016
-
-TODO: redo combine, check measurement LSB, MSB, let run for 24hrs
-"""
+"""Telaire 67xx CO2 sensor I2C Driver for Raspberry PI & MicroPython"""
 
 from pyb import I2C
 i2c = I2C(1, I2C.MASTER, baudrate=10000)
@@ -44,4 +40,3 @@ def measure(verbose=False):
         print('co2 replied:', r)
         print('co2 status:', m)
     return m
-    

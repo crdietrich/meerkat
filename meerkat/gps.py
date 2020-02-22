@@ -1,4 +1,4 @@
-"""Collet GPS data in NMEA format"""
+"""Global Positioning System I2C Driver for Raspberry PI & MicroPython"""
 
 from time import sleep
 
@@ -7,23 +7,23 @@ from meerkat.base import Device
 
 class GPS(object):
     def __init__(self, machine, name):
-        
+
         self.machine = machine
         self.uart_class = None
         self.rtc = self.machine.RTC()
-        
+
         self.uart = None
         self.baud = 9600
         self.port = 6
-        
+
         self.supported_messages = [b'GPRMC', b'GPGGA']
-        
+
         self.valid = False
         self.lock = False
-        
+
         self.lock_timeout = 60    # total time to look for a gps lock in seconds
         self.lock_timeout_dt = 1  # time to sleep while searching for a lock in seconds
-        
+
         # $GPRMC
         self.gprmc = None
         self.utc = None
@@ -36,7 +36,7 @@ class GPS(object):
         self.track_angle = None
         self.rmc_date = None
         self.mag_var = None
-        
+
         # $GPGGA
         self.gpgga = None
         self.utc = None
@@ -47,7 +47,7 @@ class GPS(object):
         self.gps_quality = None
         self.svn_number = None
         self.hdop = None
-        
+
         # Date and Time
         self.date_time_raw = ''
         self.date_time_pretty = ''
@@ -57,12 +57,12 @@ class GPS(object):
         self.hour = None
         self.minute = None
         self.second = None
-        
+
         self.state = 'min'  # 'time', 'min', 'all', 'raw'
         self.verbose = True
-        
+
         self.go = False
-    
+
     def open(self):
         self.uart = self.machine.UART(self.port, self.baud)
 
@@ -75,12 +75,12 @@ class GPS(object):
         -------
         crc : str, in hex notation
         """
-        
+
         c = ord(line[0:1])
         for n in range(1,len(line)-1):
             c = c ^ ord(line[n:n+1])
         return '%X' % c
-        
+
     def supported(self, line, verbose=False):
         if line is None:
             if verbose:
@@ -99,7 +99,7 @@ class GPS(object):
             if verbose:
                 print('gps>> code found, not supported')
             return False
-    
+
     def gprmc_handler(self, items):
         """Get values from NMEA GPRMC string"""
         try:
@@ -109,7 +109,7 @@ class GPS(object):
             self.mag_var = items[10]
         except IndexError:
             pass
-                    
+
     def gprmc_handler_min(self, items):
         """Get values from NMEA GPRMC string"""
         try:
@@ -121,14 +121,14 @@ class GPS(object):
             self.lon_dir = items[6]
         except IndexError:
             pass
-            
+
     def gprmc_time(self, items):
-        try:        
+        try:
             self.utc = items[1]
             self.rmc_date = items[9]
         except IndexError:
             pass
-            
+
     def gpgga_handler(self, items):
         """Get values from NMEA GPGGA string"""
         try:
@@ -136,10 +136,10 @@ class GPS(object):
             self.svn_number = items[7]
             self.hdop = items[8]
             print(self.lat, self.lon)
-            
+
         except IndexError:
             pass
-            
+
     def gpgga_handler_min(self, items):
         try:
             self.utc = items[1]
@@ -163,7 +163,7 @@ class GPS(object):
 
     def handler(self, items):
         self.set_attributes(items)
-        
+
     def set_attributes(self, items):
         id = items[0]
         if id == 'GPGGA':
@@ -178,7 +178,7 @@ class GPS(object):
                 self.gprmc_handler_min(items)
             elif self.state == 'all':
                 self.gprmc_handler(items)
-        
+
     def set_date_time(self):
         try:
             self.year = int('20' + self.rmc_date[4:6])
@@ -187,7 +187,7 @@ class GPS(object):
             self.hour = int(self.utc[0:2])
             self.minute = int(self.utc[2:4])
             self.second = int(self.utc[4:6])
-        
+
             self.date_time_raw = self.rmc_date + self.utc
             self.date_time_pretty = (str(self.year)
                                      + '/' + str(self.month)
@@ -198,9 +198,9 @@ class GPS(object):
         # if either data type hasn't been captured yet and values are None
         except TypeError:
             pass
-        
+
     def verbose_terminal(self, line):
-        
+
         print('line >>', line)
         try:
             items, data, checksum_gps = self.extract(line)
@@ -211,36 +211,36 @@ class GPS(object):
         else:
             print('validate>> gps ---- CRC NOT valid ---')
             return
-            
+
         self.handler(items)
         self.set_date_time()
         print('verbose_terminal>> date_time_raw:', self.date_time_raw)
         print('verbose_terminal>> date_time_pretty:', self.date_time_pretty)
-        
+
     def extract(self, line):
         line = line.decode('utf-8').strip()
         data, checksum_gps = line.split('$')[1].split('*')
         items = data.split(',')
         data += '*'
         return items, data, checksum_gps
-        
+
     def crc_valid(self, data, checksum_gps):
         self.valid = self.crc(data) == checksum_gps
         return self.valid
-        
+
     def stream_terminal(self):
-        
+
         while self.go:
             line = self.uart.readline()
             print('stream_terminal>>', line)
             if self.supported(line):
                 self.verbose_terminal(line)
-                
+
     def stream(self):
-        
+
         while self.go:
             print(self.uart.readline())
-        
+
     def lock_valid(self, rmc_status, date_time_raw, verbose=True):
         status_dict = {'A': True, 'V': False}
         valid = False
@@ -252,7 +252,7 @@ class GPS(object):
             return True
         else:
             return False
-        
+
     def update_rtc(self, how='both', verbose=True):
         c = 0
         while True:

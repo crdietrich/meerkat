@@ -1,5 +1,5 @@
-"""This program handles the communication over I2C
-between a Raspberry Pi and a MPU-6050 Gyroscope / Accelerometer combo.
+"""MPU-6050 Gyroscope/Accelerometer I2C Driver for Raspberry PI & MicroPython
+
 Made by: MrTijn/Tijndagamer
 Forked 01/02/2019 from https://github.com/Tijndagamer/mpu6050
 and merged into meerkat by: Colin Dietrich / crdietrich
@@ -84,9 +84,10 @@ class mpu6050:
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
-        
+
         # Wake up the MPU-6050 since it starts in sleep mode
-        self.bus.write_n_bytes(self.PWR_MGMT_1)
+        # by toggling bit6 from 1 to 0, see pg 40 of RM-MPU-6000A-00 v4.2
+        self.bus.write_register_8bit(self.PWR_MGMT_1, 0x00)
         
         # information about this device
         self.device = DeviceData('MPU-6050')
@@ -106,17 +107,33 @@ class mpu6050:
         self.device.accel_noise = 'PSD 400 ug / Hz**1/2'
         self.device.calibration_date = None
 
+        '''
         # data recording method
         if output == 'csv':
             self.writer = CSVWriter('MPU-6050', time_format='std_time_ms')
-            self.writer.header = ['description', 'sample_n', 'arange', 'grange', 
+            self.writer.header = ['description', 'sample_n', 'arange', 'grange',
                                   'ax', 'ay', 'az', 'gx', 'gy', 'gz', 'temp_C']
         elif output == 'json':
             self.writer = JSONWriter('MPU-6050', time_format='std_time_ms')
-        else: 
-            pass  # holder for another writer or change in default  
+        else:
+            pass  # holder for another writer or change in default
         self.writer.device = self.device.values()
+        '''
+        
+        # data recording information
+        self.sample_id = None
 
+        # data recording method
+        self.writer_output = output
+        self.csv_writer = CSVWriter("MPU-6050", time_format='std_time_ms')
+        self.csv_writer.device = self.device.__dict__
+        self.csv_writer.header = ['description', 'sample_n',
+                                  'ax', 'ay', 'az', 'gx', 'gy', 'gz']
+        
+        self.json_writer = JSONWriter("MCP9808", time_format='std_time_ms')
+        self.json_writer.device = self.device.__dict__
+        self.json_writer.header = self.csv_writer.header
+        
     # I2C communication methods
 
     def read_i2c_word(self, register):
@@ -125,7 +142,7 @@ class mpu6050:
         register -- the first register to read from.
         Returns the combined read results.
         """
-        
+
         value = self.bus.read_register_16bit(register)
 
         if value >= 0x8000:
@@ -155,7 +172,7 @@ class mpu6050:
         pre-defined range is advised.
         """
 
-        self.accel_range = accel_range # set here for now
+        self.accel_range = accel_range
 
         # First change it to 0x00 to make sure we write the correct value later
         self.bus.write_register_16bit(self.ACCEL_CONFIG, 0x00)
@@ -187,14 +204,14 @@ class mpu6050:
             else:
                 return -1
 
-    def get_accel_data(self, g = False):
+    def get_accel(self, g = False):
         """Gets and returns the X, Y and Z values from the accelerometer.
 
         If g is True, it will return the data in g
         If g is False, it will return the data in m/s^2
         Returns a dictionary with the measurement results.
         """
-        
+
         x = self.bus.read_register_16bit(self.ACCEL_XOUT0)
         y = self.bus.read_register_16bit(self.ACCEL_YOUT0)
         z = self.bus.read_register_16bit(self.ACCEL_ZOUT0)
@@ -224,7 +241,7 @@ class mpu6050:
             x = x * self.GRAVITIY_MS2
             y = y * self.GRAVITIY_MS2
             z = z * self.GRAVITIY_MS2
-            return {'x': x, 'y': y, 'z': z}
+            return x, y, z
 
     def set_gyro_range(self, gyro_range):
         """Sets the range of the gyroscope to range.
@@ -233,7 +250,7 @@ class mpu6050:
         range is advised.
         """
 
-        self.gyro_range = gyro_range # set here for now
+        self.gyro_range = gyro_range
 
         # First change it to 0x00 to make sure we write the correct value later
         self.bus.write_register_16bit(self.GYRO_CONFIG, 0x00)
@@ -249,7 +266,7 @@ class mpu6050:
         If raw is False, it will return 250, 500, 1000, 2000 or -1. If the
         returned value is equal to -1 something went wrong.
         """
-        
+
         raw_data = self.bus.read_register_16bit(self.GYRO_CONFIG)
 
         if raw is True:
@@ -266,7 +283,7 @@ class mpu6050:
             else:
                 return -1
 
-    def get_gyro_data(self):
+    def get_gyro(self):
         """Gets and returns the X, Y and Z values from the gyroscope.
 
         Returns the read values in a dictionary.
@@ -294,75 +311,91 @@ class mpu6050:
         y = y / gyro_scale_modifier
         z = z / gyro_scale_modifier
 
-        return {'x': x, 'y': y, 'z': z}
+        return x, y, z
 
-    def get_all_data(self):
+    def get_all(self):
         """Reads and returns all the available data."""
-        temp = self.get_temp()
-        accel = self.get_accel_data()
-        gyro = self.get_gyro_data()
+        temp  = self.get_temp()
+        accel = self.get_accel()
+        gyro  = self.get_gyro()
 
-        return [accel, gyro, temp]
+        return [temp] + list(accel) + list(gyro)
 
-    def _get_all_data(self, description, m):
-        accel_data = self.get_accel_data()
-        gyro_data = self.get_gyro_data()
-        temp_data = self.get_temp()
-        if self.writer.media_type == 'text/csv':
-            data = ([description, m] + 
-                    [self.accel_range, self.gyro_range] + 
-                    [accel_data['x'], accel_data['y'], accel_data['z']] + 
-                    [gyro_data['x'], gyro_data['y'], gyro_data['z']] + 
-                    [temp_data])
-        else:
-            data = {'desc': description, 'n': m, 
-                    'arange': self.accel_range,
-                    'grange': self.gyro_range,
-                    'accel_data': accel_data, 'gyro_data': gyro_data,
-                    'temp_C': temp_data}
-        return data
-
-    def get_all_burst(self, description='no_description', n=1):
+    def get(self, description='NA', n=1, delay=None):
         """Get formatted output.
-        
+
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
-        
+        delay : float, seconds to delay between samples if n > 1
+
         Returns
         -------
-        data : list, data that will be saved to disk with self.write containing:
-            description : str
-            m : sample count number
-            accel_range : int, g range of accelerometer
-            gyro_range : int, g range of gyroscope
-            ax, ay, az : ints, acceleration on x, y, z axes
-            gx, gy, gz : ints, gyroscopic rotation about x, y, z axes
+        data : list, data containing:
+            description: str, description of sample under test
+            temperature : float, temperature in degrees Celcius
+            delay : float, seconds to delay between samples if n > 1
         """
         data_list = []
-        for m in range(1,n+1):
-            data_list.append(self._get_all_data(description, m))
+        for m in range(1, n+1):
+            data_list.append([description, m] + 
+                             list(self.get_accel()) + 
+                             list(self.get_gyro()))
             if n == 1:
-                return data_list[0]        
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
         return data_list
+    
+    def publish(self, description='NA', n=1, delay=None):
+        """Output relay status data in JSON.
 
-    def write_all(self, description='no_description', n=1):
-        """Format output and save to file, formatted as either .csv or .json.
-        
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
 
         Returns
         -------
-        None, writes to disk the following data: 
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            temperature : float, temperature in degrees Celcius
+        """
+        data_list = []
+        for m in range(n):
+            data_list.append(self.json_writer.publish([description, m] + 
+                             list(self.get_accel()) + 
+                             list(self.get_gyro())))
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
+
+    def write(self, description='NA', n=1, delay=None):
+        """Format output and save to file, formatted as either
+        .csv or .json.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+        
+        Returns
+        -------
+        None, writes to disk the following data:
             description : str, description of sample
             sample_n : int, sample number in this burst
-            mux : str, multiplexer input used
-            voltage : float, voltage measurement
+            temperature : float, temperature in degrees Celcius
         """
-        for m in range(1,n+1):        
-            self.writer.write(self._get_all_data(description, m))
-
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m] + 
+                     list(self.get_accel()) + 
+                     list(self.get_gyro()))
+            if delay is not None:
+                time.sleep(delay)
