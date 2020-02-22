@@ -1,4 +1,5 @@
-"""Wrapper for Raspberry Pi (Linux) I2C methods"""
+"""Wrapper Library for controlling I2C devices connected to Raspberry Pi (Linux)
+Tested with Raspberry Pi 4"""
 
 from meerkat import i2c_quickwire
 
@@ -51,7 +52,7 @@ class WrapI2C:
         """
         self.bus.write_bytes(self.bus_addr, data)
 
-    ### nbit ###
+    ### nbytes ###
 
     def read_n_bytes(self, n, flip_MSB=True):
         """Read bytes (n total) from worker device, handle MSB flip behavior
@@ -68,12 +69,14 @@ class WrapI2C:
         iterable of bytes
         """
         values = self.bus.get(self.bus_addr, n)[0]
-        if flip_MSB:
-            return bytes(bytearray(c & ~0x80 for c in values[1:] if c != 0))
-        else:
-            return values
+        return values
+    
+        #if flip_MSB:
+        #    return bytes(bytearray(c & ~0x80 for c in values[1:] if c != 0))
+        #else:
+        #    return values
 
-    def write_n_bytes(self, *data):
+    def write_n_bytes(self, data):
         """Write bytes (n total) to worker device.
 
         Parameters
@@ -107,6 +110,9 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 8 bit value to write
         """
+        #
+        #
+        #
         self.bus.write_bytes(self.bus_addr, reg_addr, data)
 
     ### 16bit Register ###
@@ -134,7 +140,6 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 16 bit value to write
         """
-        #
         #
         #
         #

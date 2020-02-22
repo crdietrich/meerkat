@@ -23,11 +23,17 @@ class INA219:
         self.reg_power = None
         self.reg_calibration = None
 
-        self.reg_map = {'config': 0x00, 'shunt_voltage': 0x01,
-                        'bus_voltage': 0x02, 'power': 0x03,
-                        'current': 0x04, 'calibration': 0x05}
+        self.reg_map = {'config':        0x00, 
+                        'shunt_voltage': 0x01,
+                        'bus_voltage':   0x02, 
+                        'power':         0x03,
+                        'current':       0x04, 
+                        'calibration':   0x05}
 
-        # Programable Gain Amplifier
+        # bus voltage range
+        self.bv_reg_to_bv = {0: 16, 1:32}
+        
+        # programable gain amplifier
         self.pga_reg_to_gain = {0:1, 1:2, 2:4, 3:8}
         self.pga_gain_to_reg = {1:0, 2:1, 4:2, 8:3}
         self.pga_reg_str_range = {1: "+/- 40 mV",
@@ -54,8 +60,8 @@ class INA219:
         self.device.calibration_date = None
 
         # chip defaults on power up or reset command
-        self.device.bus_voltage_range = 32
-        self.device.gain = 8
+        self.device.bus_voltage_range = self.bv_reg_to_bv[1]
+        self.device.gain = self.pga_reg_to_gain[0b11]
         self.device.gain_string = self.pga_reg_str_range[self.device.gain]
 
         self.device.bus_adc_resolution = 12
@@ -78,26 +84,24 @@ class INA219:
         # Adafruit INA219 breakout board as a 0.1 ohm 1% 2W resistor
         self.device.r_shunt = 0.1
 
-        # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('INA219', time_format='std_time_ms')
-        elif output == 'json':
-            self.writer = JSONWriter('INA219', time_format='std_time_ms')
-        else:
-            pass  # holder for another writer or change in default
-        self.writer.header = ['description', 'sample_n', 'voltage', 'current']
-        self.writer.device = self.device.values()
-
         # data recording information
         self.sample_id = None
+        
+        # data recording method
+        self.writer_output = output
+        self.csv_writer = CSVWriter("INA219", time_format='std_time_ms')
+        self.csv_writer.device = self.device.__dict__
+        self.csv_writer.header = ['description', 'sample_n', 'voltage', 'current']
+        
+        self.json_writer = JSONWriter("INA219", time_format='std_time_ms')
+        self.json_writer.device = self.device.__dict__
+        self.json_writer.header = ['description', 'sample_n', 'voltage', 'current']
 
         # intialized configuration values
         self.get_config()
 
-    def read_register_16bit(self, reg_name):
+    def read_register(self, reg_name):
         """Get the values from one registry
-
-        TODO: remove _15bit from method name?
 
         Allowed register names:
             'config'
@@ -120,36 +124,58 @@ class INA219:
         return self.bus.read_register_16bit(reg_addr)
 
     def get_config(self):
-        r = self.read_register_16bit('config')
+        r = self.read_register('config')
         self.reg_config = r
+        self.device.bus_voltage_range = self.bv_reg_to_bv[(r >> 13) & 0b1]
+        self.device.gain = self.pga_reg_to_gain[(r >> 11) & 0b11]
+        
+        if self.verbose:
+            print("Bus Voltage Range:", 
+                  self.device.bus_voltage_range, "V")
+            print("PGA Range: {}x or {}".format(self.device.gain, 
+                  self.pga_reg_str_range[self.device.gain]))
+            print("Configuration Register:")
+            tools.bprint(r)
         return r
 
     def get_shunt_voltage(self):
-        """Read the shunt voltage register where LSB = 10uV"""
-        return (self.read_register_16bit('shunt_voltage') * 10) / 1e6
+        """Read the shunt voltage register where LSB = 10uV
+
+        Note: datasheet calculations result in mV, see section 8.5.1
+        
+        Returns
+        -------
+        float : shunt voltage in volts (not millivolts)
+        """
+        return self.read_register('shunt_voltage') * 0.00001
 
     def get_bus_voltage(self):
         """Read the bus voltage register where LSB = 4mV.
-        Notes: Right most 3 bits of bus voltage register are 0, CNVR, OVF
-               32 volt range => 0 to 32 VDC
-               16 volt range => 0 to 16 VDC
+        
+        Note: Right most 3 bits of bus voltage register are 0, CNVR, OVF
+              32 volt range => 0 to 32 VDC
+              16 volt range => 0 to 16 VDC
+        
+        Returns
+        -------
+        float : bus voltage in volts (not millivolts)
         """
-        r = self.read_register_16bit('bus_voltage')
-        return ((r >> 3) * 4.0) / 1000
+        r = self.read_register('bus_voltage')
+        return (r >> 3)  * 4.0 * 0.001
 
     def get_power(self):
-        r = self.read_register_16bit('power')
+        r = self.read_register('power')
         return r
 
     def get_current(self):
-        r = self.read_register_16bit('current')
+        r = self.read_register('current')
         return r
 
     def get_calibration(self):
-        r = self.read_register_16bit('calibration')
+        r = self.read_register('calibration')
         return r
 
-    def write_register_16bit(self, reg_name, data):
+    def write_register(self, reg_name, data):
         """Write a 16 bits of data to register
 
         Allowed register names:
@@ -173,10 +199,10 @@ class INA219:
         self.bus.write_register_16bit(reg_addr, data)
 
     def write_config(self, data):
-        self.write_register_16bit('config', data)
+        self.write_register('config', data)
 
     def write_calibration(self, data):
-        self.write_register_16bit('calibration', data)
+        self.write_register('calibration', data)
 
     def reset(self):
         self.write_config(self.reg_config | 0b1000000000000000)
@@ -278,40 +304,73 @@ class INA219:
         self.write_calibration(cal_value)
 
     def get_current_simple(self):
+        """Calculate the current from single shot measurements"""
         return self.get_shunt_voltage() / self.device.r_shunt
 
-    def get(self, description='no_description', n=1):
+    def get(self, description='NA', n=1, delay=None):
         """Get formatted output.
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
-
+        delay : float, seconds to delay between samples if n > 1
+        
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
-            description : str
+            description: str, description of sample under test
             sample_n : int, sample number in this burst
             voltage, float, Volts measured at the shunt resistor
             current : float, Amps of current accross the shunt resistor
         """
         data_list = []
-        for m in range(1,n+1):
+        for m in range(1, n+1):
             data_list.append([description, m,
                               self.get_bus_voltage(),
                               self.get_current_simple()])
             if n == 1:
                 return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
         return data_list
 
-    def write(self, description='no_description', n=1):
+    def publish(self, description='NA', n=1, delay=None):
+        """Output relay status data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            sample_n : int, sample number in this burst
+            voltage, float, Volts measured at the shunt resistor
+            current : float, Amps of current accross the shunt resistor
+        """
+        data_list = []
+        for m in range(n):
+            data_list.append(self.json_writer.publish([description, m, 
+                                                       self.get_bus_voltage(),
+                                                       self.get_current_simple()]))
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
+    
+    def write(self, description='NA', n=1, delay=None):
         """Format output and save to file, formatted as either .csv or .json.
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
 
         Returns
         -------
@@ -320,8 +379,12 @@ class INA219:
             sample_n : int, sample number in this burst
             voltage, float, Volts measured at the shunt resistor
             current : float, Amps of current accross the shunt resistor
-        """
-        for m in range(1,n+1):
-            self.writer.write([description, m,
-                              self.get_bus_voltage(),
-                              self.get_current_simple()])
+        """ 
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m,
+                      self.get_bus_voltage(),
+                      self.get_current_simple()])
+            if delay is not None:
+                time.sleep(delay)

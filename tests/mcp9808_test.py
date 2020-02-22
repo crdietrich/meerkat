@@ -1,8 +1,8 @@
-"""Test the ADS1115 Analog to Digitial Converter"""
+"""Test the MCP9808 temperature sensor"""
 
 import sys
 
-from meerkat import ads
+from meerkat import mcp9808
 from meerkat.base import time
 
 
@@ -11,20 +11,21 @@ if sys.platform == "linux":
 else:
     i2c_bus = 0
 
-dev = ads.ADS1115(bus_n=1)
+dev = mcp9808.MCP9808(bus_n=i2c_bus)
 
-dev.pga('6.144')  # Other options: '6.144', '4.096'
-dev.mux('1G')     # pin 0 relative to ground
+print("Current MCP9808 Status:")
+dev.print_status()
+print()
 
-dev.print_attributes()
+print("One measurement")
+print("---------------")
+print(dev.get_temp())
+print()
 
 print("Multiple measurements")
 print("---------------------")
 print(dev.get(description='test_1', n=5))
 print()
-
-# lower metadata interval from a default of once every 10 samples
-dev.json_writer.metadata_interval = 3
 
 print("Multiple JSON measurements")
 print("--------------------------")

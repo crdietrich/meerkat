@@ -106,7 +106,7 @@ class GroveMotor:
         """
         freq_mapper = {31372: 0x01, 3921: 0x02, 490: 0x03, 122: 0x04, 30: 0x05}
         self.frequency = freq_mapper[f_Hz]
-        self.bus.write_n_bytes(0x84, self.frequency, 0x01)
+        self.bus.write_n_bytes([0x84, self.frequency, 0x01])
 
     def set_speed(self, motor_id, motor_speed):
         """Set the speed (duty cycle) of motor
@@ -122,7 +122,7 @@ class GroveMotor:
         if motor_id == 2:
             self.motor_2_speed = motor_speed
 
-        self.bus.write_n_bytes(0x82, self.motor_1_speed, self.motor_2_speed)
+        self.bus.write_n_bytes([0x82, self.motor_1_speed, self.motor_2_speed])
 
     def stop(self, motor_id=None):
         """Stop one or both motors.  Alias for set_speed(motor_id, motor_speed=0).
@@ -158,7 +158,7 @@ class GroveMotor:
                             'm1m2cw': 0x0a, 'm1m2cc': 0x05,
                             'm1cw_m2ccw': 0x06, 'm1ccw_m2cw': 0x09}
         self.direction = direction_mapper[code]
-        self.bus.write_n_bytes(0xaa, self.direction, 0x01)
+        self.bus.write_n_bytes([0xaa, self.direction, 0x01])
 
     def set_mode(self, mode_type="dc"):
         if (mode_type == "full_step") or (mode_type == "micro_step"):
@@ -199,7 +199,7 @@ class GroveMotor:
         for _ in range(abs(steps)):
             for sc in step_codes:
                 if verbose: print("{0:04b}".format(sc))
-                self.bus.write_n_bytes(0xaa, sc, 0x01)
+                self.bus.write_n_bytes([0xaa, sc, 0x01])
                 time.sleep(delay)
 
         self.stop()  # set speed to 0, i.e. current off
@@ -238,7 +238,7 @@ class GroveMotor:
             if verbose: print("ix >> ", ix)
             for sc in step_codes[ix:ix + 2]:
                 if verbose: print("bin >> {0:04b}".format(sc))
-                self.bus.write_n_bytes(0xaa, sc, 0x01)
+                self.bus.write_n_bytes([0xaa, sc, 0x01])
                 time.sleep(delay)
             self.step_count = (self.step_count + 1) % 4
 
@@ -274,7 +274,7 @@ class GroveMotor:
             description : str, description of sample
         """
         return self.json_writer.publish(self.get(description=description))
-    
+
     def write(self, description='no_description'):
         """Format output and save to file, formatted as either .csv or .json.
 
@@ -290,8 +290,3 @@ class GroveMotor:
         wr = {"csv": self.csv_writer,
               "json": self.json_writer}[self.writer_output]
         wr.write(self.get(description=description))
-        
-        #self.writer.write([description, self.frequency,
-        #                   self.motor_1_speed, self.motor_2_speed,
-        #                   self.direction, self.mode,
-        #                   self.phase, self.steps])

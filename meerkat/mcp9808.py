@@ -75,13 +75,14 @@ class MCP9808(object):
         self.sample_id = None
 
         # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('MCP9808', time_format='std_time_ms')
-            self.writer.device = self.device.__dict__
-            self.writer.header = ['sample_id', 'temperature_C']
-
-        elif output == 'json':
-            self.writer = JSONWriter('MCP9808', time_format='std_time_ms')
+        self.writer_output = output
+        self.csv_writer = CSVWriter("MCP9808", time_format='std_time_ms')
+        self.csv_writer.device = self.device.__dict__
+        self.csv_writer.header = ['description', 'sample_n', 'temperature']
+        
+        self.json_writer = JSONWriter("MCP9808", time_format='std_time_ms')
+        self.json_writer.device = self.device.__dict__
+        self.json_writer.header = ['description', 'sample_n', 'temperature']
 
     def set_pointer(self, reg_name):
         """Set the pointer register address
@@ -191,36 +192,65 @@ class MCP9808(object):
         else:
             return (ub * 2**4) + (lb * 2**-4)
 
-    def get(self, description='no_description', n=1):
+    def get(self, description='NA', n=1, delay=None):
         """Get formatted output.
 
         Parameters
         ----------
         description : char, description of data sample collected
         n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
 
         Returns
         -------
         data : list, data containing:
             description: str, description of sample under test
             temperature : float, temperature in degrees Celcius
+            delay : float, seconds to delay between samples if n > 1
         """
         data_list = []
-        for m in range(1,n+1):
+        for m in range(1, n+1):
             data_list.append([description, m, self.get_temp()])
             if n == 1:
                 return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
         return data_list
 
-    def write(self, description='no_description', n=1, delay=None):
+    def publish(self, description='NA', n=1, delay=None):
+        """Output relay status data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            temperature : float, temperature in degrees Celcius
+        """
+        data_list = []
+        for m in range(n):
+            data_list.append(self.json_writer.publish([description, m, self.get_temp()]))
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
+    
+    def write(self, description='NA', n=1, delay=None):
         """Format output and save to file, formatted as either
         .csv or .json.
 
         Parameters
         ----------
-        description : char, description of data sample collected
+        description : str, description of data sample collected
         n : int, number of samples to record in this burst
-
+        delay : float, seconds to delay between samples if n > 1
+        
         Returns
         -------
         None, writes to disk the following data:
@@ -228,8 +258,9 @@ class MCP9808(object):
             sample_n : int, sample number in this burst
             temperature : float, temperature in degrees Celcius
         """
-        self.writer.header = ['description', 'sample_n', 'temperature']
-        for m in range(1, n+1):
-            self.writer.write([description, m, self.get_temp()])
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m, self.get_temp()])
             if delay is not None:
                 time.sleep(delay)
