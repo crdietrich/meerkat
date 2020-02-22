@@ -319,7 +319,7 @@ class INA219:
         Returns
         -------
         data : list, data that will be saved to disk with self.write containing:
-            description : str
+            description: str, description of sample under test
             sample_n : int, sample number in this burst
             voltage, float, Volts measured at the shunt resistor
             current : float, Amps of current accross the shunt resistor
@@ -348,7 +348,9 @@ class INA219:
         -------
         str, formatted in JSON with keys:
             description: str, description of sample under test
-            temperature : float, temperature in degrees Celcius
+            sample_n : int, sample number in this burst
+            voltage, float, Volts measured at the shunt resistor
+            current : float, Amps of current accross the shunt resistor
         """
         data_list = []
         for m in range(n):
