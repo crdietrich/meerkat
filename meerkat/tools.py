@@ -5,8 +5,8 @@ On Raspberry Pi:
     $ i2cdetect -y 1
 On MicroPython:
 >>> from machine import I2C
->>> I2C = I2C(0, I2C.MASTER)
->>> I2C.scan()
+>>> i2c = I2C(0, I2C.MASTER)
+>>> i2c.scan()
 """
 
 def toI2C(n):
