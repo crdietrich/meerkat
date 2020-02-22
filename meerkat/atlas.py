@@ -92,12 +92,15 @@ class Atlas:
         """Write a command to the i2c device and read the reply,
         delay between reply based on command value.
 
-        First byte repsonse codes
-        -------------------------
-           1 = successful request
-           2 = syntax error
-         254 = still processing, not ready
-         255 = no data to send
+        Byte codes:
+
+            First byte repsonse codes
+                  0x1 = successful request
+                  0x2 = syntax error
+                0x254 = still processing, not ready
+                0x255 = no data to send
+            Filler byte
+                  0x0 = filler (usually at the end of a reply)
 
         Parameters
         ----------
@@ -120,7 +123,7 @@ class Atlas:
             byte_command = [ord(x) for x in command]
 
         if verbose:
-            print("Bytes sent:", command)
+            print("Sent:", command)
 
         self.bus.write_n_bytes(*[byte_command])
 
@@ -128,19 +131,30 @@ class Atlas:
             time.sleep(delay/1000)
 
         if n != 0:
-            _r = self.bus.read_n_bytes(n=n)
+            reply = self.bus.read_n_bytes(n=n)
 
-            # this seems extreme, check bytes format
-            # the trailing b"\x00" are due to requesting a fix length return
-            _r = _r.strip(b"\x00")
-            _r = _r.decode('utf-8')
-            print(type(_r))
-            #_r = _r.replace
-            #_r = _r.encode('unicode_escape')
-            #_r = _r.decode('utf-8')
-            _r = _r.replace(r'\x0', '')
+            reply_mapper = {0: 'Filler',
+                            1: 'Success',
+                            254: 'Still processing',
+                            255: 'No data'}
 
-            return _r
+            if verbose:
+                # print the response code that is in position 0 of reply
+                reply_0 = reply[0]
+                print("Reply:", reply_mapper[reply_0])
+
+            # filter out response codes and filler bytes
+            reply_bytes = bytearray([])
+            for reply_n in reply:
+                if reply_n not in [0x0, 0x1, 0x2, 0x254, 0x255]:
+                    reply_bytes.append(reply_n)
+            reply_bytes = bytes(reply_bytes)
+            reply_bytes = reply_bytes.decode('utf-8')
+
+            if verbose:
+                print("Formatted and trimmed reply:", reply_bytes)
+
+            return reply_bytes
 
     def led_on(self):
         """Turn on status LED until another character is set"""
@@ -738,8 +752,5 @@ class Conductivity(Atlas):
         """
 
         _r = self.query(b'R', n=40, delay=650, verbose=verbose)
-        #_r = _r.decode('utf-8')
-        #_r = _r.strip("\x00")
-        #_r = [float(m) for m in _r.split(',')]
         _r = [m for m in _r.split(',')]
         return _r

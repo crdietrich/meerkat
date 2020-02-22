@@ -69,10 +69,12 @@ class WrapI2C:
         iterable of bytes
         """
         values = self.bus.get(self.bus_addr, n)[0]
-        if flip_MSB:
-            return bytes(bytearray(c & ~0x80 for c in values[1:] if c != 0))
-        else:
-            return values
+        return values
+    
+        #if flip_MSB:
+        #    return bytes(bytearray(c & ~0x80 for c in values[1:] if c != 0))
+        #else:
+        #    return values
 
     def write_n_bytes(self, data):
         """Write bytes (n total) to worker device.
