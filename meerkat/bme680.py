@@ -60,7 +60,6 @@ REG_PDATA         = 0x1F
 REG_TDATA         = 0x22
 REG_HDATA         = 0x25
 
-
 REG_GAS_R_LSB     = 0x2B
 REG_GAS_R_MSB     = 0x2A
 
@@ -82,24 +81,25 @@ FILTERSIZES       = (0, 1, 3, 7, 15, 31, 63, 127)
 
 RUNGAS          = 0x10
 
-# these appear to be the integer const_array1_int values
-_LOOKUP_TABLE_1            = (2147483647.0, 2147483647.0, 
-                              2147483647.0, 2147483647.0, 
-                              2147483647.0, 2126008810.0,
-                              2147483647.0, 2130303777.0, 
-                              2147483647.0, 2147483647.0,
-                              2143188679.0, 2136746228.0, 
-                              2147483647.0, 2126008810.0, 
-                              2147483647.0, 2147483647.0)
+# the datasheet gives two options: float or int values and equations
+# this code uses integer calculations, see table 16
+const_array1_int            = (2147483647, 2147483647, 
+                              2147483647, 2147483647, 
+                              2147483647, 2126008810,
+                              2147483647, 2130303777, 
+                              2147483647, 2147483647,
+                              2143188679, 2136746228, 
+                              2147483647, 2126008810, 
+                              2147483647, 2147483647)
 
-_LOOKUP_TABLE_2             = (4096000000.0, 2048000000.0, 
-                               1024000000.0, 512000000.0, 
-                               255744255.0, 127110228.0, 
-                               64000000.0, 32258064.0, 
-                               16016016.0, 8000000.0, 
-                               4000000.0, 2000000.0, 
-                               1000000.0, 500000.0, 
-                               250000.0, 125000.0)
+const_array2_int             = (4096000000, 2048000000, 
+                               1024000000, 512000000, 
+                               255744255, 127110228, 
+                               64000000, 32258064, 
+                               16016016, 8000000, 
+                               4000000, 2000000, 
+                               1000000, 500000, 
+                               250000, 125000)
 
 def _read24(arr):
     """Parse an unsigned 24-bit value as a floating point and return it."""
@@ -155,12 +155,19 @@ class BME680:
 
         self._heat_range = None
         self._heat_val = None
-        self._sw_err = None
+        
+        self.amb_temp = None
+        
+        self.range_switch_error = None
+        #self._sw_err = None
         
         self._adc_pres = None
         self._adc_temp = None
         self._adc_hum = None
+        
         self._adc_gas = None
+        self.adc_gas2 = None
+        
         self._gas_range = None
         self._t_fine = None
 
@@ -179,18 +186,6 @@ class BME680:
         self.json_writer = JSONWriter("BME680", time_format='std_time_ms')
         self.json_writer.device = self.device.__dict__
         self.json_writer.header = self.csv_writer.header
-        
-        # setup chip state
-        
-        #self.soft_reset()
-        #time.sleep(1)
-        #self.check_id()
-        #time.sleep(0.5)
-        #self.read_calibration()
-        
-        # set up heater
-        #self.bus.write_n_bytes([REG_RES_HEAT_0, 0x73])
-        #self.bus.write_n_bytes([REG_GAS_WAIT_0, 0x65])
         
         # Pressure in hectoPascals at sea level, used to calibrate altitude
         self.sea_level_pressure = 1013.25
@@ -280,22 +275,24 @@ class BME680:
         coeff += self.bus.read_register_nbit(0xE1, 16)
 
         coeff = list(struct.unpack('<hbBHhbBhhbbHhhBBBHbbbBbHhbb', bytes(coeff[1:39])))
-        #print("\n\n",coeff)
         coeff = [float(i) for i in coeff]
+        
+        # 3
         self._temp_calibration = [coeff[x] for x in [23, 0, 1]]
+        # 10
         self._pressure_calibration = [coeff[x] for x in [3, 4, 5, 7, 8, 10, 9, 12, 13, 14]]
+        # 7
         self._humidity_calibration = [coeff[x] for x in [17, 16, 18, 19, 20, 21, 22]]
+        # 3
         self._gas_calibration = [coeff[x] for x in [25, 24, 26]]
 
+        # current method = 39 byte read + 3 byte setup 
+        
         # flip around H1 & H2
         self._humidity_calibration[1] *= 16
         self._humidity_calibration[1] += self._humidity_calibration[0] % 16
         self._humidity_calibration[0] /= 16
-
-        self._heat_range = (self.bus.read_register_8bit(0x02) & 0x30) / 16
-        self._heat_val = self.bus.read_register_8bit(0x00)
-        self._sw_err = (self.bus.read_register_8bit(0x04) & 0xF0) / 16
-
+    
     # break out reading methods
         
     def set_filter(self, coeff):
@@ -312,7 +309,7 @@ class BME680:
         _filter = mapper[self.filter]
         self.bus.write_n_bytes([0x75, _filter << 2])  # config register
             
-    def set_oversampling(self, h, t, p):
+    def setup_oversampling(self, h, t, p):
         """Set oversample rate for temperature, pressures and
         humidity.  Valid values for all three are:
             0, 1, 2, 4, 8, 16
@@ -337,14 +334,179 @@ class BME680:
                                ((self.temp_oversample << 5) |
                                 (self.pressure_oversample << 2))
                                ])
-            
-    def enable_measurement(self):
-        """Enable gas measurement
-        Note: sets nb_conv = number of conversions to index 0"""
-        # gas measurements enabled
-        reg_ctrl_gas_1 = self.nb_conv | 0b1000
-        self.bus.write_n_bytes([0x71, reg_ctrl_gas_1])
+    def set_x_register(self, reg_0, n, value):
+        """Set register within one of the three 10 byte registers:
+            Gas_wait_x  : gas_wait_9  @ 0x6D downto  gas_wait_0 @ 0x64
+            Res_heat_x  : res_heat_0  @ 0x63 downto  res_heat_0 @ 0x5A
+            Idac_heat_x : idac_heat_9 @ 0x59 downto idac_heat_0 @ 0x50
+        See Table 20 Memory Map for details.
+        
+        Parameters
+        ----------
+        n : int, set the nth register within the register block
+        reg_0 : int, 0th register of the register block
+        value : int, value for register
+        """
+        self.bus.write_register_8bit(n + reg_0, value)
+        
+    def set_gas_wait(self, n, value):
+        """Set gas wait time for Gas_wait_x registers.
+        Registers range from 0 = 0x64 up to 9 = 0x6D
+        
+        Parameters
+        ----------
+        n : int, set the nth register within the register block
+        value : int, value for register
+        """
+        self.set_x_register(reg_0=0x64, n=n, value=value)
+    
+    def set_res_heat(self, n, value):
+        """Set resistance for the heater registers.
+        Registers range from 0 = 0x64 up to 9 = 0x6D
+        
+        Parameters
+        ----------
+        n : int, set the nth register within the register block
+        value : int, value for register
+        """
+        self.set_x_register(reg_0=0x64, n=n, value=value)
+    
+    def set_single_(t, x):
+        """
 
+        Parameters
+        ----------
+        t : int, valued 0-63 with 1 ms step sizes, 0 = no wait
+        x : int, multiplier, one of 1, 4, 16, 64
+
+        Returns
+        -------
+        byte : register value
+        """
+        assert t < 63
+        mapper = {1: 0b00, 4: 0b01, 16: 0b10, 64: 0b11}
+        x = mapper[x]
+        return (x << 6) | t
+    
+    def get_gas_wait(self):
+        """Gas_wait_x  : gas_wait_9  @ 0x6D downto  gas_wait_0 @ 0x64
+        
+        Returns
+        -------
+        bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
+        return self.read_register_nbit(0x64, 10)
+    
+    def get_res_heat(self):
+        """Res_heat_x  : res_heat_0  @ 0x63 downto  res_heat_0 @ 0x5A
+        
+        Returns
+        -------
+        bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
+        return self.read_register_nbit(0x5A, 10)
+    
+    def get_idac_heat(self):
+        """Idac_heat_x : idac_heat_9 @ 0x59 downto idac_heat_0 @ 0x50
+        
+        Returns
+        -------
+        bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
+        return self.read_register_nbit(0x50, 10) 
+            
+    def calc_res_heat(self, target_temp):
+        """Convert a target temperature for the heater to a resistance
+        target for the chip
+        
+        Parameters
+        ----------
+        target_temp : int, target temperature in degrees Celcius
+        
+        Returns
+        -------
+        res_heat : int, register code for target temperature
+        """
+        
+        if self.amb_temp is None:
+            self.measure_tph()
+            self.amb_temp = self.temperature()
+        
+        amb_temp = int(self.amb_temp)
+        
+        par_g1     = self.bus.read_register_8bit(0xED)
+        par_g2_lsb = self.bus.read_register_8bit(0xEB)
+        par_g2_msb = self.bus.read_register_8bit(0xEC)
+        par_g2     = (par_g2_msb << 8) + par_g2_lsb
+        par_g3     = self.bus.read_register_8bit(0xEE)
+        
+        res_heat_range = self.bus.read_register_8bit(0x02)
+        res_heat_range = (res_heat_range >> 4) & 0b11
+        res_heat_val   = self.bus.read_register_8bit(0x00)
+        
+        var1 = ((amb_temp * par_g3) // 10) << 8
+        var2 = (
+            (par_g1 + 784) * 
+            (((((par_g2 + 154009) * int(target_temp) * 5) // 100) + 3276800) // 10)
+            )
+        var3 = var1 + (var2 >> 1)
+        var4 = var3 // (res_heat_range + 4)
+        var5 = (131 * res_heat_val) + 65536
+        res_heat_x100 = int(((var4 // var5) - 250) * 34)
+        res_heat_x = int((res_heat_x100 + 50) // 100)
+        
+        return res_heat_x
+    
+    def calc_wait_time(self, t, x):
+        """Calculate the wait time code for a heating profile
+
+        Parameters
+        ----------
+        t : int, valued 0-63 with 1 ms step sizes, 0 = no wait
+        x : int, multiplier for x, one of 1, 4, 16, 64
+
+        Returns
+        -------
+        byte : register value
+        """
+        assert t < 63
+        mapper = {1: 0b00, 4: 0b01, 16: 0b10, 64: 0b11}
+        x = mapper[x]
+        return (x << 6) | t
+    
+    def setup_gas(self, t_ms, x, t_C, verbose=False):
+        """Enable gas measurement
+        See pg 15 for example quickstart sequence
+        
+        Note: sets nb_conv = number of conversions to index 0
+        
+        Parameters
+        ----------
+        t_ms : int, number of milliseconds to heat the gas sensor, 0-63
+        x : int, multiplier for t_ms, 1, 4, 16, 64 are valid
+        t_C : int, target temperature in degrees C
+        """
+        
+        self.range_switch_error = self.bus.read_register_8bit(0x04)
+        
+        wait_time = self.calc_wait_time(t=t_ms, x=x)
+        
+        if verbose:
+            print("Wait code:", wait_time)
+        
+        # write gas_wait_x register 0
+        self.bus.write_register_8bit(0x64, wait_time)
+        
+        resistance = self.calc_res_heat(target_temp=t_C)
+        
+        if verbose:
+            print("Resistance code:", resistance)
+        
+        # write res_heat register 0
+        self.bus.write_register_8bit(0x5A, resistance)
+        
+        # gas measurements enabled with 0b1 at <4>
+        # nb_conv selects register 0 with 0b0000 at <3:0> 
+        reg_ctrl_gas_1 = self.nb_conv | 0b10000
+        self.bus.write_n_bytes([0x71, reg_ctrl_gas_1])
+        
         # read current ctrl_meas register
         # (which contains osrs_t and osrs_p)
         # and initiate single shot mode at 1:0
@@ -367,45 +529,105 @@ class BME680:
         self._gas_measuring = (reg_meas_status >> 6) & 0b1
         self._measuring = (reg_meas_status >> 5) & 0b1
         
-        #return self.bus.read_n_bytes(0x1D, 1)
-        
     def get_reading(self):
-        self.enable_measurement()
+        #self.setup_gas(t_ms=40, x=4, t_C=150)
         self._new_data = 0
+        self.get_measurement_status()
+        
+        t0 = time.time()
         while self._new_data == 0:
+            if (time.time() - t0) > 20:
+                break
+            else:
+                time.sleep(0.005)
             self.get_measurement_status()
+        
+        # 0x1F to 0x2B
         return self.bus.read_n_bytes(0x1F, 14)
         
-        #new_data = False
-        #while not new_data:
-            
-        #    new_data = data[0] & 0x80 != 0
-        #    time.sleep(0.005)
-        
-    def measure(self):
+    def measure_tph(self):
+        """Get """
         data = self.get_reading()
-        self._adc_pres = _read24(data[1:4]) / 16
-        self._adc_temp = _read24(data[4:7]) / 16
+        self._adc_pres = _read24(data[1:4]) / 16 #_read24(data[1:4]) / 16
+        self._adc_temp = _read24(data[4:7]) / 16 # _read24(data[4:7]) / 16
         self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
+        
         self._adc_gas = int(struct.unpack('>H', bytes(data[12:14]))[0] / 64)
-        self._gas_range = data[13] & 0x0F
-
+        g2 = self.bus.read_register_16bit(0x2B)
+        self.adc_gas2 = g2 >> 6
+        #self._adc_gas = data[12:14] >> 6
+        self._gas_range = data[13] & 0x0F  # 0x2B <4:0>
+        
+    def gas(self):
+        """The gas resistance in ohms"""
+        #self._perform_reading()
+        #print(self.range_switch_error, type(self.range_switch_error))
+        var1 = ((1340 + (5 * self.range_switch_error)) * 
+                (const_array1_int[self._gas_range])) >> 16
+        
+        #var2 = ((self._adc_gas << 15) - 16777216) + var1  # 1 << 24 = 16777216
+        var2 = ((self.adc_gas2 << 15) - 16777216) + var1  # 1 << 24 = 16777216
+        
+        gas_res = (((const_array2_int[self._gas_range] * var1) >> 9) +
+                   (var2 >> 1)) / var2
+        #calc_gas_res = (var3 + (var2 / 2)) / var2
+        #print("gas() var1, var2:", var1, var2) #, var3)
+        return gas_res, self._adc_gas, self.adc_gas2, var1, var2
+        
+    def temperature(self):
+        """The compensated temperature in degrees celsius."""
         var1 = (self._adc_temp / 8) - (self._temp_calibration[0] * 2)
         var2 = (var1 * self._temp_calibration[1]) / 2048
         var3 = ((var1 / 2) * (var1 / 2)) / 4096
         var3 = (var3 * self._temp_calibration[2] * 16) / 16384
         self._t_fine = int(var2 + var3)
-        calc_temp = (((self._t_fine * 5) + 128) / 256)
-        calc_temp = calc_temp / 100
-        print(self._t_fine, calc_temp)
+        calc_temp = (((self._t_fine * 5) + 128) / 256) / 100       
+        return calc_temp
         
-    @property
-    def temperature(self):
-        """The compensated temperature in degrees celsius."""
-        #self._perform_reading()
-        calc_temp = (((self._t_fine * 5) + 128) / 256)
-        print("here")
-        return calc_temp / 100
+    def pressure(self):
+        """The barometric pressure in hectoPascals"""
+        var1 = (self._t_fine / 2) - 64000
+        var2 = ((var1 / 4) * (var1 / 4)) / 2048
+        var2 = (var2 * self._pressure_calibration[5]) / 4
+        var2 = var2 + (var1 * self._pressure_calibration[4] * 2)
+        var2 = (var2 / 4) + (self._pressure_calibration[3] * 65536)
+        var1 = (((((var1 / 4) * (var1 / 4)) / 8192) *
+                 (self._pressure_calibration[2] * 32) / 8) +
+                ((self._pressure_calibration[1] * var1) / 2))
+        var1 = var1 / 262144
+        var1 = ((32768 + var1) * self._pressure_calibration[0]) / 32768
+        calc_pres = 1048576 - self._adc_pres
+        calc_pres = (calc_pres - (var2 / 4096)) * 3125
+        calc_pres = (calc_pres / var1) * 2
+        var1 = (self._pressure_calibration[8] * (((calc_pres / 8) * (calc_pres / 8)) / 8192)) / 4096
+        var2 = ((calc_pres / 4) * self._pressure_calibration[7]) / 8192
+        var3 = (((calc_pres / 256) ** 3) * self._pressure_calibration[9]) / 131072
+        calc_pres += ((var1 + var2 + var3 + (self._pressure_calibration[6] * 128)) / 16)
+        calc_pres = calc_pres / 100
+        return calc_pres
+        
+    def humidity(self):
+        """The relative humidity in RH %"""
+        temp_scaled = ((self._t_fine * 5) + 128) / 256
+        var1 = ((self._adc_hum - (self._humidity_calibration[0] * 16)) -
+                ((temp_scaled * self._humidity_calibration[2]) / 200))
+        var2 = (self._humidity_calibration[1] *
+                (((temp_scaled * self._humidity_calibration[3]) / 100) +
+                 (((temp_scaled * ((temp_scaled * self._humidity_calibration[4]) / 100)) /
+                   64) / 100) + 16384)) / 1024
+        var3 = var1 * var2
+        var4 = self._humidity_calibration[5] * 128
+        var4 = (var4 + ((temp_scaled * self._humidity_calibration[6]) / 100)) / 16
+        var5 = ((var3 / 16384) * (var3 / 16384)) / 1024
+        var6 = (var4 * var5) / 2
+        calc_hum = (((var3 + var6) / 1024) * 1000) / 4096
+        calc_hum /= 1000  # get back to RH
+
+        if calc_hum > 100:
+            calc_hum = 100
+        if calc_hum < 0:
+            calc_hum = 0
+        return calc_hum
         
     def debug_read_registers(self):
         from meerkat import tools
@@ -421,119 +643,4 @@ class BME680:
                 print("Not Used")
             print("="*20)
         
-    def _perform_reading(self):
-        """Perform a single-shot reading from the sensor and fill internal data structure for
-           calculations"""
-        if time.monotonic() - self._last_reading < self._min_refresh_time:
-            return
 
-        # set filter
-        self.bus.write_n_bytes([REG_CONFIG, self.filter << 2])
-        
-        # turn on temp oversample & pressure oversample
-        self.bus.write_n_bytes([REG_CTRL_MEAS,
-                                ((self.temp_oversample << 5) |
-                                 (self.pressure_oversample << 2))])
-        
-        # turn on humidity oversample
-        self.bus.write_n_bytes([REG_CTRL_HUM, self.humidity_oversample])
-        
-        # gas measurements enabled
-        self.bus.write_n_bytes([REG_CTRL_GAS, RUNGAS])
-
-        ctrl = self.bus.read_register_8bit(REG_CTRL_MEAS)
-        ctrl = (ctrl & 0xFC) | 0x01  # enable single shot!
-        self.bus.write_n_bytes([REG_CTRL_MEAS, ctrl])
-        
-        new_data = False
-        while not new_data:
-            #data = self._read(REG_MEAS_STATUS, 15)
-            data = self.bus.read_n_bytes(REG_MEAS_STATUS, 15)
-            new_data = data[0] & 0x80 != 0
-            time.sleep(0.005)
-        self._last_reading = time.monotonic()
-
-        self._adc_pres = _read24(data[2:5]) / 16
-        self._adc_temp = _read24(data[5:8]) / 16
-        self._adc_hum = struct.unpack('>H', bytes(data[8:10]))[0]
-        self._adc_gas = int(struct.unpack('>H', bytes(data[13:15]))[0] / 64)
-        self._gas_range = data[14] & 0x0F
-
-        var1 = (self._adc_temp / 8) - (self._temp_calibration[0] * 2)
-        var2 = (var1 * self._temp_calibration[1]) / 2048
-        var3 = ((var1 / 2) * (var1 / 2)) / 4096
-        var3 = (var3 * self._temp_calibration[2] * 16) / 16384
-        self._t_fine = int(var2 + var3)
-            
-            
-            
-            
-
-    
-    def get_temperature(self):
-        par_t1 = self.bus.read_register_16bit(0xE9)
-        par_t2 = self.bus.read_register_16bit(0x8A)
-        par_t3 = self.bus.read_register_8bit(0x8C)
-        
-        temp_adc = self.bus.read_n_bytes(0x22)
-        
-    def test(self):
-        '''
-        par_t1 = self.bus.read_register_16bit(0xE9)
-        print(hex(par_t1))
-        print(hex(par_t1 >> 8))
-        print(hex(par_t1 & 0x00ff))
-        '''
-        
-        # set filter
-        self.bus.write_n_bytes([REG_CONFIG, self.filter << 2])
-        
-        # turn on temp oversample & pressure oversample
-        self.bus.write_n_bytes([REG_CTRL_MEAS,
-                                ((self.temp_oversample << 5) |
-                                 (self.pressure_oversample << 2))])
-        
-        ctrl = self.bus.read_register_8bit(REG_CTRL_MEAS)
-        ctrl = (ctrl & 0xFC) | 0x01  # enable single shot!
-        self.bus.write_n_bytes([REG_CTRL_MEAS, ctrl])
-        
-        par_t1_lsb = self.bus.read_register_8bit(0xE9)
-        par_t1_msb = self.bus.read_register_8bit(0xEA)
-        
-        par_t1 = (par_t1_msb << 8) + par_t1_lsb
-        
-        par_t2_lsb = self.bus.read_register_8bit(0x8A)
-        par_t2_msb = self.bus.read_register_8bit(0x8B)
-        
-        par_t2 = (par_t2_msb << 8) + par_t1_lsb
-        
-        par_t3 = self.bus.read_register_8bit(0x8C)
-        
-        t24 = self.bus.read_register_8bit(0x24)
-        t23 = self.bus.read_register_8bit(0x23)
-        t22 = self.bus.read_register_8bit(0x22)
-        
-        temp_adc = ((t22 << 16) + (t23 << 8) + t24) >> 4
-        
-        print("reg_t24:", hex(t24))
-        print("reg_t23:", hex(t23))
-        print("reg_t22:", hex(t22))
-        print("temp_adc:", temp_adc)
-        
-        var1 = ((temp_adc / 16384.0) - (par_t1 / 1024.0)) * par_t2
-        var2 = (((temp_adc / 131072.0) - (par_t1 / 8192.0)) *
-                ((temp_adc / 131072.0) - (par_t1 / 8192.0)) * 
-                (par_t3 * 16.0))
-        t_fine = var1 + var2
-        
-        temp_comp = t_fine / 5120.0
-        print("temp_comp:", temp_comp)
-        
-        #print(hex(par_t1_lsb))
-        #print(hex(par_t1_msb))
-        
-        #par_t2 = self.bus.read_register_16bit(0x8A)
-        #par_t3 = self.bus.read_register_8bit(0x8C)
-        
-        #temp_adc = self.bus.read_n_bytes(0x22, 3)
-        #print(hex(temp_adc / 16))
