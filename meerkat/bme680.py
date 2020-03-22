@@ -19,89 +19,6 @@ from meerkat.base import I2C, DeviceData, time
 from meerkat.data import CSVWriter, JSONWriter
 
 
-# Memory Map, see datasheet pg 28, section 5.2
-chip_id          = 0x61
-
-# REG_chip_id      = 0xD0
-COEFF_ADDR1     = 0x89
-COEFF_ADDR2     = 0xE1
-
-
-REG_SOFTRESET   = 0xE0
-REG_CTRL_GAS    = 0x71
-# REG_CTRL_HUM    = 0x72
-REG_STATUS      = 0x73
-# REG_CTRL_MEAS   = 0x74
-REG_CONFIG      = 0x75
-
-# REG_STATUS        = 0x73
-
-REG_RESET         = 0xE0
-
-# REG_ID            = 0xD0
-# REG_CONFIG        = 0x75
-
-REG_CTRL_MEAS     = 0x74
-# REG_CTRL_HUM      = 0x72
-
-REG_CTRL_GAS_1    = 0x71
-REG_CTRL_GAS_0    = 0x70
-
-# REG_GAS_WAIT_X  = 0x6D...0x64
-REG_GAS_WAIT_0    = 0x64
-
-# REG_RES_HEAT_X  = 0x63...0x5A
-REG_RES_HEAT_0    = 0x5A
-
-# REG_IDAC_HEAT_X = 0x59...0x50
-REG_IDAC_HEAD_0   = 0x50
-
-REG_PDATA         = 0x1F
-REG_TDATA         = 0x22
-REG_HDATA         = 0x25
-
-REG_GAS_R_LSB     = 0x2B
-REG_GAS_R_MSB     = 0x2A
-
-REG_HUM_LSB       = 0x26
-REG_HUM_MSB       = 0x25
-
-REG_TEMP_xLSB     = 0x24
-REG_TEMP_LSB      = 0x23
-REG_TEMP_MSB      = 0x22
-
-REG_PRESS_xLSB    = 0x21
-REG_PRESS_LSB     = 0x20
-REG_PRESS_MSB     = 0x1F
-
-REG_MEAS_STATUS   = 0x1D
-
-SAMPLERATES       = (0, 1, 2, 4, 8, 16)
-FILTERSIZES       = (0, 1, 3, 7, 15, 31, 63, 127)
-
-RUNGAS          = 0x10
-
-# the datasheet gives two options: float or int values and equations
-# this code uses integer calculations, see table 16
-const_array1_int            = (2147483647, 2147483647, 
-                               2147483647, 2147483647,
-                               2147483647, 2126008810,
-                               2147483647, 2130303777,
-                               2147483647, 2147483647,
-                               2143188679, 2136746228,
-                               2147483647, 2126008810,
-                               2147483647, 2147483647)
-
-const_array2_int             = (4096000000, 2048000000, 
-                                1024000000, 512000000,
-                                255744255, 127110228,
-                                64000000, 32258064,
-                                16016016, 8000000,
-                                4000000, 2000000,
-                                1000000, 500000,
-                                250000, 125000)
-
-
 def _read24(arr):
     """Parse an unsigned 24-bit value as a floating point and return it."""
     ret = 0.0
@@ -115,6 +32,8 @@ def _read24(arr):
 class BME680:
     def __init__(self, bus_n, bus_addr=0x77, output='csv'):
         """Initialize worker device on i2c bus.
+
+        For register memory map, see datasheet pg 28, section 5.2
 
         Parameters
         ----------
@@ -141,7 +60,6 @@ class BME680:
 
         # Default oversampling and filter register values.
         self.refresh_rate        = 1
-        
         self.filter              = 1
         self.humidity_oversample = 1
         self.pressure_oversample = 1
@@ -167,48 +85,65 @@ class BME680:
         self._gas_measuring = None
         self._measuring = None
 
+        # calibration registers
         self._temp_calibration = None
         self._pressure_calibration = None
         self._humidity_calibration = None
         self._gas_calibration = None
-
         self._heat_range = None
         self._heat_val = None
-        
-        self.amb_temp = None
-        
         self.range_switch_error = None
-        # self._sw_err = None
-        
+
+        # raw ADC values
         self._adc_pres = None
         self._adc_temp = None
         self._adc_hum = None
-        
         self._adc_gas = None
         self.adc_gas2 = None
-        
         self._gas_range = None
         self._t_fine = None
 
-        self._last_reading = 0
-        self._min_refresh_time = 1 / self.refresh_rate
-        
-        # data recording information
-        self.sample_id = None
-        
+        # the datasheet gives two options: float or int values and equations
+        # this code uses integer calculations, see table 16
+        self._const_array1_int = (2147483647, 2147483647,
+                                  2147483647, 2147483647,
+                                  2147483647, 2126008810,
+                                  2147483647, 2130303777,
+                                  2147483647, 2147483647,
+                                  2143188679, 2136746228,
+                                  2147483647, 2126008810,
+                                  2147483647, 2147483647)
+        self._const_array2_int = (4096000000, 2048000000,
+                                  1024000000, 512000000,
+                                  255744255, 127110228,
+                                  64000000, 32258064,
+                                  16016016, 8000000,
+                                  4000000, 2000000,
+                                  1000000, 500000,
+                                  250000, 125000)
+
         # data recording method
         self.writer_output = output
         self.csv_writer = CSVWriter("BME680", time_format='std_time_ms')
         self.csv_writer.device = self.device.__dict__
         self.csv_writer.header = ['description', 'sample_n', 'VOC', 'RH', 'P', 'T']
-        
         self.json_writer = JSONWriter("BME680", time_format='std_time_ms')
         self.json_writer.device = self.device.__dict__
         self.json_writer.header = self.csv_writer.header
-        
+
+        # data recording information
+        self.sample_id = None
+
         # Pressure in hectoPascals at sea level, used to calibrate altitude
         self.sea_level_pressure = 1013.25
-        
+
+        # sample collection metadata
+        self._last_reading = 0
+        self._min_refresh_time = 1 / self.refresh_rate
+
+        # calculated ambient temperature for res_heat target calculation
+        self.amb_temp = None
+
     def read(self, n):
         """Read n bytes from the device"""
         return self.bus.read_n_bytes(n=n)
@@ -233,7 +168,7 @@ class BME680:
         """Check that the chip ID is correct.  Should return 0x61"""
         _chip_id = self.bus.read_register_8bit(0xD0)
         if _chip_id != 0x61:
-            raise OSError('Expected BME680 ID 0x%x, got ID: 0x%x' % (chip_id, _chip_id))
+            raise OSError('Expected BME680 ID 0x%x, got ID: 0x%x' % (0x61, _chip_id))
         
     def reg_config(self):
         """'config' contains the 'filter' and 'spi_3w_en' control registers"""
@@ -283,10 +218,7 @@ class BME680:
 
     def read_calibration(self):
         """Read & save the calibration coefficients
-        
-        COEFF_ADDR1     = 0x89
-        COEFF_ADDR2     = 0xE1
-        
+
         Coefficients are not listed in memory map, table 20.  Instead they are
         referenced in Tables 11, 12, 13 and 14
         """
@@ -536,14 +468,6 @@ class BME680:
         reg_ctrl_meas = (reg_ctrl_meas & 0xFC) | 0x01
         self.bus.write_n_bytes([0x74, reg_ctrl_meas])
         
-    def enable_measurement_old(self):
-        # gas measurements enabled
-        self.bus.write_n_bytes([REG_CTRL_GAS, RUNGAS])
-
-        ctrl = self.bus.read_register_8bit(REG_CTRL_MEAS)
-        ctrl = (ctrl & 0xFC) | 0x01  # enable single shot!
-        self.bus.write_n_bytes([REG_CTRL_MEAS, ctrl])
-        
     def get_measurement_status(self):
         reg_meas_status = self.bus.read_register_8bit(0x1D)
         self.gas_meas_index = reg_meas_status & 0b111
@@ -585,12 +509,12 @@ class BME680:
         # self._perform_reading()
         # print(self.range_switch_error, type(self.range_switch_error))
         var1 = ((1340 + (5 * self.range_switch_error)) * 
-                (const_array1_int[self._gas_range])) >> 16
+                (self._const_array1_int[self._gas_range])) >> 16
         
         # var2 = ((self._adc_gas << 15) - 16777216) + var1  # 1 << 24 = 16777216
         var2 = ((self.adc_gas2 << 15) - 16777216) + var1  # 1 << 24 = 16777216
         
-        gas_res = (((const_array2_int[self._gas_range] * var1) >> 9) +
+        gas_res = (((self._const_array2_int[self._gas_range] * var1) >> 9) +
                    (var2 >> 1)) / var2
         # calc_gas_res = (var3 + (var2 / 2)) / var2
         # print("gas() var1, var2:", var1, var2) #, var3)
