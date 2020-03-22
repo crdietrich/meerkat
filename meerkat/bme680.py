@@ -22,27 +22,27 @@ from meerkat.data import CSVWriter, JSONWriter
 # Memory Map, see datasheet pg 28, section 5.2
 chip_id          = 0x61
 
-#REG_chip_id      = 0xD0
+# REG_chip_id      = 0xD0
 COEFF_ADDR1     = 0x89
 COEFF_ADDR2     = 0xE1
 
 
 REG_SOFTRESET   = 0xE0
 REG_CTRL_GAS    = 0x71
-#REG_CTRL_HUM    = 0x72
+# REG_CTRL_HUM    = 0x72
 REG_STATUS      = 0x73
-#REG_CTRL_MEAS   = 0x74
+# REG_CTRL_MEAS   = 0x74
 REG_CONFIG      = 0x75
 
-REG_STATUS        = 0x73
+# REG_STATUS        = 0x73
 
 REG_RESET         = 0xE0
 
-#REG_ID            = 0xD0
-REG_CONFIG        = 0x75
+# REG_ID            = 0xD0
+# REG_CONFIG        = 0x75
 
 REG_CTRL_MEAS     = 0x74
-#REG_CTRL_HUM      = 0x72
+# REG_CTRL_HUM      = 0x72
 
 REG_CTRL_GAS_1    = 0x71
 REG_CTRL_GAS_0    = 0x70
@@ -84,27 +84,28 @@ RUNGAS          = 0x10
 # the datasheet gives two options: float or int values and equations
 # this code uses integer calculations, see table 16
 const_array1_int            = (2147483647, 2147483647, 
-                              2147483647, 2147483647, 
-                              2147483647, 2126008810,
-                              2147483647, 2130303777, 
-                              2147483647, 2147483647,
-                              2143188679, 2136746228, 
-                              2147483647, 2126008810, 
-                              2147483647, 2147483647)
+                               2147483647, 2147483647,
+                               2147483647, 2126008810,
+                               2147483647, 2130303777,
+                               2147483647, 2147483647,
+                               2143188679, 2136746228,
+                               2147483647, 2126008810,
+                               2147483647, 2147483647)
 
 const_array2_int             = (4096000000, 2048000000, 
-                               1024000000, 512000000, 
-                               255744255, 127110228, 
-                               64000000, 32258064, 
-                               16016016, 8000000, 
-                               4000000, 2000000, 
-                               1000000, 500000, 
-                               250000, 125000)
+                                1024000000, 512000000,
+                                255744255, 127110228,
+                                64000000, 32258064,
+                                16016016, 8000000,
+                                4000000, 2000000,
+                                1000000, 500000,
+                                250000, 125000)
+
 
 def _read24(arr):
     """Parse an unsigned 24-bit value as a floating point and return it."""
     ret = 0.0
-    #print([hex(i) for i in arr])
+    # print([hex(i) for i in arr])
     for b in arr:
         ret *= 256.0
         ret += float(b & 0xFF)
@@ -126,7 +127,7 @@ class BME680:
         
         # information about this device
         self.device = DeviceData('BME680')
-        self.device.description = ('Bosch Humidity, Pressure, Temperature, VOC Sensor')
+        self.device.description = 'Bosch Humidity, Pressure, Temperature, VOC Sensor'
         self.device.urls = 'https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/'
         self.device.active = None
         self.device.error = None
@@ -146,8 +147,26 @@ class BME680:
         self.pressure_oversample = 1
         self.temp_oversample     = 1
 
-        self.nb_conv = 0b000
-        
+        # registers mapped from memory locations
+        self.mode     = None   # ctrl_meas <1:0> operation mode
+        self.osrs_p   = None   # 3 bits, ctrl_meas <4:2>, oversample pressure
+        self.osrs_t   = None   # 3 bits, ctrl_meas <2:0>, oversample temperature
+        self.osrs_h   = None   # 3 bits, ctrl_hum <2:0>, oversample humidity
+        self.run_gas  = None   # 1 bit, ctrl_gas_1 <4>, run gas measurement
+        self.nb_conv  = 0b000  # 4 bits, ctrl_gas_1 <3:0> conversion profile number
+        self.heat_off = None   # 1 bit, ctrl_gas_0 <3>, gas heater on/off
+
+        # profile registers
+        self.gas_wait_x  = None  # gas_wait registers 9-0
+        self.res_heat_x  = None  # res_heat registers 9-0
+        self.idac_heat_x = None  # idac_heat registers 9-0
+
+        # meas_status_0 register
+        self.gas_meas_index = None
+        self._new_data = None
+        self._gas_measuring = None
+        self._measuring = None
+
         self._temp_calibration = None
         self._pressure_calibration = None
         self._humidity_calibration = None
@@ -159,7 +178,7 @@ class BME680:
         self.amb_temp = None
         
         self.range_switch_error = None
-        #self._sw_err = None
+        # self._sw_err = None
         
         self._adc_pres = None
         self._adc_temp = None
@@ -212,13 +231,13 @@ class BME680:
         
     def reg_check_id(self):
         """Check that the chip ID is correct.  Should return 0x61"""
-        chip_id = self.bus.read_register_8bit(0xD0)
+        _chip_id = self.bus.read_register_8bit(0xD0)
         if _chip_id != 0x61:
             raise OSError('Expected BME680 ID 0x%x, got ID: 0x%x' % (chip_id, _chip_id))
         
     def reg_config(self):
         """'config' contains the 'filter' and 'spi_3w_en' control registers"""
-        _config = self.bus.read_regsiter_8bit(0x75)
+        _config = self.bus.read_register_8bit(0x75)
         self.filter = (_config >> 2) & 0b111
         
     def reg_ctrl_meas(self):
@@ -230,7 +249,8 @@ class BME680:
         
     def reg_ctrl_hum(self):
         """'ctrl_hum contains the 'spi_3w_int_en' and 'osrs_h' control registers"""
-        ctrl_hum = self.bus.read_register_8bit(0x72)
+        _ctrl_hum = self.bus.read_register_8bit(0x72)
+        self.osrs_h = _ctrl_hum & 0b111
         
     def reg_ctrl_gas_1(self):
         """Contains 'run_gas' and 'nb_conv' control registers"""
@@ -241,7 +261,7 @@ class BME680:
     def reg_ctrl_gas_0(self):
         """Contains the 'heat_off' control register"""
         _ctrl_gas_0 = self.bus.read_register_8bit(0x70)
-        self.head_off = (_ctrl_gas_0 >> 3) & 0b1
+        self.heat_off = (_ctrl_gas_0 >> 3) & 0b1
         
     def reg_gas_wait_x(self):
         """"""
@@ -251,7 +271,7 @@ class BME680:
         self.res_heat_x = self.bus.read_n_bytes(0x5A, 10)
         
     def reg_idac_heat_x(self):
-        self.idac_head_x = self.bus.read_n_bytes(0x50, 10)
+        self.idac_heat_x = self.bus.read_n_bytes(0x50, 10)
         
     def mode_sleep(self):
         """Set chip mode to Sleep Mode"""
@@ -261,7 +281,6 @@ class BME680:
         """Set chip mode to Forced Mode (active for measurement)"""
         self.bus.write_n_bytes([])
 
-        
     def read_calibration(self):
         """Read & save the calibration coefficients
         
@@ -303,8 +322,8 @@ class BME680:
         coeff : int, filter coefficient.  Valid values are:
             0, 1, 3, 7, 15, 31, 63, 127
         """
-        mapper = {0: 0b000, 1: 0b001, 3: 0b010, 7:0b011, 15:0b100,
-                  31: 0b101, 63: 0b110, 127: 0b111}
+        mapper = {0:  0b000,  1: 0b001,  3: 0b010,   7: 0b011,
+                  15: 0b100, 31: 0b101, 63: 0b110, 127: 0b111}
         self.filter = coeff
         _filter = mapper[self.filter]
         self.bus.write_n_bytes([0x75, _filter << 2])  # config register
@@ -322,8 +341,9 @@ class BME680:
         p : int, oversampling rate of pressure
         """
         
-        htp_mapper = {0:0b000, 1:0b001, 2:0b010, 4:0b011, 8:0b100, 16:0b101}
-        self.humidity_oversample = h_mapper[h]
+        htp_mapper = {0: 0b000, 1: 0b001, 2: 0b010,
+                      4: 0b011, 8: 0b100, 16: 0b101}
+        self.humidity_oversample = htp_mapper[h]
         # ctrl_hum register, 0x72, osrs_h
         self.bus.write_n_bytes([0x72, self.humidity_oversample])
         
@@ -333,7 +353,8 @@ class BME680:
         self.bus.write_n_bytes([0x74,
                                ((self.temp_oversample << 5) |
                                 (self.pressure_oversample << 2))
-                               ])
+                                ])
+
     def set_x_register(self, reg_0, n, value):
         """Set register within one of the three 10 byte registers:
             Gas_wait_x  : gas_wait_9  @ 0x6D downto  gas_wait_0 @ 0x64
@@ -370,8 +391,8 @@ class BME680:
         value : int, value for register
         """
         self.set_x_register(reg_0=0x64, n=n, value=value)
-    
-    def set_single_(t, x):
+
+    def set_single_(self, t, x):
         """
 
         Parameters
@@ -394,7 +415,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.read_register_nbit(0x64, 10)
+        return self.bus.read_register_nbit(0x64, 10)
     
     def get_res_heat(self):
         """Res_heat_x  : res_heat_0  @ 0x63 downto  res_heat_0 @ 0x5A
@@ -402,7 +423,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.read_register_nbit(0x5A, 10)
+        return self.bus.read_register_nbit(0x5A, 10)
     
     def get_idac_heat(self):
         """Idac_heat_x : idac_heat_9 @ 0x59 downto idac_heat_0 @ 0x50
@@ -410,7 +431,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.read_register_nbit(0x50, 10) 
+        return self.bus.read_register_nbit(0x50, 10)
             
     def calc_res_heat(self, target_temp):
         """Convert a target temperature for the heater to a resistance
@@ -471,7 +492,7 @@ class BME680:
         x = mapper[x]
         return (x << 6) | t
     
-    def setup_gas(self, t_ms, x, t_C, verbose=False):
+    def setup_gas(self, t_ms, x, t_c, verbose=False):
         """Enable gas measurement
         See pg 15 for example quickstart sequence
         
@@ -481,7 +502,8 @@ class BME680:
         ----------
         t_ms : int, number of milliseconds to heat the gas sensor, 0-63
         x : int, multiplier for t_ms, 1, 4, 16, 64 are valid
-        t_C : int, target temperature in degrees C
+        t_c : int, target temperature in degrees C
+        verbose : bool, print debug statements
         """
         
         self.range_switch_error = self.bus.read_register_8bit(0x04)
@@ -494,7 +516,7 @@ class BME680:
         # write gas_wait_x register 0
         self.bus.write_register_8bit(0x64, wait_time)
         
-        resistance = self.calc_res_heat(target_temp=t_C)
+        resistance = self.calc_res_heat(target_temp=t_c)
         
         if verbose:
             print("Resistance code:", resistance)
@@ -530,7 +552,7 @@ class BME680:
         self._measuring = (reg_meas_status >> 5) & 0b1
         
     def get_reading(self):
-        #self.setup_gas(t_ms=40, x=4, t_C=150)
+        # self.setup_gas(t_ms=40, x=4, t_C=150)
         self._new_data = 0
         self.get_measurement_status()
         
@@ -548,30 +570,30 @@ class BME680:
     def measure_tph(self):
         """Get """
         data = self.get_reading()
-        self._adc_pres = _read24(data[1:4]) / 16 #_read24(data[1:4]) / 16
-        self._adc_temp = _read24(data[4:7]) / 16 # _read24(data[4:7]) / 16
+        self._adc_pres = _read24(data[1:4]) / 16  # _read24(data[1:4]) / 16
+        self._adc_temp = _read24(data[4:7]) / 16  # _read24(data[4:7]) / 16
         self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
         
         self._adc_gas = int(struct.unpack('>H', bytes(data[12:14]))[0] / 64)
         g2 = self.bus.read_register_16bit(0x2B)
         self.adc_gas2 = g2 >> 6
-        #self._adc_gas = data[12:14] >> 6
+        # self._adc_gas = data[12:14] >> 6
         self._gas_range = data[13] & 0x0F  # 0x2B <4:0>
         
     def gas(self):
         """The gas resistance in ohms"""
-        #self._perform_reading()
-        #print(self.range_switch_error, type(self.range_switch_error))
+        # self._perform_reading()
+        # print(self.range_switch_error, type(self.range_switch_error))
         var1 = ((1340 + (5 * self.range_switch_error)) * 
                 (const_array1_int[self._gas_range])) >> 16
         
-        #var2 = ((self._adc_gas << 15) - 16777216) + var1  # 1 << 24 = 16777216
+        # var2 = ((self._adc_gas << 15) - 16777216) + var1  # 1 << 24 = 16777216
         var2 = ((self.adc_gas2 << 15) - 16777216) + var1  # 1 << 24 = 16777216
         
         gas_res = (((const_array2_int[self._gas_range] * var1) >> 9) +
                    (var2 >> 1)) / var2
-        #calc_gas_res = (var3 + (var2 / 2)) / var2
-        #print("gas() var1, var2:", var1, var2) #, var3)
+        # calc_gas_res = (var3 + (var2 / 2)) / var2
+        # print("gas() var1, var2:", var1, var2) #, var3)
         return gas_res, self._adc_gas, self.adc_gas2, var1, var2
         
     def temperature(self):
@@ -642,5 +664,3 @@ class BME680:
             else:
                 print("Not Used")
             print("="*20)
-        
-
