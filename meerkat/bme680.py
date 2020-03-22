@@ -22,7 +22,6 @@ from meerkat.data import CSVWriter, JSONWriter
 def _read24(arr):
     """Parse an unsigned 24-bit value as a floating point and return it."""
     ret = 0.0
-    # print([hex(i) for i in arr])
     for b in arr:
         ret *= 256.0
         ret += float(b & 0xFF)
@@ -155,7 +154,8 @@ class BME680:
             values = [values]
         self.bus.write_n_bytes([reg] + values)
         
-    # register functions are in the order listed in Table 20: Memory Map, pg28
+    # ## Register Methods
+    # In the order listed in Table 20: Memory Map, pg28
     
     def reg_soft_reset(self):
         """Reset the device using a soft-reset procedure, which has the 
@@ -183,7 +183,7 @@ class BME680:
         self.osrs_t = _ctrl_meas >> 5
         
     def reg_ctrl_hum(self):
-        """'ctrl_hum contains the 'spi_3w_int_en' and 'osrs_h' control registers"""
+        """'ctrl_hum' contains the 'spi_3w_int_en' and 'osrs_h' control registers"""
         _ctrl_hum = self.bus.read_register_8bit(0x72)
         self.osrs_h = _ctrl_hum & 0b111
         
@@ -199,13 +199,15 @@ class BME680:
         self.heat_off = (_ctrl_gas_0 >> 3) & 0b1
         
     def reg_gas_wait_x(self):
-        """"""
+        """Control register for gas wait profiles"""
         self.gas_wait_x = self.bus.read_n_bytes(0x64, 10)
         
     def reg_res_heat_x(self):
+        """Control register for heater resistance profiles"""
         self.res_heat_x = self.bus.read_n_bytes(0x5A, 10)
         
     def reg_idac_heat_x(self):
+        """Control register for heater current profiles"""
         self.idac_heat_x = self.bus.read_n_bytes(0x50, 10)
         
     def mode_sleep(self):
@@ -228,13 +230,13 @@ class BME680:
         coeff = list(struct.unpack('<hbBHhbBhhbbHhhBBBHbbbBbHhbb', bytes(coeff[1:39])))
         coeff = [float(i) for i in coeff]
         
-        # 3
+        # 3 bytes
         self._temp_calibration = [coeff[x] for x in [23, 0, 1]]
-        # 10
+        # 10 bytes
         self._pressure_calibration = [coeff[x] for x in [3, 4, 5, 7, 8, 10, 9, 12, 13, 14]]
-        # 7
+        # 7 bytes
         self._humidity_calibration = [coeff[x] for x in [17, 16, 18, 19, 20, 21, 22]]
-        # 3
+        # 3 bytes
         self._gas_calibration = [coeff[x] for x in [25, 24, 26]]
 
         # current method = 39 byte read + 3 byte setup 
@@ -244,8 +246,8 @@ class BME680:
         self._humidity_calibration[1] += self._humidity_calibration[0] % 16
         self._humidity_calibration[0] /= 16
     
-    # break out reading methods
-        
+    # Operation Methods
+
     def set_filter(self, coeff):
         """Set the temperature and pressure IIR filter
         
@@ -323,23 +325,6 @@ class BME680:
         value : int, value for register
         """
         self.set_x_register(reg_0=0x64, n=n, value=value)
-
-    def set_single_(self, t, x):
-        """
-
-        Parameters
-        ----------
-        t : int, valued 0-63 with 1 ms step sizes, 0 = no wait
-        x : int, multiplier, one of 1, 4, 16, 64
-
-        Returns
-        -------
-        byte : register value
-        """
-        assert t < 63
-        mapper = {1: 0b00, 4: 0b01, 16: 0b10, 64: 0b11}
-        x = mapper[x]
-        return (x << 6) | t
     
     def get_gas_wait(self):
         """Gas_wait_x  : gas_wait_9  @ 0x6D downto  gas_wait_0 @ 0x64
@@ -423,7 +408,7 @@ class BME680:
         mapper = {1: 0b00, 4: 0b01, 16: 0b10, 64: 0b11}
         x = mapper[x]
         return (x << 6) | t
-    
+
     def setup_gas(self, t_ms, x, t_c, verbose=False):
         """Enable gas measurement
         See pg 15 for example quickstart sequence
@@ -492,20 +477,19 @@ class BME680:
         return self.bus.read_n_bytes(0x1F, 14)
         
     def measure_tph(self):
-        """Get """
+        """Get the temperature, pressure and humidity"""
         data = self.get_reading()
-        self._adc_pres = _read24(data[1:4]) / 16  # _read24(data[1:4]) / 16
         self._adc_temp = _read24(data[4:7]) / 16  # _read24(data[4:7]) / 16
+        self._adc_pres = _read24(data[1:4]) / 16  # _read24(data[1:4]) / 16
         self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
         
         self._adc_gas = int(struct.unpack('>H', bytes(data[12:14]))[0] / 64)
         g2 = self.bus.read_register_16bit(0x2B)
         self.adc_gas2 = g2 >> 6
-        # self._adc_gas = data[12:14] >> 6
         self._gas_range = data[13] & 0x0F  # 0x2B <4:0>
         
     def gas(self):
-        """The gas resistance in ohms"""
+        """Calculate the gas resistance in ohms"""
         # self._perform_reading()
         # print(self.range_switch_error, type(self.range_switch_error))
         var1 = ((1340 + (5 * self.range_switch_error)) * 
@@ -521,7 +505,7 @@ class BME680:
         return gas_res, self._adc_gas, self.adc_gas2, var1, var2
         
     def temperature(self):
-        """The compensated temperature in degrees celsius."""
+        """Calculate the compensated temperature in degrees celsius"""
         var1 = (self._adc_temp / 8) - (self._temp_calibration[0] * 2)
         var2 = (var1 * self._temp_calibration[1]) / 2048
         var3 = ((var1 / 2) * (var1 / 2)) / 4096
@@ -531,7 +515,7 @@ class BME680:
         return calc_temp
         
     def pressure(self):
-        """The barometric pressure in hectoPascals"""
+        """Calculate the barometric pressure in hectoPascals"""
         var1 = (self._t_fine / 2) - 64000
         var2 = ((var1 / 4) * (var1 / 4)) / 2048
         var2 = (var2 * self._pressure_calibration[5]) / 4
@@ -576,6 +560,7 @@ class BME680:
         return calc_hum
         
     def debug_read_registers(self):
+        """Print out the values of read only registers"""
         from meerkat import tools
         x = self.get_reading()
         reg = [0x1D, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x2A, 0x2B]
