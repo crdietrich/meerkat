@@ -60,18 +60,15 @@ class BME680:
         # Default oversampling and filter register values.
         self.refresh_rate        = 1
         self.filter              = 1
-        self.humidity_oversample = 1
-        self.pressure_oversample = 1
-        self.temp_oversample     = 1
 
-        # registers mapped from memory locations
-        self.mode     = None   # ctrl_meas <1:0> operation mode
-        self.osrs_p   = None   # 3 bits, ctrl_meas <4:2>, oversample pressure
-        self.osrs_t   = None   # 3 bits, ctrl_meas <2:0>, oversample temperature
-        self.osrs_h   = None   # 3 bits, ctrl_hum <2:0>, oversample humidity
-        self.run_gas  = None   # 1 bit, ctrl_gas_1 <4>, run gas measurement
+        # memory mapped from 8 bit register locations
+        self.mode     = 0b00   # 2 bits, ctrl_meas <1:0> operation mode
+        self.osrs_p   = 0b001  # 3 bits, ctrl_meas <4:2>, oversample pressure
+        self.osrs_t   = 0b001  # 3 bits, ctrl_meas <2:0>, oversample temperature
+        self.osrs_h   = 0b001  # 3 bits, ctrl_hum <2:0>, oversample humidity
+        self.run_gas  = 0b0    # 1 bit, ctrl_gas_1 <4>, run gas measurement
         self.nb_conv  = 0b000  # 4 bits, ctrl_gas_1 <3:0> conversion profile number
-        self.heat_off = None   # 1 bit, ctrl_gas_0 <3>, gas heater on/off
+        self.heat_off = 0b0    # 1 bit, ctrl_gas_0 <3>, gas heater on/off
 
         # profile registers
         self.gas_wait_x  = None  # gas_wait registers 9-0
@@ -102,6 +99,10 @@ class BME680:
         self._gas_range = None
         self._t_fine = None
 
+        # control registers
+        self._r_ctrl_meas = None
+        self._r_ctrl_gas_1 = None
+        
         # the datasheet gives two options: float or int values and equations
         # this code uses integer calculations, see table 16
         self._const_array1_int = (2147483647, 2147483647,
@@ -157,35 +158,54 @@ class BME680:
     # ## Register Methods
     # In the order listed in Table 20: Memory Map, pg28
     
-    def reg_soft_reset(self):
+    def reset(self):
         """Reset the device using a soft-reset procedure, which has the 
-        same effect as a power-on reset.  
-        Note: The reset register is 0xE0 with default value 0x00"""
+        same effect as a power-on reset, by writing register
+        'reset' at 0xE0 with value 0xB6.  Default value is 0x00."""
         self.bus.write_n_bytes([0xE0, 0xB6])
         time.sleep(0.005)
         
-    def reg_check_id(self):
+    def read_r_chip_id(self):
         """Check that the chip ID is correct.  Should return 0x61"""
         _chip_id = self.bus.read_register_8bit(0xD0)
         if _chip_id != 0x61:
             raise OSError('Expected BME680 ID 0x%x, got ID: 0x%x' % (0x61, _chip_id))
         
-    def reg_config(self):
-        """'config' contains the 'filter' and 'spi_3w_en' control registers"""
+    def read_r_config(self):
+        """Read register 'config' at 0x75 which contains the 
+        'filter' contorl register.  'spi_3w_en' is always 
+        0b0 in I2C mode"""
         _config = self.bus.read_register_8bit(0x75)
-        self.filter = (_config >> 2) & 0b111
+        self.filter = (_config >> 2) & 0b111  # mask to be sure
         
-    def reg_ctrl_meas(self):
-        """'ctrl_meas' contains the 'mode', 'osrs_p' and 'osrs_t' control registers"""
+    def read_r_ctrl_meas(self):
+        """Read register 'ctrl_meas' at 0x74 which contains the
+        'mode', 'osrs_p' and 'osrs_t' control registers"""
         _ctrl_meas = self.bus.read_register_8bit(0x74)
         self.mode = _ctrl_meas & 0b11
         self.osrs_p = (_ctrl_meas >> 2) & 0b111
         self.osrs_t = _ctrl_meas >> 5
         
-    def reg_ctrl_hum(self):
-        """'ctrl_hum' contains the 'spi_3w_int_en' and 'osrs_h' control registers"""
+    def write_r_ctrl_meas(self):
+        """Write register 'ctrl_meas' at 0x74 which contains the 
+        'mode', 'osrs_p' and 'osrs_t' control registers"""
+        _ctrl_meas = (((self.osrs_t << 5) |
+                       (self.osrs_p << 2)) |
+                        self.mode)
+        self.bus.write_n_bytes([0x74, _ctrl_meas])
+        
+    def read_r_ctrl_hum(self):
+        """Read register 'ctrl_hum' at 0x72 which contains the 
+        'osrs_h' control register.  'spi_3w_int_en' is always 
+        0b0 in I2C mode"""
         _ctrl_hum = self.bus.read_register_8bit(0x72)
-        self.osrs_h = _ctrl_hum & 0b111
+        self.osrs_h = _ctrl_hum & 0b111  # mask just to be sure
+        
+    def write_r_ctrl_hum(self):
+        """Write register 'ctrl_hum' at 0x72 which contains the 
+        'osrs_h' control register.  'spi_3w_int_en' is always 
+        0b0 in I2C mode"""
+        self.bus.write_n_bytes([0x72, self.osrs_h])
         
     def reg_ctrl_gas_1(self):
         """Contains 'run_gas' and 'nb_conv' control registers"""
@@ -262,7 +282,7 @@ class BME680:
         _filter = mapper[self.filter]
         self.bus.write_n_bytes([0x75, _filter << 2])  # config register
             
-    def setup_oversampling(self, h, t, p):
+    def set_oversampling(self, h, t, p):
         """Set oversample rate for temperature, pressures and
         humidity.  Valid values for all three are:
             0, 1, 2, 4, 8, 16
@@ -277,17 +297,15 @@ class BME680:
         
         htp_mapper = {0: 0b000, 1: 0b001, 2: 0b010,
                       4: 0b011, 8: 0b100, 16: 0b101}
-        self.humidity_oversample = htp_mapper[h]
-        # ctrl_hum register, 0x72, osrs_h
-        self.bus.write_n_bytes([0x72, self.humidity_oversample])
         
-        self.temp_oversample = htp_mapper[t]
-        self.pressure_oversample = htp_mapper[p]
-        # ctrl_meas register, 0x74, osrs_t and osrs_p
-        self.bus.write_n_bytes([0x74,
-                               ((self.temp_oversample << 5) |
-                                (self.pressure_oversample << 2))
-                                ])
+        # ctrl_hum register, 0x72
+        self.osrs_h = htp_mapper[h]
+        self.write_r_ctrl_hum()
+        
+        # ctrl_meas register, 0x74
+        self.osrs_t = htp_mapper[t]
+        self.osrs_p = htp_mapper[p]
+        self.write_r_ctrl_meas()
 
     def set_x_register(self, reg_0, n, value):
         """Set register within one of the three 10 byte registers:
@@ -423,6 +441,7 @@ class BME680:
         verbose : bool, print debug statements
         """
         
+        #TODO: break this apart into register functions
         self.range_switch_error = self.bus.read_register_8bit(0x04)
         
         wait_time = self.calc_wait_time(t=t_ms, x=x)
@@ -431,7 +450,8 @@ class BME680:
             print("Wait code:", wait_time)
         
         # write gas_wait_x register 0
-        self.bus.write_register_8bit(0x64, wait_time)
+        #self.bus.write_register_8bit(0x64, wait_time)
+        self.set_gas_wait(n=0, value=wait_time)
         
         resistance = self.calc_res_heat(target_temp=t_c)
         
@@ -439,7 +459,8 @@ class BME680:
             print("Resistance code:", resistance)
         
         # write res_heat register 0
-        self.bus.write_register_8bit(0x5A, resistance)
+        #self.bus.write_register_8bit(0x5A, resistance)
+        self.set_res_heat(n=0, value=resistance)
         
         # gas measurements enabled with 0b1 at <4>
         # nb_conv selects register 0 with 0b0000 at <3:0> 
@@ -449,9 +470,9 @@ class BME680:
         # read current ctrl_meas register
         # (which contains osrs_t and osrs_p)
         # and initiate single shot mode at 1:0
-        reg_ctrl_meas = self.bus.read_register_8bit(0x74)
-        reg_ctrl_meas = (reg_ctrl_meas & 0xFC) | 0x01
-        self.bus.write_n_bytes([0x74, reg_ctrl_meas])
+        #r_ctrl_meas = self.bus.read_register_8bit(0x74)
+        #r_ctrl_meas = (r_ctrl_meas & 0xFC) | 0x01
+        #self.bus.write_n_bytes([0x74, r_ctrl_meas])
         
     def get_measurement_status(self):
         reg_meas_status = self.bus.read_register_8bit(0x1D)
