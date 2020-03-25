@@ -86,19 +86,22 @@ class BME680:
         self._pressure_calibration = None
         self._humidity_calibration = None
         self._gas_calibration = None
+        
         self._heat_range = None
         self._heat_val = None
-        self.range_switch_error = None
+        self._range_switch_error = None
 
         # raw ADC values
         self._adc_pres = None
         self._adc_temp = None
         self._adc_hum = None
         self._adc_gas = None
-        self.adc_gas2 = None
         self._gas_range = None
         self._t_fine = None
 
+        self._gas_valid = None
+        self._head_stab = None
+        
         # control registers
         self._r_ctrl_meas = None
         self._r_ctrl_gas_1 = None
@@ -143,18 +146,66 @@ class BME680:
 
         # calculated ambient temperature for res_heat target calculation
         self.amb_temp = None
-
-    def read(self, n):
-        """Read n bytes from the device"""
-        return self.bus.read_n_bytes(n=n)
-    
-    def write(self, reg, values):
-        """Write values to register
-        """
-        if not isinstance(values, list):
-            values = [values]
-        self.bus.write_n_bytes([reg] + values)
         
+    def read_calibration(self):
+        """Read chip calibration coefficients
+
+        Coefficients are not listed in Table 20: Memory Map.  Instead they are
+        referenced in Tables 11, 12, 13 and 14.
+        """
+        coeff  = self.bus.read_register_nbit(0x89, 25)
+        coeff += self.bus.read_register_nbit(0xE1, 16)
+
+        coeff = list(struct.unpack('<hbBHhbBhhbbHhhBBBHbbbBbHhbb', bytes(coeff[1:39])))
+        coeff = [float(i) for i in coeff]
+        
+        # 3 bytes
+        self._temp_calibration = [coeff[x] for x in [23, 0, 1]]
+        # 10 bytes
+        self._pressure_calibration = [coeff[x] for x in [3, 4, 5, 7, 8, 10, 9, 12, 13, 14]]
+        # 7 bytes
+        self._humidity_calibration = [coeff[x] for x in [17, 16, 18, 19, 20, 21, 22]]
+        # 3 bytes
+        self._gas_calibration = [coeff[x] for x in [25, 24, 26]]
+
+        # current method = 39 byte read + 3 byte setup 
+        
+        # flip around H1 & H2
+        self._humidity_calibration[1] *= 16
+        self._humidity_calibration[1] += self._humidity_calibration[0] % 16
+        self._humidity_calibration[0] /= 16
+        
+        self._range_switch_error = self.bus.read_register_8bit(0x04)
+        
+        self._heat_range = (self.bus.read_register_8bit(0x02) & 0x30) / 16
+        self._heat_val = self.bus.read_register_8bit(0x00)
+        #self._sw_err = (self._read_byte(0x04) & 0xF0) / 16
+    
+    def set_oversampling(self, h, t, p):
+        """Set oversample rate for temperature, pressures and
+        humidity.  Valid values for all three are:
+            0, 1, 2, 4, 8, 16
+            Note: 0 will skip measurement
+        
+        Parameters
+        ----------
+        h : int, oversampling rate of humidity
+        t : int, oversampling rate of temperature
+        p : int, oversampling rate of pressure
+        """
+        
+        htp_mapper = {0: 0b000, 1: 0b001, 2: 0b010,
+                      4: 0b011, 8: 0b100, 16: 0b101}
+        
+        # ctrl_hum register, 0x72
+        self.osrs_h = htp_mapper[h]
+        self.write_r_ctrl_hum()
+        
+        # ctrl_meas register, 0x74
+        self.osrs_t = htp_mapper[t]
+        self.osrs_p = htp_mapper[p]
+        self.write_r_ctrl_meas()
+    
     # ## Register Methods
     # In the order listed in Table 20: Memory Map, pg28
     
@@ -207,16 +258,25 @@ class BME680:
         0b0 in I2C mode"""
         self.bus.write_n_bytes([0x72, self.osrs_h])
         
-    def reg_ctrl_gas_1(self):
+    def read_r_ctrl_gas_1(self):
         """Contains 'run_gas' and 'nb_conv' control registers"""
         _ctrl_gas_1 = self.bus.read_register_8bit(0x71)
         self.run_gas = (_ctrl_gas_1 >> 4) & 0b1
         self.nb_conv = _ctrl_gas_1 & 0b1111
         
-    def reg_ctrl_gas_0(self):
+    def write_r_ctrl_gas_1(self):
+        """Contains 'run_gas' and 'nb_conv' control registers"""
+        _ctrl_gas_1 = self.nb_conv | (self.run_gas << 4)
+        self.bus.write_n_bytes([0x71, _ctrl_gas_1])
+        
+    def read_r_ctrl_gas_0(self):
         """Contains the 'heat_off' control register"""
         _ctrl_gas_0 = self.bus.read_register_8bit(0x70)
         self.heat_off = (_ctrl_gas_0 >> 3) & 0b1
+        
+    def write_r_ctrl_gas_0(self):
+        _ctrl_gas_0 = self.heat_off << 4
+        self.bus.write_register_8bit(0x70, _ctrl_gas_0)
         
     def reg_gas_wait_x(self):
         """Control register for gas wait profiles"""
@@ -238,36 +298,32 @@ class BME680:
         """Set chip mode to Forced Mode (active for measurement)"""
         self.bus.write_n_bytes([])
 
-    def read_calibration(self):
-        """Read & save the calibration coefficients
 
-        Coefficients are not listed in memory map, table 20.  Instead they are
-        referenced in Tables 11, 12, 13 and 14
-        """
-        coeff  = self.bus.read_register_nbit(0x89, 25)
-        coeff += self.bus.read_register_nbit(0xE1, 16)
-
-        coeff = list(struct.unpack('<hbBHhbBhhbbHhhBBBHbbbBbHhbb', bytes(coeff[1:39])))
-        coeff = [float(i) for i in coeff]
-        
-        # 3 bytes
-        self._temp_calibration = [coeff[x] for x in [23, 0, 1]]
-        # 10 bytes
-        self._pressure_calibration = [coeff[x] for x in [3, 4, 5, 7, 8, 10, 9, 12, 13, 14]]
-        # 7 bytes
-        self._humidity_calibration = [coeff[x] for x in [17, 16, 18, 19, 20, 21, 22]]
-        # 3 bytes
-        self._gas_calibration = [coeff[x] for x in [25, 24, 26]]
-
-        # current method = 39 byte read + 3 byte setup 
-        
-        # flip around H1 & H2
-        self._humidity_calibration[1] *= 16
-        self._humidity_calibration[1] += self._humidity_calibration[0] % 16
-        self._humidity_calibration[0] /= 16
-    
     # Operation Methods
 
+    def gas_on(self):
+        self.run_gas = 0b1
+        self.write_r_ctrl_gas_1()
+        
+    def gas_off(self):
+        self.run_gas = 0b0
+        self.write_r_ctrl_gas_1()
+        
+    def forced_mode(self):
+        self.mode = 0b01
+        self.write_r_ctrl_meas()
+    
+    #def set_nb_conv(self, n):
+    #    self.nb_conv = n
+    #    self.write_r_ctrl_gas_1()
+        
+    #def heat_off(self):
+    #    self.heat_off = 0b1
+    #    self.write_r_ctrl_gas_0()
+        
+    #def heat_on(self)
+    #    pass
+    
     def set_filter(self, coeff):
         """Set the temperature and pressure IIR filter
         
@@ -281,31 +337,6 @@ class BME680:
         self.filter = coeff
         _filter = mapper[self.filter]
         self.bus.write_n_bytes([0x75, _filter << 2])  # config register
-            
-    def set_oversampling(self, h, t, p):
-        """Set oversample rate for temperature, pressures and
-        humidity.  Valid values for all three are:
-            0, 1, 2, 4, 8, 16
-            Note: 0 will skip measurement
-        
-        Parameters
-        ----------
-        h : int, oversampling rate of humidity
-        t : int, oversampling rate of temperature
-        p : int, oversampling rate of pressure
-        """
-        
-        htp_mapper = {0: 0b000, 1: 0b001, 2: 0b010,
-                      4: 0b011, 8: 0b100, 16: 0b101}
-        
-        # ctrl_hum register, 0x72
-        self.osrs_h = htp_mapper[h]
-        self.write_r_ctrl_hum()
-        
-        # ctrl_meas register, 0x74
-        self.osrs_t = htp_mapper[t]
-        self.osrs_p = htp_mapper[p]
-        self.write_r_ctrl_meas()
 
     def set_x_register(self, reg_0, n, value):
         """Set register within one of the three 10 byte registers:
@@ -382,7 +413,7 @@ class BME680:
         """
         
         if self.amb_temp is None:
-            self.measure_tph()
+            self.measure()
             self.amb_temp = self.temperature()
         
         amb_temp = int(self.amb_temp)
@@ -476,13 +507,13 @@ class BME680:
         
     def get_measurement_status(self):
         reg_meas_status = self.bus.read_register_8bit(0x1D)
-        self.gas_meas_index = reg_meas_status & 0b111
+        self.gas_meas_index = reg_meas_status & 0b1111
         self._new_data = reg_meas_status >> 7
         self._gas_measuring = (reg_meas_status >> 6) & 0b1
         self._measuring = (reg_meas_status >> 5) & 0b1
         
-    def get_reading(self):
-        # self.setup_gas(t_ms=40, x=4, t_C=150)
+    def measure(self):
+        """Get the temperature, pressure and humidity"""
         self._new_data = 0
         self.get_measurement_status()
         
@@ -495,35 +526,37 @@ class BME680:
             self.get_measurement_status()
         
         # 0x1F to 0x2B
-        return self.bus.read_n_bytes(0x1F, 14)
-        
-    def measure_tph(self):
-        """Get the temperature, pressure and humidity"""
-        data = self.get_reading()
-        self._adc_temp = _read24(data[4:7]) / 16  # _read24(data[4:7]) / 16
-        self._adc_pres = _read24(data[1:4]) / 16  # _read24(data[1:4]) / 16
+        data = self.bus.read_n_bytes(0x1F, 8) # 14)
+    
+        self._adc_temp = _read24(data[4:7]) // 16  # _read24(data[4:7]) / 16
+        self._adc_pres = _read24(data[1:4]) // 16  # _read24(data[1:4]) / 16
         self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
         
-        self._adc_gas = int(struct.unpack('>H', bytes(data[12:14]))[0] / 64)
-        g2 = self.bus.read_register_16bit(0x2B)
-        self.adc_gas2 = g2 >> 6
-        self._gas_range = data[13] & 0x0F  # 0x2B <4:0>
+        # self._adc_gas = int(struct.unpack('>H', bytes(data[12:14]))[0] // 64)
+        # data = self.bus.read_n_bytes(0x2A, 2)
+        
+        _gas_r_msb  = self.bus.read_register_8bit(0x2A)
+        _gas_r_lsb  = self.bus.read_register_8bit(0x2B)
+        self._adc_gas = (_gas_r_msb << 2) + (_gas_r_lsb >> 6)
+        self._gas_valid = (_gas_r_lsb >> 5) & 0b1
+        self._heat_stab = (_gas_r_lsb >> 4) & 0b11
+        self._gas_range = _gas_r_lsb & 0b1111
+        #self._gas_range = data[13] & 0b1111  # 0x2B <4:0>
         
     def gas(self):
         """Calculate the gas resistance in ohms"""
         # self._perform_reading()
         # print(self.range_switch_error, type(self.range_switch_error))
-        var1 = ((1340 + (5 * self.range_switch_error)) * 
+        var1 = ((1340 + (5 * self._range_switch_error)) * 
                 (self._const_array1_int[self._gas_range])) >> 16
         
-        # var2 = ((self._adc_gas << 15) - 16777216) + var1  # 1 << 24 = 16777216
-        var2 = ((self.adc_gas2 << 15) - 16777216) + var1  # 1 << 24 = 16777216
+        var2 = (self._adc_gas << 15) - (16777216) + var1  # 1 << 24 = 16777216
         
         gas_res = (((self._const_array2_int[self._gas_range] * var1) >> 9) +
                    (var2 >> 1)) / var2
         # calc_gas_res = (var3 + (var2 / 2)) / var2
         # print("gas() var1, var2:", var1, var2) #, var3)
-        return gas_res, self._adc_gas, self.adc_gas2, var1, var2
+        return gas_res, self._adc_gas, self._gas_range, var1, var2
         
     def temperature(self):
         """Calculate the compensated temperature in degrees celsius"""
@@ -583,10 +616,11 @@ class BME680:
     def debug_read_registers(self):
         """Print out the values of read only registers"""
         from meerkat import tools
-        x = self.get_reading()
+        #x = self.get_reading()
+        data = self.bus.read_n_bytes(0x1F, 14)
         reg = [0x1D, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x2A, 0x2B]
         print("="*20)
-        for n, b in enumerate(x):
+        for n, b in enumerate(data):
             n = n + 0x1D
             print("REG: {}".format(hex(n)))
             if n in reg:
