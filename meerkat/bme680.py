@@ -89,6 +89,7 @@ class BME680:
         
         self._heat_range = None
         self._heat_val = None
+        self._heat_stab = None
         self._range_switch_error = None
 
         # raw ADC values
@@ -176,11 +177,9 @@ class BME680:
         self._humidity_calibration[0] /= 16
         
         self._range_switch_error = self.bus.read_register_8bit(0x04)
-        
         self._heat_range = (self.bus.read_register_8bit(0x02) & 0x30) / 16
         self._heat_val = self.bus.read_register_8bit(0x00)
-        #self._sw_err = (self._read_byte(0x04) & 0xF0) / 16
-    
+
     def set_oversampling(self, h, t, p):
         """Set oversample rate for temperature, pressures and
         humidity.  Valid values for all three are:
@@ -240,9 +239,7 @@ class BME680:
     def write_r_ctrl_meas(self):
         """Write register 'ctrl_meas' at 0x74 which contains the 
         'mode', 'osrs_p' and 'osrs_t' control registers"""
-        _ctrl_meas = (((self.osrs_t << 5) |
-                       (self.osrs_p << 2)) |
-                        self.mode)
+        _ctrl_meas = (((self.osrs_t << 5) | (self.osrs_p << 2)) | self.mode)
         self.bus.write_n_bytes([0x74, _ctrl_meas])
         
     def read_r_ctrl_hum(self):
@@ -298,7 +295,6 @@ class BME680:
         """Set chip mode to Forced Mode (active for measurement)"""
         self.bus.write_n_bytes([])
 
-
     # Operation Methods
 
     def gas_on(self):
@@ -312,18 +308,7 @@ class BME680:
     def forced_mode(self):
         self.mode = 0b01
         self.write_r_ctrl_meas()
-    
-    #def set_nb_conv(self, n):
-    #    self.nb_conv = n
-    #    self.write_r_ctrl_gas_1()
-        
-    #def heat_off(self):
-    #    self.heat_off = 0b1
-    #    self.write_r_ctrl_gas_0()
-        
-    #def heat_on(self)
-    #    pass
-    
+
     def set_filter(self, coeff):
         """Set the temperature and pressure IIR filter
         
@@ -440,8 +425,9 @@ class BME680:
         res_heat_x = int((res_heat_x100 + 50) // 100)
         
         return res_heat_x
-    
-    def calc_wait_time(self, t, x):
+
+    @staticmethod
+    def calc_wait_time(t, x):
         """Calculate the wait time code for a heating profile
 
         Parameters
@@ -458,53 +444,6 @@ class BME680:
         x = mapper[x]
         return (x << 6) | t
 
-    def setup_gas(self, t_ms, x, t_c, verbose=False):
-        """Enable gas measurement
-        See pg 15 for example quickstart sequence
-        
-        Note: sets nb_conv = number of conversions to index 0
-        
-        Parameters
-        ----------
-        t_ms : int, number of milliseconds to heat the gas sensor, 0-63
-        x : int, multiplier for t_ms, 1, 4, 16, 64 are valid
-        t_c : int, target temperature in degrees C
-        verbose : bool, print debug statements
-        """
-        
-        #TODO: break this apart into register functions
-        self.range_switch_error = self.bus.read_register_8bit(0x04)
-        
-        wait_time = self.calc_wait_time(t=t_ms, x=x)
-        
-        if verbose:
-            print("Wait code:", wait_time)
-        
-        # write gas_wait_x register 0
-        #self.bus.write_register_8bit(0x64, wait_time)
-        self.set_gas_wait(n=0, value=wait_time)
-        
-        resistance = self.calc_res_heat(target_temp=t_c)
-        
-        if verbose:
-            print("Resistance code:", resistance)
-        
-        # write res_heat register 0
-        #self.bus.write_register_8bit(0x5A, resistance)
-        self.set_res_heat(n=0, value=resistance)
-        
-        # gas measurements enabled with 0b1 at <4>
-        # nb_conv selects register 0 with 0b0000 at <3:0> 
-        reg_ctrl_gas_1 = self.nb_conv | 0b10000
-        self.bus.write_n_bytes([0x71, reg_ctrl_gas_1])
-        
-        # read current ctrl_meas register
-        # (which contains osrs_t and osrs_p)
-        # and initiate single shot mode at 1:0
-        #r_ctrl_meas = self.bus.read_register_8bit(0x74)
-        #r_ctrl_meas = (r_ctrl_meas & 0xFC) | 0x01
-        #self.bus.write_n_bytes([0x74, r_ctrl_meas])
-        
     def get_measurement_status(self):
         reg_meas_status = self.bus.read_register_8bit(0x1D)
         self.gas_meas_index = reg_meas_status & 0b1111
@@ -526,22 +465,18 @@ class BME680:
             self.get_measurement_status()
         
         # 0x1F to 0x2B
-        data = self.bus.read_n_bytes(0x1F, 8) # 14)
+        data = self.bus.read_n_bytes(0x1F, 8)
     
-        self._adc_temp = _read24(data[4:7]) // 16  # _read24(data[4:7]) / 16
-        self._adc_pres = _read24(data[1:4]) // 16  # _read24(data[1:4]) / 16
+        self._adc_temp = _read24(data[4:7]) // 16
+        self._adc_pres = _read24(data[1:4]) // 16
         self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
-        
-        # self._adc_gas = int(struct.unpack('>H', bytes(data[12:14]))[0] // 64)
-        # data = self.bus.read_n_bytes(0x2A, 2)
-        
+
         _gas_r_msb  = self.bus.read_register_8bit(0x2A)
         _gas_r_lsb  = self.bus.read_register_8bit(0x2B)
         self._adc_gas = (_gas_r_msb << 2) + (_gas_r_lsb >> 6)
         self._gas_valid = (_gas_r_lsb >> 5) & 0b1
         self._heat_stab = (_gas_r_lsb >> 4) & 0b11
-        self._gas_range = _gas_r_lsb & 0b1111
-        #self._gas_range = data[13] & 0b1111  # 0x2B <4:0>
+        self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <4:0>
         
     def gas(self):
         """Calculate the gas resistance in ohms"""
@@ -550,7 +485,7 @@ class BME680:
         var1 = ((1340 + (5 * self._range_switch_error)) * 
                 (self._const_array1_int[self._gas_range])) >> 16
         
-        var2 = (self._adc_gas << 15) - (16777216) + var1  # 1 << 24 = 16777216
+        var2 = (self._adc_gas << 15) - 16777216 + var1  # 1 << 24 = 16777216
         
         gas_res = (((self._const_array2_int[self._gas_range] * var1) >> 9) +
                    (var2 >> 1)) / var2
@@ -616,7 +551,6 @@ class BME680:
     def debug_read_registers(self):
         """Print out the values of read only registers"""
         from meerkat import tools
-        #x = self.get_reading()
         data = self.bus.read_n_bytes(0x1F, 14)
         reg = [0x1D, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x2A, 0x2B]
         print("="*20)
