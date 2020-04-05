@@ -368,7 +368,7 @@ class BME680:
         n : int, set the nth register within the register block
         value : int, value for register
         """
-        self.set_x_register(reg_0=0x64, n=n, value=value)
+        self.set_x_register(reg_0=0x5A, n=n, value=value)
 
     def get_gas_wait(self):
         """Gas_wait_x  : gas_wait_9  @ 0x6D downto  gas_wait_0 @ 0x64
@@ -482,23 +482,32 @@ class BME680:
         self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
         """
 
+        """
         data = self.bus.read_register_nbit(0x1F, 8)  # 0x1F to 0x2B
-
-        self._adc_pres = _read24(data[0:3]) // 16
-        self._adc_temp = _read24(data[3:6]) // 16
+        self._adc_pres = _read24(data[0:3]) >> 4
+        self._adc_temp = _read24(data[3:6]) >> 4
         self._adc_hum = struct.unpack('>H', bytes(data[6:8]))[0]
+        """
+
+        data = self.bus.read_register_nbit(0x1F, 3)  # 0x1F
+        self._adc_pres = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
+
+        data = self.bus.read_register_nbit(0x22, 3)  # 0x22
+        self._adc_temp = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
+
+        data = self.bus.read_register_nbit(0x25, 3)  # 0x25
+        self._adc_hum = (data[0] << 8) + data[1]
 
         _gas_r_msb  = self.bus.read_register_8bit(0x2A)
         _gas_r_lsb  = self.bus.read_register_8bit(0x2B)
+
         self._adc_gas = (_gas_r_msb << 2) + (_gas_r_lsb >> 6)
         self._gas_valid = (_gas_r_lsb >> 5) & 0b1
-        self._heat_stab = (_gas_r_lsb >> 4) & 0b11
+        self._heat_stab = (_gas_r_lsb >> 4) & 0b1
         self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <4:0>
 
     def gas(self):
         """Calculate the gas resistance in ohms"""
-        # self._perform_reading()
-        # print(self.range_switch_error, type(self.range_switch_error))
         var1 = ((1340 + (5 * self._range_switch_error)) *
                 (self._const_array1_int[self._gas_range])) >> 16
 
@@ -506,8 +515,6 @@ class BME680:
 
         gas_res = (((self._const_array2_int[self._gas_range] * var1) >> 9) +
                    (var2 >> 1)) / var2
-        # calc_gas_res = (var3 + (var2 / 2)) / var2
-        # print("gas() var1, var2:", var1, var2) #, var3)
         return int(gas_res) #, self._adc_gas, self._gas_range, var1, var2
 
     def temperature(self):
