@@ -4,18 +4,14 @@ Manufacturer Information
 https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/
 https://github.com/BoschSensortec/BME680_driver
 
-Breakout Board and CircuitPython Driver this work derives from
+Breakout Board and CircuitPython Driver this work derives from:
 https://www.adafruit.com/product/3660
 https://github.com/adafruit/Adafruit_CircuitPython_BME680
-
+QWIIC pinout version:
+https://www.sparkfun.com/products/14570
 """
-try:
-    import struct
-except ImportError:
-    import ustruct as struct
 
-
-from meerkat.base import I2C, DeviceData, time
+from meerkat.base import I2C, DeviceData, time, struct
 from meerkat.data import CSVWriter, JSONWriter
 
 
@@ -62,31 +58,28 @@ class BME680:
         self.filter              = 1
 
         # memory mapped from 8 bit register locations
-        self.mode     = 0b00   # 2 bits, ctrl_meas <1:0> operation mode
+        self.mode     = 0b00   # 2 bits, ctrl_meas <1:0>  operation mode
         self.osrs_p   = 0b001  # 3 bits, ctrl_meas <4:2>, oversample pressure
         self.osrs_t   = 0b001  # 3 bits, ctrl_meas <2:0>, oversample temperature
-        self.osrs_h   = 0b001  # 3 bits, ctrl_hum <2:0>, oversample humidity
-        self.run_gas  = 0b0    # 1 bit, ctrl_gas_1 <4>, run gas measurement
+        self.osrs_h   = 0b001  # 3 bits, ctrl_hum <2:0>,  oversample humidity
+        self.run_gas  = 0b0    # 1 bit,  ctrl_gas_1 <4>,  run gas measurement
         self.nb_conv  = 0b000  # 4 bits, ctrl_gas_1 <3:0> conversion profile number
-        self.heat_off = 0b0    # 1 bit, ctrl_gas_0 <3>, gas heater on/off
+        self.heat_off = 0b0    # 1 bit,  ctrl_gas_0 <3>,  gas heater on/off
 
         # profile registers
         self.gas_wait_x  = None  # gas_wait registers 9-0
         self.res_heat_x  = None  # res_heat registers 9-0
         self.idac_heat_x = None  # idac_heat registers 9-0
 
-        # meas_status_0 register
-        self.gas_meas_index = None
-        self._new_data = None
-        self._gas_measuring = None
-        self._measuring = None
-
-        # calibration registers
+        # calibration and state
         self._temp_calibration = None
         self._pressure_calibration = None
         self._humidity_calibration = None
         self._gas_calibration = None
-        
+        self.gas_meas_index = None
+        self._new_data = None
+        self._gas_measuring = None
+        self._measuring = None
         self._heat_range = None
         self._heat_val = None
         self._heat_stab = None
@@ -100,6 +93,7 @@ class BME680:
         self._gas_range = None
         self._t_fine = None
 
+        # valid data flags
         self._gas_valid = None
         self._head_stab = None
         
@@ -147,7 +141,23 @@ class BME680:
 
         # calculated ambient temperature for res_heat target calculation
         self.amb_temp = None
-        
+
+    def debug_read_registers(self):
+        """Print out the values of read only registers
+        TODO: remove before finalizing driver"""
+        from meerkat import tools
+        data = self.bus.read_n_bytes(0x1F, 14)
+        reg = [0x1D, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x2A, 0x2B]
+        print("="*20)
+        for n, b in enumerate(data):
+            n = n + 0x1D
+            print("REG: {}".format(hex(n)))
+            if n in reg:
+                tools.bprint(int(b), n=8)
+            else:
+                print("Not Used")
+            print("="*20)
+
     def read_calibration(self):
         """Read chip calibration coefficients
 
@@ -205,7 +215,7 @@ class BME680:
         self.osrs_p = htp_mapper[p]
         self.write_r_ctrl_meas()
     
-    # ## Register Methods
+    # Register Methods
     # In the order listed in Table 20: Memory Map, pg28
     
     def reset(self):
@@ -463,9 +473,8 @@ class BME680:
             else:
                 time.sleep(0.005)
             self.get_measurement_status()
-        
-        # 0x1F to 0x2B
-        data = self.bus.read_n_bytes(0x1F, 8)
+
+        data = self.bus.read_n_bytes(0x1F, 8)  # 0x1F to 0x2B
     
         self._adc_temp = _read24(data[4:7]) // 16
         self._adc_pres = _read24(data[1:4]) // 16
@@ -547,18 +556,125 @@ class BME680:
         if calc_hum < 0:
             calc_hum = 0
         return calc_hum
-        
-    def debug_read_registers(self):
-        """Print out the values of read only registers"""
-        from meerkat import tools
-        data = self.bus.read_n_bytes(0x1F, 14)
-        reg = [0x1D, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x2A, 0x2B]
-        print("="*20)
-        for n, b in enumerate(data):
-            n = n + 0x1D
-            print("REG: {}".format(hex(n)))
-            if n in reg:
-                tools.bprint(int(b), n=8)
-            else:
-                print("Not Used")
-            print("="*20)
+
+    def _get(self, description, m):
+        """Get one burst of all sensor values for public methods
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        m : int, sample number for this burst
+
+        Returns
+        -------
+        description: str, description of sample under test
+        m : int, sample number in this burst
+        t : float, temperature in degress C
+        p : float, pressure in hectoPascals
+        h : float, relative humidty in percent
+        g : float, gas resistence
+        g_valid : int, gas value is valid
+        heat_stable : int, gas heater is stable
+        """
+
+        self.forced_mode()
+        self.measure()
+        t = self.temperature()
+        p = self.pressure()
+        h = self.humidity()
+        g = self.gas()
+        return [description, m, t, p, h, g, self._gas_valid, self._heat_stab]
+
+    def get(self, description='NA', n=1, delay=None, formatter=None):
+        """Get one or bursts of data
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+        formatter : method to apply to raw list of values from self._get.
+            default: None, returns unformatted list
+
+        Returns
+        -------
+        data : list, data containing:
+            description: str, description of sample under test
+            sample_n : int, sample number in this burst
+            t : float, temperature in degress C
+            p : float, pressure in hectoPascals
+            h : float, relative humidty in percent
+            g : float, gas resistence
+            g_valid : int, gas value is valid
+            heat_stable : int, gas heater is stable
+        """
+
+        if formatter is None:
+            def formatter(dl):
+                return dl
+
+        data_list = []
+        for m in range(1, n + 1):
+            data = self._get(description, m)
+            data = formatter(data)
+            data_list.append(data)
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
+
+    def publish(self, description='NA', n=1, delay=None):
+        """Get one or more bursts of data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            sample_n : int, sample number in this burst
+            t : float, temperature in degress C
+            p : float, pressure in hectoPascals
+            h : float, relative humidty in percent
+            g : float, gas resistence
+            g_valid : int, gas value is valid
+            heat_stable : int, gas heater is stable
+        """
+        formatter = self.json_writer.publish
+
+        return self.get(description=description, n=n,
+                        delay=delay, formatter=formatter)
+
+    def write(self, description='NA', n=1, delay=None):
+        """Format output and save to file, formatted as either .csv or .json.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        None, writes to disk the following data:
+            description: str, description of sample under test
+            sample_n : int, sample number in this burst
+            t : float, temperature in degress C
+            p : float, pressure in hectoPascals
+            h : float, relative humidty in percent
+            g : float, gas resistence
+            g_valid : int, gas value is valid
+            heat_stable : int, gas heater is stable
+        """
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write(self.get(description=description, n=m,
+                              delay=None, formatter=None))
+            if delay is not None:
+                time.sleep(delay)
