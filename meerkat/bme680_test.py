@@ -18,9 +18,9 @@ dev = bme680.BME680(bus_n=i2c_bus)
 # set calibration and sensor configuration
 dev.read_calibration()
 dev.set_oversampling(h=1, t=2, p=16)
-wait = dev.calc_wait_time(t=25, x=4)
+wait = dev.calc_wait_time(t=25, x=16)
 dev.set_gas_wait(n=0, value=wait)
-resistance = dev.calc_res_heat(target_temp=150)
+resistance = dev.calc_res_heat(target_temp=300)
 dev.set_res_heat(n=0, value=resistance)
 dev.nb_conv = 0
 dev.gas_on()
@@ -54,3 +54,10 @@ print("-------------------------")
 dev.writer_output = 'csv'
 dev.write(description='test_5', n=7)
 print("Data written to: {}".format(dev.csv_writer.path))
+
+# longer time test
+#dev.writer_output = 'csv'
+#hrs = 1
+#seconds = hrs * 60 * 60 / 5
+#dev.write(description='12hr_test', n=seconds, delay=5)
+#print("12hr data written to: {}".format(dev.csv_writer.path))
