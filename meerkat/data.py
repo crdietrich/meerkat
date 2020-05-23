@@ -123,7 +123,7 @@ class CSVWriter(Writer):
             desc = "_" + self.description
         if self.path is None:
             self.path = (self._timepiece.file_time() + "_" + 
-                         self.driver_name + "_" + 
+                         self.driver_name +
                          desc + ".csv")
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
@@ -213,7 +213,7 @@ class JSONWriter(Writer):
             desc = "_" + self.description
         if self.path is None:
             self.path = (self._timepiece.file_time() + "_" + 
-                         self.driver_name + "_" + 
+                         self.driver_name +
                          desc + ".jsontxt")
         data_out = {k:v for k,v in zip(self.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
