@@ -6,4 +6,4 @@
 from meerkat.tools import dev_clean, ls
 
 # import a test file, i.e. ina219_test.py
-#from meerkat import
+from meerkat import bme680_test

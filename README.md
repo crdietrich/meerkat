@@ -32,3 +32,8 @@ MicroPython - Only larger memory microcontrollers such as the FiPy and OpenMV M7
 The `examples` directory contains detailed Jupyter Notebook examples and the `tests` folder has python scripts for testing on MicroPython.
 
 
+### Contributing  
+
+Contributions are welcome! Please read our `Code of Conduct
+<https://www.contributor-covenant.org/version/1/4/code-of-conduct/>`_
+before contributing to help this project stay welcoming.
