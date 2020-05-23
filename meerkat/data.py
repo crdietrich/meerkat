@@ -23,6 +23,7 @@ class Writer(object):
         # self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
         self.title = None
         self.description = None
+        self.driver_name = None
         self.format = None
         self.encoding = 'utf-8'
         self.bytes = None
@@ -116,8 +117,14 @@ class CSVWriter(Writer):
         self.path, then a header line in self.header, then lines of data
         for each item in self.data
         """
+        if self.description is None:
+            desc = ""
+        else:
+            desc = "_" + self.description
         if self.path is None:
-            self.path = self._timepiece.file_time() + '_data.csv'
+            self.path = (self._timepiece.file_time() + "_" + 
+                         self.driver_name + "_" + 
+                         desc + ".csv")
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
             if self.header is not None:
@@ -200,9 +207,14 @@ class JSONWriter(Writer):
         ----------
         data : list, data to be zipped with header descriptions
         """
+        if self.description is None:
+            desc = ""
+        else:
+            desc = "_" + self.description
         if self.path is None:
-            self.path = self._timepiece.file_time() + '.jsontxt'
-
+            self.path = (self._timepiece.file_time() + "_" + 
+                         self.driver_name + "_" + 
+                         desc + ".jsontxt")
         data_out = {k:v for k,v in zip(self.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
