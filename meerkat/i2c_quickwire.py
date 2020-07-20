@@ -44,7 +44,7 @@ class i2c_msg(Structure):
 
 # i2c_msg flags
 I2C_M_TEN       = 0x0010    # this is a ten bit chip address
-I2C_M_RD        = 0x0001    # read data, from slave to master
+I2C_M_RD        = 0x0001    # read data, from subordinate to main
 I2C_M_NOSTART       = 0x4000    # if I2C_FUNC_PROTOCOL_MANGLING
 I2C_M_REV_DIR_ADDR  = 0x2000    # if I2C_FUNC_PROTOCOL_MANGLING
 I2C_M_IGNORE_NAK    = 0x1000    # if I2C_FUNC_PROTOCOL_MANGLING
@@ -68,10 +68,10 @@ I2C_FUNC_PROTOCOL_MANGLING  = 0x00000004 # I2C_M_NOSTART etc.
 
 # ioctls
 
-I2C_SLAVE   = 0x0703    # Change slave address
-                # Attn.: Slave address is 7 or 10 bits
-I2C_SLAVE_FORCE = 0x0706    # Change slave address
-                # Attn.: Slave address is 7 or 10 bits
+I2C_SLAVE   = 0x0703    # Change subordinate address
+                # Attn.: Subordinate address is 7 or 10 bits
+I2C_SLAVE_FORCE = 0x0706    # Change subordinate address
+                # Attn.: Subordinate address is 7 or 10 bits
                 # This changes the address, even if it
                 # is already taken!
 I2C_TENBIT  = 0x0704    # 0 for 7 bit addrs, != 0 for 10 bit
@@ -102,24 +102,24 @@ def revision():
 
 default_bus = 1 if revision() > 1 else 0
 
-class I2CMaster(object):
+class I2CMain(object):
     """Performs I2C I/O transactions on an I2C bus.
 
     Transactions are performed by passing one or more I2C I/O messages
-    to the transaction method of the I2CMaster.  I2C I/O messages are
+    to the transaction method of the I2CMain.  I2C I/O messages are
     created with the reading, reading_into, writing and writing_bytes
     functions defined in the quick2wire.i2c module.
 
-    An I2CMaster acts as a context manager, allowing it to be used in a
-    with statement.  The I2CMaster's file descriptor is closed at
+    An I2CMain acts as a context manager, allowing it to be used in a
+    with statement.  The I2CMain's file descriptor is closed at
     the end of the with statement and the instance cannot be used for
     further I/O.
 
     For example:
 
-        from quick2wire.i2c import I2CMaster, writing
+        from quick2wire.i2c import I2CMain, writing
 
-        with I2CMaster() as i2c:
+        with I2CMain() as i2c:
             i2c.transaction(
                 writing(0x20, bytes([0x01, 0xFF])))
     """
