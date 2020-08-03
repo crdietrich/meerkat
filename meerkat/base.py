@@ -5,6 +5,7 @@ import sys
 if sys.platform == "linux":
     import json
     import time
+    import struct
 
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
@@ -12,6 +13,7 @@ if sys.platform == "linux":
 elif sys.platform in ["FiPy"]:
     import ujson as json
     import utime as time
+    import ustruct as struct
 
     from meerkat import i2c_upython
     I2C = i2c_upython.WrapI2C
