@@ -16,7 +16,7 @@ class WrapI2C:
         #
         #
         """
-        self.bus = i2c_quickwire.I2CMaster(n=bus_n)
+        self.bus = i2c_quickwire.I2CController(n=bus_n)
         self.bus_addr = bus_addr
 
     def scan(self):

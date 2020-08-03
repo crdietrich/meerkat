@@ -295,9 +295,6 @@ class INA219:
     def set_calibration(self, cal_value):
         """Set the calibration register, see datasheet for details
 
-        Adafruit's Arduino source has a good step through the calculations:
-        https://github.com/adafruit/Adafruit_INA219/blob/master/Adafruit_INA219.cpp
-
         cal_value : int, register value to write
         """
         self.reg_calibration = cal_value
