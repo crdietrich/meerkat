@@ -25,6 +25,7 @@ MicroPython - Only larger memory microcontrollers such as the FiPy and OpenMV M7
 | Acceleration & Gyro                  | MPU6050                     | mpu6050.py | Done |
 | Analog to Digital                    | ADS1115                     | ads.py     | Done |
 | pH, Conductivity                     | Atlas Sensors               | atlas.py   | Done |
+| Temperature, Humidity, Pressure, VOC Gas | Bosch BME680            | bme680.py  | Done |
 
 
 ### Examples  
