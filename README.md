@@ -35,6 +35,4 @@ The `examples` directory contains detailed Jupyter Notebook examples and the `te
 
 ### Contributing  
 
-Contributions are welcome! Please read our `Code of Conduct
-<https://www.contributor-covenant.org/version/1/4/code-of-conduct/>`_
-before contributing to help this project stay welcoming.
+Contributions are welcome! Please read our [Code of Conduct](https://www.contributor-covenant.org/version/1/4/code-of-conduct/) before contributing to help this project stay welcoming.
