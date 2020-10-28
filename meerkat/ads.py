@@ -423,7 +423,7 @@ class ADS1115(object):
         print(' Mode:', self.bin_comp_mode[self.comp_mode_value])
 
     def get(self, description='no_description', n=1, delay=None):
-        """Get formatted output.
+        """Get ADC data.
 
         Parameters
         ----------
@@ -451,7 +451,7 @@ class ADS1115(object):
         return data_list
 
     def publish(self, description='NA', n=1, delay=None):
-        """Output relay status data in JSON.
+        """Get ADC data in JSON.
 
         Parameters
         ----------
@@ -500,7 +500,7 @@ class ADS1115(object):
         '''
     
     def write(self, description='NA', n=1, delay=None):
-        """Format output and save to file, formatted as either .csv or .json.
+        """Get ADC output and save to file, formatted as either .csv or .json.
 
         Parameters
         ----------
