@@ -149,8 +149,8 @@ class CSVWriter(Writer):
 
 
 class JSONWriter(Writer):
-    def __init__(self, name, time_format='std_time'):
-        super().__init__(name, time_format)
+    def __init__(self, driver_name, time_format='std_time'):
+        super().__init__(driver_name, time_format)
 
         self.version = '0.1 Alpha'
         self.standard = 'RFC 8259'
