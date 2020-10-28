@@ -2,6 +2,8 @@
 
 import sys
 
+from meerkat.base import TimePiece
+
 if sys.platform == "linux":
     import json
 
@@ -11,19 +13,16 @@ elif sys.platform in ["FiPy"]:
 else:
     print("Error detecting system platform.")
 
-from meerkat.base import TimePiece
-
 
 class Writer(object):
     """Base class for data serialization
     Note: Any attribute prefixed with '_' will not be saved to metadata"""
-    def __init__(self, name, time_format='std_time'):
+    def __init__(self, driver_name, time_format='std_time'):
+
         # data and file attributes
-        self.name = name
-        # self.uuid = str(uuid.uuid1(node=None, clock_seq=int(datetime.now().timestamp()*1000000)))
+        self.driver_name = driver_name
         self.title = None
         self.description = None
-        self.driver_name = None
         self.format = None
         self.encoding = 'utf-8'
         self.bytes = None
@@ -80,8 +79,8 @@ class CSVWriter(Writer):
     """Specific attributes of comma delimited values (CSV) data formatting
     based on Frictionless Data CSV dialect
     """
-    def __init__(self, name, time_format='std_time'):
-        super().__init__(name, time_format)
+    def __init__(self, driver_name, time_format='std_time'):
+        super().__init__(driver_name, time_format)
 
         self.version = '0.1 Alpha'
         self.standard = 'Follow RFC 4180'
@@ -137,7 +136,7 @@ class CSVWriter(Writer):
             dc = ','.join([self._timepiece.get_time()]+[str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
-    def write(self, data, indent=None):
+    def write(self, data):
         """Write data to file, write header if not yet done
         To be called by the child class method 'write'
         with a properly formed data list
@@ -174,7 +173,7 @@ class JSONWriter(Writer):
         dict : public attributes from self.values method
         """
         md = self.values()
-        for k,v in md.items():
+        for k, v in md.items():
             data_out[k] = v
         return data_out
 
@@ -189,7 +188,7 @@ class JSONWriter(Writer):
         -------
         data_out : str, JSON formatted data and metadata
         """
-        data_out = {k:v for k,v in zip(self.header, data)}
+        data_out = {k: v for k, v in zip(self.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self.metadata_stream_i == self.metadata_interval:
@@ -215,7 +214,7 @@ class JSONWriter(Writer):
             self.path = (self._timepiece.file_time() + "_" + 
                          self.driver_name +
                          desc + ".jsontxt")
-        data_out = {k:v for k,v in zip(self.header, data)}
+        data_out = {k: v for k, v in zip(self.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self.metadata_file_i == self.metadata_interval:
