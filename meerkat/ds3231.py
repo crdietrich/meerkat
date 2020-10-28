@@ -70,11 +70,11 @@ class DS3231:
 
         # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter(name=self.device.name, time_format='std_time_ms')
+        self.csv_writer = CSVWriter(driver_name=self.device.name, time_format='std_time_ms')
         self.csv_writer.device = self.device.__dict__
         self.csv_writer.header = ["description", "sample_n", "rtc_time", "temp_C"]
 
-        self.json_writer = JSONWriter(name=self.device.name, time_format='std_time_ms')
+        self.json_writer = JSONWriter(driver_name=self.device.name, time_format='std_time_ms')
         self.json_writer.device = self.device.__dict__
         self.json_writer.header = self.csv_writer.header
 
