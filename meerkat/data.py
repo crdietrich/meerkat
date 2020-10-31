@@ -22,7 +22,7 @@ class Writer(object):
         # data and file attributes
         self.driver_name = driver_name
         self.title = None
-        self.description = None
+        self.description = None  # this conflicts with device data, remove?
         self.format = None
         self.encoding = 'utf-8'
         self.bytes = None
@@ -33,7 +33,7 @@ class Writer(object):
 
         # dialect attributes
         self.line_terminator = '\n'
-        self.quote_char = '"'
+        self.quote_char = '"'    # note: in JSON, a quote will be "\""
         self.double_quote = True
         self.escape_char = '\\'  # note: \\ to escape \ in JSON... meta.
         self.null_sequence = 'NA'
@@ -174,7 +174,10 @@ class JSONWriter(Writer):
         """
         md = self.values()
         for k, v in md.items():
-            data_out[k] = v
+            # if there's a conflict of data keys, keep the device data
+            if k not in data_out.keys():
+                data_out[k] = v
+        data_out["header"] = [self.time_format] + self.header
         return data_out
 
     def publish(self, data):

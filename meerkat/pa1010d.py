@@ -237,6 +237,6 @@ class PA1010D:
         for m in range(n):
             nmea_data = self.get(nmea_sentences=nmea_sentences)
             for p in range(len(nmea_data)):
-                wr.write([description, m, nmea_data[p]])
+                wr.write([description, m, '"' + nmea_data[p] + '"'])
             if delay is not None:
                 time.sleep(delay)
