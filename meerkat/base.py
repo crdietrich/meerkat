@@ -5,70 +5,25 @@ import sys
 if sys.platform == "linux":
     import json
     import time
-    import struct
-
-    from meerkat import i2c_pi
-    I2C = i2c_pi.WrapI2C
 
 elif sys.platform in ["FiPy"]:
     import ujson as json
     import utime as time
-    import ustruct as struct
-
-    from meerkat import i2c_upython
-    I2C = i2c_upython.WrapI2C
-
+    
 else:
     print("Error detecting system platform.")
 
-'''
-    
-def bit_set_old(idx, value):
-    """Set bit at index idx in value to 1
-
-    Parameters
-    ----------
-    idx : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    value : value to change bit
-    """
-    return value | (1 << idx)
-
-
-def bit_clear_old(idx, value):
-    """Set bit at index idx in value to 0
-
-    Parameters
-    ----------
-    idx : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    value : value to change bit
-    """
-    return value & ~(1 << idx)
-
-
-def twos_comp_to_dec_old(value, bits):
-    """Convert Two's Compliment format to decimal"""
-    if (value & (1 << (bits - 1))) != 0:
-        value = value - (1 << bits)
-    return value
-'''
 
 class Base:
     """Common methods"""
-
-    def __init__(self):
-        self.name = None
-        self.description = None
-        self.urls = None
-        self.manufacturer = None
 
     def __repr__(self):
         return str(self.values())
 
     def values(self):
         """Get all class attributes from __dict__ attribute
-        except those prefixed with underscore ('_')
+        except those prefixed with underscore ('_') or
+        those that are None (to reduce metadata size)
 
         Returns
         -------
@@ -76,7 +31,7 @@ class Base:
         """
         d = {}
         for k, v in self.__dict__.items():
-            if k[0] != '_':
+            if (k[0] != '_') & (v is not None):
                 d[k] = v
         return d
 
@@ -168,30 +123,3 @@ class TimePiece(Base):
         t = self._struct_time()
         st = '{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'
         return st.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
-
-
-class DeviceData(Base):
-    """Base class for device driver metadata"""
-    def __init__(self, device_name):
-
-        self.name = device_name
-
-        self.version_hw = None
-        self.version_sw = None
-        self.accuracy = None
-        self.precision = None
-
-        self.bus = None
-        self.state = None  # TODO: clarify what these mean
-        self.active = None
-        self.error = None
-        self.dtype = None
-
-
-class DeviceCalibration(Base):
-    """Base class for device calibration"""
-    def __init__(self):
-
-        self.version = None
-        self.dtype = None
-        self.date = None
