@@ -73,14 +73,23 @@ class TimePiece(Base):
                 except ImportError:
                     raise
 
-        self.formats_available = {'std_time': '%Y-%m-%d %H:%M:%S',
+        self.formats_available = {'std_time':    '%Y-%m-%d %H:%M:%S',
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
-                                  'iso_time': '%Y-%m-%dT%H:%M:%S.%f%z',
-                                  'file_time': '%Y_%m_%d_%H_%M_%S_%f'}
+                                  'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
+                                  'file_time':   '%Y_%m_%d_%H_%M_%S'}
 
         self.format = time_format
         self.strfmtime = self.formats_available[time_format]
 
+    @property
+    def format(self):
+        return self._format
+    
+    @format.setter
+    def format(self, time_format):
+        self._format = time_format
+        self.strfmtime = self.formats_available[time_format]
+        
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
         format citation based on the attributes of the TimeFormats class.
@@ -99,8 +108,21 @@ class TimePiece(Base):
         to the second
         """
         t = self._struct_time()
-        st = str_format
-        return st.format(t[0], t[1], t[2], t[3], t[4], t[5])
+        return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
+
+    def std_time_ms(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'):
+        """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and 
+        accurate to the microsecond
+        """
+        t = self._struct_time()
+        return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
+
+    def iso_time(self, tz='Z'):
+        """Get time in ISO 8601 format '%Y-%m-%dT%H:%M:%SZ' and
+        accurate to the second.  Note: assumes system clock is UTC.
+        """
+        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:06}' + tz
+        return self.std_time_ms(str_format=str_format)
 
     def file_time(self):
         """Get time in a format compatible with filenames,
@@ -108,18 +130,3 @@ class TimePiece(Base):
         """
         str_format = '{:02d}_{:02d}_{:02d}_{:02d}_{:02d}_{:02d}'
         return self.std_time(str_format)
-
-    def iso_time(self):
-        """Get time in ISO 8601 format '%Y-%m-%dT%H:%M:%SZ' and
-        accurate to the second.  Note: assumes system clock is UTC.
-        """
-        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z'
-        return self.std_time(str_format)
-
-    def std_time_ms(self):
-        """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and accurate
-        to the microsecond
-        """
-        t = self._struct_time()
-        st = '{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'
-        return st.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])

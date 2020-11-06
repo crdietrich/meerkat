@@ -13,18 +13,6 @@ elif sys.platform in ['FiPy']:
 else:
     print("Error detecting system platform.")
 
-'''
-def writer_init(driver_name, time_format='std_time_ms'):
-    """Initialized a CSV and JSON Writer for a device driver
-    
-    Parameters
-    ----------
-    driver_name : name of device the driver is supporting
-    time_format : str, format to output timestamps TODO: more info
-    """
-    csv_writer = CSVWriter(driver_name=driver_name, time_format=time_format)
-    json_writer = JSONWriter(driver_name=driver_name, time_format=time_format)
-'''
 
 class Meta(Base):
     """Data source metadata"""
@@ -91,8 +79,8 @@ class WriterBase(Base):
         self.metadata = None
 
         # timestamp formatter
-        self._timepiece            = TimePiece(time_format)
-        self._time_format           = self._timepiece.format
+        self._timepiece   = TimePiece(time_format)
+        self._time_format = self._timepiece.format
         
         # file initialization information
         self._header               = None  # csv column names or json keys
