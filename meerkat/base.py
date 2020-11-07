@@ -5,10 +5,16 @@ import sys
 if sys.platform == "linux":
     import json
     import time
+    
+    from meerkat import i2c_pi
+    I2C = i2c_pi.WrapI2C
 
 elif sys.platform in ["FiPy"]:
     import ujson as json
     import utime as time
+    
+    from meerkat import i2c_upython
+    I2C = i2c_upython.WrapI2C
     
 else:
     print("Error detecting system platform.")
@@ -31,7 +37,7 @@ class Base:
         """
         d = {}
         for k, v in self.__dict__.items():
-            if (k[0] != '_') & (v is not None):
+            if (k[0] != '_'): # or (v is not None):
                 d[k] = v
         return d
 
