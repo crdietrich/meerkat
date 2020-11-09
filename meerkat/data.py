@@ -16,7 +16,7 @@ else:
 
 class Meta(Base):
     """Data source metadata"""
-    def __init__(self, name, time_format="std_time_ms"):
+    def __init__(self, name):
 
         # device/source specific descriptions
         self.name         = name  # name of data source being recorded 
@@ -32,9 +32,9 @@ class Meta(Base):
         self.precision    = None  # precision in units of data values
         
         # timestamp formatter
-        self._timepiece            = TimePiece(time_format)
-        self.time_format           = self._timepiece.format
-        self.strfmtime             = self._timepiece.strfmtime
+        #self._timepiece            = TimePiece(time_format)
+        #self.time_format           = self._timepiece.format
+        #self.strfmtime             = self._timepiece.strfmtime
         
 
 class Calibration(Base):
@@ -54,7 +54,7 @@ class WriterBase(Base):
         where (file extension) is either '.csv' or '.jsontxt'
         if self.description is None, it is omitted from the file name
     """
-    def __init__(self, name, time_format='std_time'):
+    def __init__(self, name, metadata, time_format='std_time'):
         
         # file information
         self.name            = name     # name of data stream being written
@@ -76,21 +76,20 @@ class WriterBase(Base):
         self.path = None
 
         # device metadata
-        self.metadata = None
+        self.metadata = metadata.values()
 
         # timestamp formatter
-        self._timepiece   = TimePiece(time_format)
-        self._time_format = self._timepiece.format
-        
-        # file initialization information
-        self._header               = None  # csv column names or json keys
+        self._timepiece  = TimePiece(time_format)
+        self.time_format = self._timepiece.format
+        self.strfmtime   = self._timepiece.strfmtime
+
 
 class CSVWriter(WriterBase):
     """Specific attributes of comma delimited values (CSV) data formatting
     based on Frictionless Data CSV dialect
     """
-    def __init__(self, name, time_format='std_time'):
-        super().__init__(name, time_format)
+    def __init__(self, name, metadata, time_format='std_time'):
+        super().__init__(name, metadata, time_format)
 
         self._file_init            = False              # file initialization flag
 
@@ -130,9 +129,8 @@ class CSVWriter(WriterBase):
                          desc + '.csv')
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
-            if self._header is not None:
-                #h = ','.join([self._time_format] + self._header)
-                h = ','.join(self._header)
+            if self.metadata['header'] is not None:
+                h = ','.join([self.time_format] + self.metadata['header'])
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
@@ -154,8 +152,8 @@ class CSVWriter(WriterBase):
 
 
 class JSONWriter(WriterBase):
-    def __init__(self, name, time_format='std_time'):
-        super().__init__(name, time_format)
+    def __init__(self, name, metadata, time_format='std_time'):
+        super().__init__(name, metadata, time_format)
 
         self._file_init = False  # file initialization flag
 
@@ -182,7 +180,9 @@ class JSONWriter(WriterBase):
             # if there's a conflict of data keys, keep the device data
             if k not in data_out.keys():
                 data_out[k] = v
-        #data_out['header'] = [self._time_format] + self._header
+        #data_out['metadata'] = [self.time_format] + self.metadata['header']
+        #data_out['metadata'] = [self.time_format] + self.metadata['header']
+        
         return data_out
 
     def publish(self, data):
@@ -196,8 +196,8 @@ class JSONWriter(WriterBase):
         -------
         data_out : str, JSON formatted data and metadata
         """
-        data_out = {k: v for k, v in zip(self._header, data)}
-        data_out[self._time_format] = self._timepiece.get_time()
+        data_out = {k: v for k, v in zip(self.metadata['header'], data)}
+        data_out[self.time_format] = self._timepiece.get_time()
 
         if self._metadata_stream_i == self.metadata_interval:
             self._metadata_stream_i = 0
@@ -222,8 +222,8 @@ class JSONWriter(WriterBase):
             self.path = (self._timepiece.file_time() + "_" + 
                          self.name +
                          desc + '.jsontxt')
-        data_out = {k: v for k, v in zip(self._header, data)}
-        data_out[self._time_format] = self._timepiece.get_time()
+        data_out = {k: v for k, v in zip(self.metadata['header'], data)}
+        data_out[self.time_format] = self._timepiece.get_time()
 
         if self._metadata_file_i == self.metadata_interval:
             self._metadata_file_i = 0

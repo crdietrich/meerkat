@@ -37,8 +37,11 @@ class Base:
         """
         d = {}
         for k, v in self.__dict__.items():
-            if (k[0] != '_'): # or (v is not None):
-                d[k] = v
+            if v is None:
+                continue
+            if k[0] == '_':
+                continue
+            d[k] = v
         return d
 
     def to_json(self, indent=None):
@@ -83,8 +86,8 @@ class TimePiece(Base):
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
                                   'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
                                   'file_time':   '%Y_%m_%d_%H_%M_%S'}
-
-        self.format = time_format
+        self._format   = None
+        self.format    = time_format
         self.strfmtime = self.formats_available[time_format]
 
     @property
