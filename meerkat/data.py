@@ -20,9 +20,10 @@ class Meta(Base):
 
         # device/source specific descriptions
         self.name         = name  # name of data source being recorded 
-        self.description  = None  # description of the data source being recorded
+        self.source_desc  = None  # description of the data source being recorded
         self.urls         = None  # URL(s) for data source reference
         self.manufacturer = None  # manufacturer of device/source of data
+        self.state        = None  # general status of driver
         
         # data output descriptions
         self.header       = None  # names of each kind of data value being recorded
@@ -30,11 +31,10 @@ class Meta(Base):
         self.units        = None  # measured units of data values
         self.accuracy     = None  # accuracy in units of data values
         self.precision    = None  # precision in units of data values
-        
-        # timestamp formatter
-        #self._timepiece            = TimePiece(time_format)
-        #self.time_format           = self._timepiece.format
-        #self.strfmtime             = self._timepiece.strfmtime
+
+        # I2C bus descriptions
+        self.bus_n        = None  # I2C bus the device is on
+        self.bus_addr     = None  # I2C bus address the device is on
         
 
 class Calibration(Base):
@@ -50,15 +50,13 @@ class WriterBase(Base):
     """Base class for data serialization
     Note 1: Any attribute prefixed with '_' or with value None will not be written
     Note 2: Output file name will be:
-        TimePiece.file_time() + '_' + self.name + self.description + (file extension)
+        TimePiece.file_time() + '_' + self.metadata['name'] + self.metadata['description'] + (file extension)
         where (file extension) is either '.csv' or '.jsontxt'
-        if self.description is None, it is omitted from the file name
+        if self.metadata['description'] is None, it is omitted from the file name
     """
-    def __init__(self, name, metadata, time_format='std_time'):
+    def __init__(self, metadata, time_format):
         
         # file information
-        self.name            = name     # name of data stream being written
-        self.description     = None     # description of data stream being written
         self.encoding        = 'utf-8'  # encoding of output. Should stay 'utf-8'!
         self.format          = None     # format of data being written, CSV, JSON, etc
         self.standard        = None     # standard for format
@@ -72,12 +70,13 @@ class WriterBase(Base):
         self.null_sequence   = 'NA'     # 
         self.comment         = '#'      # 
 
-        # file location
-        self.path = None
-
         # device metadata
         self.metadata = metadata.values()
 
+        # filepath information
+        self.path = None
+        #self.file_desc = self.metadata['name']
+        
         # timestamp formatter
         self._timepiece  = TimePiece(time_format)
         self.time_format = self._timepiece.format
@@ -88,8 +87,8 @@ class CSVWriter(WriterBase):
     """Specific attributes of comma delimited values (CSV) data formatting
     based on Frictionless Data CSV dialect
     """
-    def __init__(self, name, metadata, time_format='std_time'):
-        super().__init__(name, metadata, time_format)
+    def __init__(self, metadata, time_format='std_time'):
+        super().__init__(metadata, time_format)
 
         self._file_init            = False              # file initialization flag
 
@@ -119,14 +118,9 @@ class CSVWriter(WriterBase):
         self.path, then a header line in self._header, then lines of data
         for each item in self.data
         """
-        if self.description is None:
-            desc = ''
-        else:
-            desc = '_' + self.description
         if self.path is None:
             self.path = (self._timepiece.file_time() + '_' + 
-                         self.name +
-                         desc + '.csv')
+                              self.metadata['name'].lower() + '.csv')
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
             if self.metadata['header'] is not None:
@@ -152,8 +146,8 @@ class CSVWriter(WriterBase):
 
 
 class JSONWriter(WriterBase):
-    def __init__(self, name, metadata, time_format='std_time'):
-        super().__init__(name, metadata, time_format)
+    def __init__(self, metadata, time_format='std_time'):
+        super().__init__(metadata, time_format)
 
         self._file_init = False  # file initialization flag
 
@@ -180,9 +174,6 @@ class JSONWriter(WriterBase):
             # if there's a conflict of data keys, keep the device data
             if k not in data_out.keys():
                 data_out[k] = v
-        #data_out['metadata'] = [self.time_format] + self.metadata['header']
-        #data_out['metadata'] = [self.time_format] + self.metadata['header']
-        
         return data_out
 
     def publish(self, data):
@@ -214,14 +205,9 @@ class JSONWriter(WriterBase):
         ----------
         data : list, data to be zipped with header descriptions
         """
-        if self.description is None:
-            desc = ''
-        else:
-            desc = '_' + self.description
         if self.path is None:
             self.path = (self._timepiece.file_time() + "_" + 
-                         self.name +
-                         desc + '.jsontxt')
+                              self.metadata['name'].lower() + '.jsontxt')
         data_out = {k: v for k, v in zip(self.metadata['header'], data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
