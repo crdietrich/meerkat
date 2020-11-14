@@ -58,7 +58,7 @@ class Base:
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, time_format='std_time'):
+    def __init__(self, time_format='std_time', time_zone=None):
         super().__init__()
         try:
             import pyb  # pyboard import
@@ -89,6 +89,14 @@ class TimePiece(Base):
         self._format   = None
         self.format    = time_format
         self.strfmtime = self.formats_available[time_format]
+        
+        # optional timezone
+        self._tz = None
+        self.tz = time_zone
+        
+        # external hardware time source
+        self.rtc = None
+        self.gps = None
 
     @property
     def format(self):
@@ -99,6 +107,17 @@ class TimePiece(Base):
         self._format = time_format
         self.strfmtime = self.formats_available[time_format]
         
+    @property
+    def tz(self):
+        return self._tz
+    
+    @tz.setter
+    def tz(self, time_zone):
+        if time_zone is None:
+            self._tz = ''
+        else: self._tz = time_zone
+        
+        
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
         format citation based on the attributes of the TimeFormats class.
@@ -108,7 +127,8 @@ class TimePiece(Base):
         str, formatted current time based on input argument
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
-                    'iso_time': self.iso_time, 'file_time': self.file_time}
+                    'iso_time': self.iso_time, 'file_time': self.file_time,
+                    'rtc_time': self.rtc_time, 'gps_time': self.gps_time}
         _method = _formats[self.format]
         return _method()
 
@@ -126,11 +146,11 @@ class TimePiece(Base):
         t = self._struct_time()
         return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
 
-    def iso_time(self, tz='Z'):
+    def iso_time(self):
         """Get time in ISO 8601 format '%Y-%m-%dT%H:%M:%SZ' and
         accurate to the second.  Note: assumes system clock is UTC.
         """
-        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:06}' + tz
+        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:06}' + self.tz
         return self.std_time_ms(str_format=str_format)
 
     def file_time(self):
@@ -139,3 +159,53 @@ class TimePiece(Base):
         """
         str_format = '{:02d}_{:02d}_{:02d}_{:02d}_{:02d}_{:02d}'
         return self.std_time(str_format)
+    
+    def rtc_time(self, bus_n=1, bus_addr=0x68):
+        """Get time from the DS3221 RTC
+        
+        Parameters
+        ----------
+        bus_n : int, I2C bus number to access the RTC on
+        bus_addr : int, I2C bus address the RTC is at on the bus
+        
+        Returns
+        -------
+        RTC time in std_time format
+        """
+        if self.rtc is None:
+            from meerkat import ds3231
+            self.rtc = ds3231.DS3231(bus_n=bus_n, bus_addr=bus_addr)
+            
+        t = self.rtc.get_time()
+        if self.tz is not None:
+            tz = self.tz
+        
+        str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'
+        return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
+    
+    def gps_time(self, bus_n=1, bus_addr=0x10):
+        """Get time from the PA1010D GPS
+        
+        Parameters
+        ----------
+        bus_n : int, I2C bus number to access the RTC on
+        bus_addr : int, I2C bus address the RTC is at on the bus
+        
+        Returns
+        -------
+        RTC time in iso_time format
+        """
+        if self.gps is None:
+            from meerkat import pa1010d
+            self.gps = pa1010d.PA1010D(bus_n=bus_n, bus_addr=bus_addr)
+            
+        nmea_sentence = self.gps.get(nmea_sentences=['RMC'])[0]
+        nmea_sentence = nmea_sentence.split(',')
+        t = nmea_sentence[1].split('.')[0]
+        t_ms = nmea_sentence[1].split('.')[1]
+        t = [t[:2], t[2:4], t[4:]]
+        d = nmea_sentence[9]
+        d = ['20'+d[4:], d[2:4], d[:2]]
+        str_format='{}-{}-{}T{}:{}:{}.{}+0:00'
+        return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
+    

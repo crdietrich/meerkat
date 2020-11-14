@@ -3,8 +3,8 @@ https://datasheets.maximintegrated.com/en/ds/DS3231.pdf
 https://www.adafruit.com/product/3013
 """
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 def bcd2dec(bcd):
@@ -51,33 +51,31 @@ class DS3231:
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
-        # python strftime specification for output
-        self.rtc_time_format = '%Y-%m-%d %H:%M:%S'
-
         # information about this device
-        self.device = DeviceData('DS3231')
-        self.device.description = 'Adafruit DS3221 Precision RTC'
-        self.device.urls = 'https://datasheets.maximintegrated.com/en/ds/DS3231.pdf'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Adafruit Industries'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = None
-        self.device.calibration_date = None
+        self.metadata = Meta('DS3231')
+        self.metadata.description = 'Adafruit DS3221 Precision RTC'
+        self.metadata.urls = 'https://datasheets.maximintegrated.com/en/ds/DS3231.pdf'
+        self.metadata.manufacturer = 'Adafruit Industries'
+        
+        self.metadata.header    = ["description", "sample_n", "rtc_time", "temp_C"]
+        self.metadata.dtype     = ['str', 'int', 'str', 'float']
+        self.metadata.units     = [None, 'count', 'datetime', 'degrees Celcius']
+        self.metadata.accuracy  = [None, 1, '+/- 3.5 ppm', '+/- 3.0'] 
+        self.metadata.precision = [None, 1, '1 second', 0.25]
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = bus_addr
 
+        # python strftime specification for RTC output precision
+        self.metadata.rtc_time_format = '%Y-%m-%d %H:%M:%S'
+        
         # data recording method
+        # note: using millisecond accuracy on driver timestamp, even though
+        # RTC is only 1 second resolution
         self.writer_output = output
-        self.csv_writer = CSVWriter(driver_name=self.device.name, time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ["description", "sample_n", "rtc_time", "temp_C"]
-
-        self.json_writer = JSONWriter(driver_name=self.device.name, time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
-
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        
     def set_time(self, YY, MM, DD, hh, mm, ss, micro, tz):
         """Set time of RTC
 

@@ -10,14 +10,10 @@ from math import sin, pi
 
 class TestDevice(Base):
     """Non-hardware test class"""
-    def __init__(self, writer_output='json', time_format='std_time_ms'):
+    def __init__(self, bus_n, bus_addr=0x00, output='json'):
 
         # data bus placeholder
-        self.bus = None
-        self.bus_addr = None
-
-        # what kind of data output to file
-        self.writer_output = writer_output
+        self.bus = 'fake I2C bus object on bus {} and address {}'.format(bus_n, bus_addr)
 
         # types of verbose printing
         self.verbose = False
@@ -33,8 +29,8 @@ class TestDevice(Base):
         self.unlimited = False
         self.max_samples = 1000
 
-        # information about this device
-        self.metadata = Meta(name='Software Test')
+        ## Metadata information about this device
+        self.metadata = Meta(name='software_test')
 
         # device/source specific descriptions
         self.metadata.description  = 'dummy_data'
@@ -47,31 +43,30 @@ class TestDevice(Base):
         
         ## data output descriptions
         # names of each kind of data value being recorded
-        self.metadata.header       = [self.metadata.time_format, "description", "sample_n", "degree", "amplitude"]
+        self.metadata.header       = ['description', 'sample_n', 'degree', 'amplitude']
         
         # data types (int, float, etc) for each data value
-        self.metadata.dtype        = ['datetime', 'str', 'int', 'float', 'float']
+        self.metadata.dtype        = ['str', 'int', 'float', 'float']
         
         # measured units of data values
-        self.metadata.units        = ['time', None, 'count', 'degrees', 'real numbers']
+        self.metadata.units        = [None, 'count', 'degrees', 'real numbers']
         
         # accuracy in units of data values
-        self.metadata.accuracy     = [None, None, 1, 0.2, 0.2] 
+        self.metadata.accuracy     = [None, 1, 0.2, 0.2] 
         
         # precision in units of data values
-        self.metadata.precision    = [None, None, 1, 0.1, 0.1]
+        self.metadata.precision    = [None, 1, 0.1, 0.1]
+        
+        # I2C bus the device is on
+        self.metadata.bus_n = bus_n
+        
+        # I2C bus address the device is on
+        self.metadata.bus_addr = bus_addr
 
-        # data writer
-        self.writer_output = writer_output
-        self.csv_writer = CSVWriter(name=self.metadata.name, time_format=time_format)
-        self.csv_writer.metadata = self.metadata.values()
-        self.csv_writer._header = self.metadata.header
-        self.csv_writer.description = self.metadata.description
-
-        self.json_writer = JSONWriter(name=self.metadata.name, time_format=time_format)
-        self.json_writer.metadata = self.metadata.values()
-        self.json_writer._header = self.metadata.header
-        self.json_writer.description = self.metadata.description
+        ## Data writers for this device
+        self.writer_output = output
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
         
         # synthetic data
         self._deg = list(range(360))
