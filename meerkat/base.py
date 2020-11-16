@@ -60,39 +60,48 @@ class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
     def __init__(self, time_format='std_time', time_zone=None):
         super().__init__()
+        
+        self._import_error = []
+
         try:
             import pyb  # pyboard import
             rtc = pyb.RTC()
             self._struct_time = rtc.now
         except ImportError:
-            try:
-                import machine  # CircuitPython / Pycom import
-                rtc = machine.RTC()
-                self._struct_time = rtc.now
-            except ImportError:
-                try:
-                    from datetime import datetime  # CPython 3.7
+            self._import_error.append("No Pyboard RTC")
+    
+        try:
+            import machine  # CircuitPython / Pycom import
+            rtc = machine.RTC()
+            self._struct_time = rtc.now
+        except ImportError:
+            self._import_error.append("No Circuit Python or PyCom machine.RTC import")
 
-                    def _struct_time():
-                        t = datetime.now()
-                        return (t.year, t.month, t.day, t.hour,
-                                t.minute, t.second, t.microsecond)
+        try:
+            from datetime import datetime  # CPython 3.7
 
-                    self._struct_time = _struct_time
-                except ImportError:
-                    raise
-
+            def _struct_time():
+                t = datetime.now()
+                return (t.year, t.month, t.day, t.hour,
+                        t.minute, t.second, t.microsecond)
+            self._struct_time = _struct_time
+        except ImportError:
+            self._import_error.append("No CPython datetime import")
+        
         self.formats_available = {'std_time':    '%Y-%m-%d %H:%M:%S',
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
                                   'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
-                                  'file_time':   '%Y_%m_%d_%H_%M_%S'}
+                                  'file_time':   '%Y_%m_%d_%H_%M_%S',
+                                  'rtc_time':    '%Y-%m-%d %H:%M:%S',       # same as std_time
+                                  'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z'  # same as iso_time
+                                 }
         self._format   = None
         self.format    = time_format
         self.strfmtime = self.formats_available[time_format]
         
         # optional timezone
         self._tz = None
-        self.tz = time_zone
+        self.tz  = time_zone
         
         # external hardware time source
         self.rtc = None
@@ -106,7 +115,7 @@ class TimePiece(Base):
     def format(self, time_format):
         self._format = time_format
         self.strfmtime = self.formats_available[time_format]
-        
+    
     @property
     def tz(self):
         return self._tz
@@ -127,8 +136,8 @@ class TimePiece(Base):
         str, formatted current time based on input argument
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
-                    'iso_time': self.iso_time, 'file_time': self.file_time,
-                    'rtc_time': self.rtc_time, 'gps_time': self.gps_time}
+                    'iso_time': self.iso_time, 'file_time':   self.file_time,
+                    'rtc_time': self.rtc_time, 'gps_time':    self.gps_time}
         _method = _formats[self.format]
         return _method()
 
@@ -208,4 +217,3 @@ class TimePiece(Base):
         d = ['20'+d[4:], d[2:4], d[:2]]
         str_format='{}-{}-{}T{}:{}:{}.{}+0:00'
         return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
-    
