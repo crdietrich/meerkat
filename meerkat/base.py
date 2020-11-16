@@ -92,8 +92,9 @@ class TimePiece(Base):
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
                                   'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
                                   'file_time':   '%Y_%m_%d_%H_%M_%S',
-                                  'rtc_time':    '%Y-%m-%d %H:%M:%S',       # same as std_time
-                                  'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z'  # same as iso_time
+                                  'rtc_time':    '%Y-%m-%d %H:%M:%S',        # same as std_time
+                                  'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z',  # same as iso_time
+                                  'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message 
                                  }
         self._format   = None
         self.format    = time_format
@@ -137,7 +138,8 @@ class TimePiece(Base):
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
                     'iso_time': self.iso_time, 'file_time':   self.file_time,
-                    'rtc_time': self.rtc_time, 'gps_time':    self.gps_time}
+                    'rtc_time': self.rtc_time, 'gps_time':    self.gps_time,
+                    'gps_location': self.gps_location}
         _method = _formats[self.format]
         return _method()
 
@@ -192,6 +194,25 @@ class TimePiece(Base):
         str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'
         return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
     
+    def gps_location(self, bus_n=1, bus_addr=0x10):
+        """Get NMEA RMC message from the PA1010D GPS
+        
+        Parameters
+        ----------
+        bus_n : int, I2C bus number to access the RTC on
+        bus_addr : int, I2C bus address the RTC is at on the bus
+        
+        Returns
+        -------
+        GPS date, lat, lon and time in NMEA RMC format
+        """
+        if self.gps is None:
+            from meerkat import pa1010d
+            self.gps = pa1010d.PA1010D(bus_n=bus_n, bus_addr=bus_addr)
+            
+        nmea_sentence = self.gps.get(nmea_sentences=['RMC'])[0]
+        return nmea_sentence
+           
     def gps_time(self, bus_n=1, bus_addr=0x10):
         """Get time from the PA1010D GPS
         
@@ -204,11 +225,7 @@ class TimePiece(Base):
         -------
         RTC time in iso_time format
         """
-        if self.gps is None:
-            from meerkat import pa1010d
-            self.gps = pa1010d.PA1010D(bus_n=bus_n, bus_addr=bus_addr)
-            
-        nmea_sentence = self.gps.get(nmea_sentences=['RMC'])[0]
+        nmea_sentence = self.gps_location(bus_n=bus_n, bus_addr=bus_addr)
         nmea_sentence = nmea_sentence.split(',')
         t = nmea_sentence[1].split('.')[0]
         t_ms = nmea_sentence[1].split('.')[1]
