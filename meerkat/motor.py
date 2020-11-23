@@ -1,11 +1,11 @@
 """Grove I2C Motor Controller Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 class GroveMotor:
 
-    def __init__(self, bus_n, bus_addr=0x0F, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x0F, output='csv', name='Grove Motor Driver'):
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
@@ -40,31 +40,25 @@ class GroveMotor:
         self.step_count = 0
 
         # information about this device
-        self.device = DeviceData('Grove Motor Driver')
-        self.device.description = ('I2C DC and stepper motor controller')
-        self.device.urls = 'http://wiki.seeedstudio.com/Grove-I2C_Motor_Driver_V1.3/'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Seeed Studio'
-        self.device.version_hw = '1.3'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = '1 microstep'
-        self.device.calibration_date = None
-
-        # data recording method
+        self.metadata = Meta(name=name)
+        self.metadata.description = ('I2C DC and stepper motor controller')
+        self.metadata.urls = 'http://wiki.seeedstudio.com/Grove-I2C_Motor_Driver_V1.3/'
+        self.metadata.manufacturer = 'Seeed Studio'
+        
+        self.metadata.header    = ['description', 'freq',
+                                   'm1_speed', 'm2_speed', 'm_direction',
+                                   'mode', 'phase', 'steps']
+        self.metadata.dtype     = ['str', 'int', 'int', 'int', 'str', 'str', 'int', 'int']
+        self.metadata.accuracy  = None
+        self.metadata.precision = None
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = bus_addr
+        
         self.writer_output = output
-        self.csv_writer = CSVWriter(self.device.name, time_format='std_time_ms')
-        self.csv_writer.device = self.device.values()
-        self.csv_writer.header = ['description', 'freq',
-                                  'm1_speed', 'm2_speed', 'm_direction',
-                                  'mode', 'phase', 'steps']
-
-        self.json_writer = JSONWriter(self.device.name, time_format='std_time_ms')
-        self.json_writer.device = self.device.values()
-        self.json_writer.header = self.csv_writer.header
-
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        
     def get_info(self):
         pid = self.bus.read_register_16bit(0x00)
         return pid

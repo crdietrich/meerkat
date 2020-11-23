@@ -27,7 +27,7 @@ def calc_checksum(s):
 
 
 class PA1010D(Base):
-    def __init__(self, bus_n, bus_addr=0x10, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x10, output='csv', name='pa1010d'):
         """PA1010D GPS module using MTK3333 chipset
         
         Supported NMEA sentences: 'GGA', 'GSA', 'GSV', 'RMC', 'VTG'
@@ -47,7 +47,7 @@ class PA1010D(Base):
         self._bytes_per_burst = 255
         
         # standard metadata information about this device
-        self.metadata = Meta('pa1010d')  # name
+        self.metadata = Meta(name=name)
         
         self.metadata.description      = 'Adafruit PA1010D GPS/GNSS module'
         self.metadata.urls             = 'https://www.cdtop-tech.com/products/pa1010d'

@@ -10,7 +10,7 @@ from math import sin, pi
 
 class TestDevice(Base):
     """Non-hardware test class"""
-    def __init__(self, bus_n, bus_addr=0x00, output='json'):
+    def __init__(self, bus_n, bus_addr=0x00, output='json', name='software_test'):
 
         # data bus placeholder
         self.bus = 'fake I2C bus object on bus {} and address {}'.format(bus_n, bus_addr)
@@ -30,7 +30,7 @@ class TestDevice(Base):
         self.max_samples = 1000
 
         ## Metadata information about this device
-        self.metadata = Meta(name='software_test')
+        self.metadata = Meta(name=name)
 
         # device/source specific descriptions
         self.metadata.description  = 'dummy_data'

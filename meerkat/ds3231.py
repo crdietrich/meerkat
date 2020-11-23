@@ -38,7 +38,7 @@ def dec2bcd(dec):
 
 
 class DS3231:
-    def __init__(self, bus_n, bus_addr=0x68, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x68, output='csv', name='DS3231'):
         """Initialize worker device on i2c bus.
 
         Parameters
@@ -52,7 +52,7 @@ class DS3231:
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
         # information about this device
-        self.metadata = Meta('DS3231')
+        self.metadata = Meta(name=name)
         self.metadata.description = 'Adafruit DS3221 Precision RTC'
         self.metadata.urls = 'https://datasheets.maximintegrated.com/en/ds/DS3231.pdf'
         self.metadata.manufacturer = 'Adafruit Industries'

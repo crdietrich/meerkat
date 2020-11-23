@@ -120,7 +120,8 @@ class CSVWriter(WriterBase):
         """
         if self.path is None:
             self.path = (self._timepiece.file_time() + '_' + 
-                              self.metadata['name'].lower() + '.csv')
+                         self.metadata['name'].lower().replace(' ', '_') + 
+                         '.csv')
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
             if self.metadata['header'] is not None:
@@ -207,7 +208,8 @@ class JSONWriter(WriterBase):
         """
         if self.path is None:
             self.path = (self._timepiece.file_time() + "_" + 
-                              self.metadata['name'].lower() + '.jsontxt')
+                         self.metadata['name'].lower().replace(' ', '_') + 
+                         '.jsontxt')
         data_out = {k: v for k, v in zip(self.metadata['header'], data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
