@@ -24,9 +24,9 @@ class Base:
     """Common methods"""
 
     def __repr__(self):
-        return str(self.values())
+        return str(self.class_values())
 
-    def values(self):
+    def class_values(self):
         """Get all class attributes from __dict__ attribute
         except those prefixed with underscore ('_') or
         those that are None (to reduce metadata size)
@@ -52,7 +52,7 @@ class Base:
         -------
         str, JSON formatted (attribute: value) pairs
         """
-        return json.dumps(self, default=lambda o: o.values(),
+        return json.dumps(self, default=lambda o: o.class_values(),
                           sort_keys=True, indent=indent)
 
 

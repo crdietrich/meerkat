@@ -71,7 +71,7 @@ class WriterBase(Base):
         self.comment         = '#'      # 
 
         # device metadata
-        self.metadata = metadata.values()
+        self.metadata = metadata
 
         # filepath information
         self.path = None
@@ -110,7 +110,7 @@ class CSVWriter(WriterBase):
         str, metadata in JSON with '#!' at the beginning
         indent, None or int - passed to json.dump builtin
         """
-        return '#!' + json.dumps(self.values())
+        return '#!' + self.to_json()
 
     def _write_init(self):
         """Write metadata to a header row designated
@@ -120,12 +120,12 @@ class CSVWriter(WriterBase):
         """
         if self.path is None:
             self.path = (self._timepiece.file_time() + '_' + 
-                         self.metadata['name'].lower().replace(' ', '_') + 
+                         self.metadata.name.lower().replace(' ', '_') + 
                          '.csv')
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
-            if self.metadata['header'] is not None:
-                h = ','.join([self.time_format] + self.metadata['header'])
+            if self.metadata.header is not None:
+                h = ','.join([self.time_format] + self.metadata.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
@@ -170,10 +170,16 @@ class JSONWriter(WriterBase):
         -------
         dict : public attributes from self.values method
         """
-        md = self.values()
+        md = self.class_values()
         for k, v in md.items():
             # if there's a conflict of data keys, keep the device data
             if k not in data_out.keys():
+                # if there's another class, convert to JSON
+                try:
+                    if type(v) != dict:
+                        v = v.class_values()
+                except:
+                    pass
                 data_out[k] = v
         return data_out
 
@@ -188,7 +194,7 @@ class JSONWriter(WriterBase):
         -------
         data_out : str, JSON formatted data and metadata
         """
-        data_out = {k: v for k, v in zip(self.metadata['header'], data)}
+        data_out = {k: v for k, v in zip(self.metadata.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self._metadata_stream_i == self.metadata_interval:
@@ -208,15 +214,17 @@ class JSONWriter(WriterBase):
         """
         if self.path is None:
             self.path = (self._timepiece.file_time() + "_" + 
-                         self.metadata['name'].lower().replace(' ', '_') + 
+                         self.metadata.name.lower().replace(' ', '_') + 
                          '.jsontxt')
-        data_out = {k: v for k, v in zip(self.metadata['header'], data)}
+        data_out = {k: v for k, v in zip(self.metadata.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self._metadata_file_i == self.metadata_interval:
             self._metadata_file_i = 0
             data_out = self.add_metadata(data_out)
 
+        data_out = json.dumps(data_out)
+            
         with open(self.path, 'a') as f:
-            f.write(json.dumps(data_out) + self.line_terminator)
+            f.write(data_out + self.line_terminator)
         self._metadata_file_i += 1
