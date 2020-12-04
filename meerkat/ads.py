@@ -1,7 +1,7 @@
 """TI ADS1x15 ADC I2C Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, DeviceData, time #twos_comp_to_dec, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 # config bit masks
@@ -17,7 +17,7 @@ BIT_COMP_QUE  = 3
 
 
 class ADS1115(object):
-    def __init__(self, bus_n, bus_addr=0x48, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x48, output='csv', name='ADS1115'):
         """Initialize worker device on i2c bus.
 
         Parameters
@@ -81,50 +81,30 @@ class ADS1115(object):
         self.bin_comp_que = {v: k for k, v in self.str_comp_que.items()}
 
         # information about this device
-        self.device = DeviceData('ADS1115')
-        self.device.description = ('Texas Instruments 16-bit 860SPS' +
-                                   ' 4-Ch Delta-Sigma ADC with PGA')
-        self.device.urls = 'www.ti.com/product/ADS1115'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Texas Instruments'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = '16bit'
-        self.device.calibration_date = None
-
+        self.metadata = Meta(name=name)
+        self.metadata.description = ('Texas Instruments 16-bit 860SPS' +
+                                     ' 4-Ch Delta-Sigma ADC with PGA')
+        self.metadata.urls = 'www.ti.com/product/ADS1115'
+        self.metadata.manufacturer = 'Texas Instruments'
+        
+        self.metadata.header    = ['description', 'sample_n', 'mux', 'voltage']
+        self.metadata.dtype     = ['str', 'int', 'str', 'float']
+        self.metadata.units     = [None, 'count', 'str', 'volts']
+        self.metadata.accuracy  = [None, 1, None, '+/- 3 LSB']
+        self.metadata.precision = [None, 1, None, '16 bit']
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = bus_addr
+    
         # current settings of this device
-        self.device.pga_gain = self.pga_float
-
-        '''
-        # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('ADS1115', time_format='std_time_ms')
-            self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
-        elif output == 'json':
-            self.writer = JSONWriter('ADS1115', time_format='std_time_ms')
-        else:
-            pass  # holder for another writer or change in default
-        self.writer.device = self.device.values()
+        self.metadata.pga_gain = self.pga_float
 
         # data recording information
         self.sample_id = None
-        '''
         
-        # data recording information
-        self.sample_id = None
-        
-        # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter("ADS1115", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ['description', 'sample_n', 'mux', 'voltage']
-        
-        self.json_writer = JSONWriter("ADS1115", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
         
         # initialize class attributes from device registry
         self.get_config()
