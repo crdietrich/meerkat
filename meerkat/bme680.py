@@ -11,8 +11,8 @@ QWIIC pinout version:
 https://www.sparkfun.com/products/14570
 """
 
-from meerkat.base import I2C, DeviceData, time, struct
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time, struct
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 def _read24(arr):
@@ -25,7 +25,7 @@ def _read24(arr):
 
 
 class BME680:
-    def __init__(self, bus_n, bus_addr=0x77, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x77, output='csv', name='BME680'):
         """Initialize worker device on i2c bus.
 
         For register memory map, see datasheet pg 28, section 5.2
@@ -38,21 +38,7 @@ class BME680:
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
-
-        # information about this device
-        self.device = DeviceData('BME680')
-        self.device.description = 'Bosch Humidity, Pressure, Temperature, VOC Sensor'
-        self.device.urls = 'https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Bosch Sensortec'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = 'VOC:0.08%, RH:0.01%, P:0.02Pa, T:1.0C'
-        self.device.calibration_date = None
-
+        
         # Default oversampling and filter register values.
         self.refresh_rate        = 1
         self.filter              = 1
@@ -120,27 +106,35 @@ class BME680:
                                   1000000, 500000,
                                   250000, 125000)
 
-        # data recording method
-        self.writer_output = output
-        self.csv_writer = CSVWriter("BME680", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ['description', 'sample_n', 'T', 'P', 'RH', 'g_res', 'g_val', 'heat_stab']
-        self.json_writer = JSONWriter("BME680", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
-
-        # data recording information
-        self.sample_id = None
-
         # Pressure in hectoPascals at sea level, used to calibrate altitude
         self.sea_level_pressure = 1013.25
+
+        # calculated ambient temperature for res_heat target calculation
+        self.amb_temp = None
 
         # sample collection metadata
         self._last_reading = 0
         self._min_refresh_time = 1 / self.refresh_rate
-
-        # calculated ambient temperature for res_heat target calculation
-        self.amb_temp = None
+        
+        # information about this device
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'Bosch Humidity, Pressure, Temperature, VOC Sensor'
+        self.metadata.urls = 'https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/'
+        self.metadata.manufacturer = 'Bosch Sensortec'
+        
+        self.metadata.header    = ['description', 'sample_n', 'T',       'P',            'RH',       'g_res', 'g_val', 'heat_stab']        
+        self.metadata.dtype     = ['str',         'int',      'float',   'float',        'float',    'float', 'bool',  'bool']
+        self.metadata.units     = [None,          'count',    'Celcius', 'hectopascals', 'percent',  'ohms',   None,   None, ]
+        self.metadata.accuracy  = [None,          1,          '+/-1.0',  '+/-0.12',      '+/-3',     '+/-15%', None,   None] 
+        self.metadata.precision = [None,          1,          0.1,       0.18,           0.008,       0.08,    None,   None]
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = bus_addr
+        
+        # data recording method
+        self.writer_output = output
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
 
     def debug_read_registers(self):
         """Print out the values of read only registers
