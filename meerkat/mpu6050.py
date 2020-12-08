@@ -28,8 +28,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from meerkat.base import I2C, DeviceData
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 class mpu6050:
@@ -80,7 +80,7 @@ class mpu6050:
     ACCEL_CONFIG = 0x1C
     GYRO_CONFIG = 0x1B
 
-    def __init__(self, bus_n, bus_addr=0x68, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x68, output='csv', name='MPU6050'):
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
@@ -90,49 +90,35 @@ class mpu6050:
         self.bus.write_register_8bit(self.PWR_MGMT_1, 0x00)
         
         # information about this device
-        self.device = DeviceData('MPU-6050')
-        self.device.description = ('TDK InvenSense Gyro & Accelerometer')
-        self.device.urls = 'https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'TDK'
-        self.device.version_hw = '0.1'
-        self.device.version_sw = '0.1'
-        self.device.gyro_accuracy = '+/-3%, +/-2% cross axis'
-        self.device.gyro_precision = '16bit'
-        self.device.gyro_noise = '0.05 deg/s-rms'
-        self.device.accel_accuracy = '+/-0.5%, +/-2 cross axis'
-        self.device.accel_precision = '16bit'
-        self.device.accel_noise = 'PSD 400 ug / Hz**1/2'
-        self.device.calibration_date = None
-
-        '''
-        # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('MPU-6050', time_format='std_time_ms')
-            self.writer.header = ['description', 'sample_n', 'arange', 'grange',
-                                  'ax', 'ay', 'az', 'gx', 'gy', 'gz', 'temp_C']
-        elif output == 'json':
-            self.writer = JSONWriter('MPU-6050', time_format='std_time_ms')
-        else:
-            pass  # holder for another writer or change in default
-        self.writer.device = self.device.values()
-        '''
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'TDK InvenSense Gyro & Accelerometer'
+        self.metadata.urls = 'https://www.invensense.com/products/motion-tracking/6-axis/mpu-6050/'
+        self.metadata.manufacturer = 'Adafruit Industries & TDK'
         
-        # data recording information
-        self.sample_id = None
+        # note: accuracy in datasheet is relative to scale factor - LSB/(deg/s) +/-3%
+        # is there a better way to describe this? +/-3% below implies relative to deg/s output...
+        self.metadata.header    = ['description', 'sample_n', 'ax',    'ay',    'az',    'gx',    'gy',    'gz']
+        self.metadata.dtype     = ['str',         'int',      'float', 'float', 'float', 'float', 'float', 'float']
+        self.metadata.units     = [None,          'count',    'g',     'g',     'g',     'deg/s', 'deg/s', 'deg/s']
+        self.metadata.accuracy  = [None,           1,         '+/-3%', '+/-3%', '+/-3%', '+/-3%', '+/-3%', '+/-3%']
+        self.metadata.accuracy_precision_note = 'See datasheet for scale factor dependent accuracy & LSB precision'
+        self.metadata.precision = None
+        
+        # specific specifications
+        self.metadata.gyro_accuracy = '+/-3%, +/-2% cross axis'
+        self.metadata.gyro_precision = '16bit'
+        self.metadata.gyro_noise = '0.05 deg/s-rms'
+        self.metadata.accel_accuracy = '+/-0.5%, +/-2 cross axis'
+        self.metadata.accel_precision = '16bit'
+        self.metadata.accel_noise = 'PSD 400 ug / Hz**1/2'
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = bus_addr
 
-        # data recording method
+        # data recording classes
         self.writer_output = output
-        self.csv_writer = CSVWriter("MPU-6050", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ['description', 'sample_n',
-                                  'ax', 'ay', 'az', 'gx', 'gy', 'gz']
-        
-        self.json_writer = JSONWriter("MCP9808", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
         
     # I2C communication methods
 
