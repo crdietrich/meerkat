@@ -1,8 +1,8 @@
 """Atlas Scientific I2C Drivers for Raspberry PI & MicroPython"""
 
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 def scan(bus_n):
@@ -30,7 +30,7 @@ class Atlas:
     """Base class for Atlas Scientific sensors"""
 
 
-    def __init__(self, bus_n, bus_addr, output='csv'):
+    def __init__(self, bus_n, bus_addr, output='csv', name='atlas_base'):
         """Initialize worker device on i2c bus.
 
         Parameters
@@ -48,46 +48,31 @@ class Atlas:
         self.long_delay    = 1.5  # seconds for readings
         self.cal_delay     = 3.0  # seconds for calibrations
 
-        # information about this device
-        self.device = DeviceData('Atlas_Base')
-        self.device.description = ('')
-        self.device.urls = 'www.atlas-scientific.com'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Atlas Scientific'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = 'Varies'
-        self.device.calibration_date = None
-
-        """
-        # data recording method
-        if output == 'csv':
-            self.writer = CSVWriter('Atlas_Base', time_format='std_time_ms')
-
-        elif output == 'json':
-            self.writer = JSONWriter('Atlas_Base', time_format='std_time_ms')
-        else:
-            pass  # holder for another writer or change in default
-        self.writer.header = ['description', 'sample_n', 'not_set']
-        self.writer.device = self.device.values()
-        """
-
         # data recording information
         self.sample_id = None
+        
+        # information about this device
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'Base class for Atlas Scientific Devices'
+        self.metadata.urls = 'www.atlas-scientific.com'
+        self.metadata.manufacturer = 'Atlas Scientific'
+        
+        self.metadata.header    = None
+        self.metadata.dtype     = None
+        self.metadata.units     = None
+        self.metadata.accuracy  = None 
+        self.metadata.precision = None
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = bus_addr
 
         # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter("Atlas_Base", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ['description', 'sample_n', 'not_set']
-
-        self.json_writer = JSONWriter("Atlas_Base", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
-
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        
+        
+        
     def query(self, command, n=31, delay=None, verbose=False):
         """Write a command to the i2c device and read the reply,
         delay between reply based on command value.
@@ -322,28 +307,19 @@ class Atlas:
             time.sleep(max(self.long_delay, delay))
 
 class pH(Atlas):
-    def __init__(self, bus_n, bus_addr=0x63, output='csv'):
-        super(pH, self).__init__(bus_n, bus_addr, output)
-
-        # information about this device
-        self.device.name = 'Atlas_pH'
-        self.device.description = ('')
-        self.device.urls = 'www.atlas-scientific.com/ph.html'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Atlas Scientific'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = 'Varies'
-        self.device.calibration_date = None
-
-        self.csv_writer.name = "Atlas_pH"
-        self.csv_writer.header = ['description', 'sample_n', 'pH']
-        self.json_writer.header = self.json_writer.header
-        self.json_writer.header = self.csv_writer.header
-
+    def __init__(self, bus_n, bus_addr=0x63, output='csv', name='atlas_ph'):
+        super().__init__(bus_n=bus_n, bus_addr=bus_addr, output=output, name=name)
+        
+        self.metadata.description = 'Atlas pH'
+        self.metadata.urls = 'www.atlas-scientific.com/ph.html'
+        self.metadata.manufacturer = 'Atlas Scientific'
+        
+        self.metadata.header    = ['description', 'sample_n', 'pH']
+        self.metadata.dtype     = ['str', 'int', 'float']
+        self.metadata.units     = [None, 'count', 'pH units']
+        self.metadata.accuracy  = [None, 1, '+/-0.002'] 
+        self.metadata.precision = [None, 1, 0.001]
+        
     def cal_set_mid(self, n):
         """Single point calibration at midpoint.  Manual says delay 900ms,
         delay set here to 950ms.
@@ -476,33 +452,25 @@ class Oxygen(Atlas):
         pass
 
 class Conductivity(Atlas):
-    def __init__(self, bus_n, bus_addr=0x64, output='csv'):
-        super(Conductivity, self).__init__(bus_n, bus_addr, output)
+    def __init__(self, bus_n, bus_addr=0x64, output='csv', name='atlas_conductivity'):
+        super().__init__(bus_n=bus_n, bus_addr=bus_addr, output=output, name=name)
 
+        self.measure_mapper = {'EC':  ['conductivity', 'float', 'uS/cm', '+/-2%'], 
+                               'TDS': ['total_dissolved_solids', 'float', 'ppm', '+/-2%'],
+                               'S':   ['salinity', 'float', 'PSU', '+/-2%'],
+                               'SG':  ['specific_gravity', 'float', 'specific gravity', '+/-2%']
+                              }
 
-        self.measure_mapper = {'EC': 'conductivity',
-                               'TDS': 'total_dissolved_solids',
-                               'S': 'salinity',
-                               'SG': 'specific_gravity'}
-
-        # information about this device
-        self.device.name = 'Atlas_Conductivity'
-        self.device.description = ('Water conductivity')
-        self.device.urls = 'www.atlas-scientific.com/conductivity.html'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Atlas Scientific'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.units = 'uS/cm'  # this assumes it's in conductivity mode!
-        self.device.accuracy = '+/-2%'
-        self.device.precision = '0.07-500000 uS/cm'
-        self.device.calibration_date = None
-
-        # metadata information
-        self.csv_writer.name = self.json_writer.name = "Atlas_Conductivity"
-
+        self.metadata.description = 'Atlas Conductivity'
+        self.metadata.urls = 'https://atlas-scientific.com/embedded-solutions/ezo-conductivity-circuit/'
+        self.metadata.manufacturer = 'Atlas Scientific'
+        
+        self.metadata.header    = ['description', 'sample_n', 'conductivity']
+        self.metadata.dtype     = ['str', 'int', 'float']
+        self.metadata.units     = [None, 'count', 'uS/cm']
+        self.metadata.accuracy  = [None, 1, '+/-2%'] 
+        self.metadata.precision = 'varies by probe used'
+        
         # update the output header
         _o = self.output_get()
 
@@ -687,25 +655,18 @@ class Conductivity(Atlas):
 
         _r = self.query(b'O,?', n=20, delay=350)
         _r = _r.split(',')[1:]
-
-        """
-        for k in self.measure_mapper.keys():
-            print(k)
-
-        for m in _r:
-            print("|", m, "|")
-            try:
-                print(self.measure_mapper[m.strip()])
-            except:
-                for i in m:
-                    print('='*5)
-                    print(i)
-                    print("-"*5)
-        """
-        _measure_types = [self.measure_mapper[m.strip()] for m in _r]
-        self.csv_writer.header = ['description', 'sample_n'] + _measure_types
-        self.json_writer.header = self.csv_writer.header
-
+        _measure_names = [self.measure_mapper[m.strip()][0] for m in _r]
+        self.metadata.header = ['description', 'sample_n'] + _measure_names
+        
+        _measure_types = [self.measure_mapper[m.strip()][1] for m in _r]
+        self.metadata.dtype     = ['str', 'int'] + _measure_types
+        
+        _measure_units = [self.measure_mapper[m.strip()][2] for m in _r]
+        self.metadata.units     = [None, 'count'] + _measure_units
+        
+        _measure_accuracy = [self.measure_mapper[m.strip()][3] for m in _r]
+        self.metadata.accuracy  = [None, 1] + _measure_accuracy
+        
         return _r
 
     def measure(self, verbose=False):
