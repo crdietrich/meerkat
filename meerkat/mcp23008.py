@@ -36,7 +36,7 @@ class MCP23008:
         
         self.metadata.header    = ['description', 'sample_n', 'relay_state']
         self.metadata.dtype     = ['str', 'int', 'str']
-        self.metadata.accuracy  = [None, 'count', 'bool']
+        self.metadata.accuracy  = None
         self.metadata.precision = None
         
         self.metadata.bus_n = bus_n
