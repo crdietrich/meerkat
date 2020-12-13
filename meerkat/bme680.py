@@ -129,7 +129,7 @@ class BME680:
         self.metadata.precision = [None,          1,          0.1,       0.18,           0.008,       0.08,    None,   None]
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
         
         # data recording method
         self.writer_output = output

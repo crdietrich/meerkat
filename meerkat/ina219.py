@@ -61,7 +61,7 @@ class INA219:
         self.metadata.accuracy_note = 'values for model INA291A'
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
 
         # chip defaults on power up or reset command
         self.metadata.bus_voltage_range = self.bv_reg_to_bv[1]

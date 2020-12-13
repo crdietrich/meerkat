@@ -64,7 +64,7 @@ class DS3231:
         self.metadata.precision = [None, 1, '1 second', 0.25]
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
 
         # python strftime specification for RTC output precision
         self.metadata.rtc_time_format = '%Y-%m-%d %H:%M:%S'

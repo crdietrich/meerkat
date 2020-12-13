@@ -25,7 +25,7 @@ class Single:
         self.metadata.precision = None
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
 
         # data recording method
         self.writer_output = output

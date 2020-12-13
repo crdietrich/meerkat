@@ -61,7 +61,7 @@ class PA1010D(Base):
         self.metadata.precision = '<3.0 meters'
         
         self.metadata.bus_n            = bus_n
-        self.metadata.bus_addr         = bus_addr
+        self.metadata.bus_addr         = hex(bus_addr)
         
         # custom metadata attributes
         self.metadata.supported_nmea_sentences = ['GGA', 'GSA', 'GSV', 'RMC', 'VTG']

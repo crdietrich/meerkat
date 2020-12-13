@@ -113,7 +113,7 @@ class mpu6050:
         self.metadata.accel_noise = 'PSD 400 ug / Hz**1/2'
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
 
         # data recording classes
         self.writer_output = output

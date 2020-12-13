@@ -68,7 +68,7 @@ class MCP9808(object):
         self.metadata.precision = [None, 1, '0.0625 max']
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
 
         # data recording method
         self.writer_output = output

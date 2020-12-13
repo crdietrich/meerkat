@@ -40,7 +40,7 @@ class MCP23008:
         self.metadata.precision = None
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
         
         self.writer_output = output
         self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')

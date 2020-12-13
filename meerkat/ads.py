@@ -94,7 +94,7 @@ class ADS1115(object):
         self.metadata.precision = [None, 1, None, '16 bit']
         
         self.metadata.bus_n = bus_n
-        self.metadata.bus_addr = bus_addr
+        self.metadata.bus_addr = hex(bus_addr)
     
         # current settings of this device
         self.metadata.pga_gain = self.pga_float
