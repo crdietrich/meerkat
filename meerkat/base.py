@@ -49,14 +49,13 @@ class Base:
     def to_json(self, indent=None):
         """Return all class objects from __dict__ except
         those prefixed with underscore ('_')
+        See self.class_values method for implementation.
 
         Returns
         -------
         str, JSON formatted (attribute: value) pairs
         """
-        return json.dumps(self, default=lambda o: o.class_values(),
-                          sort_keys=True, indent=indent)
-
+        return json.dumps(self.class_values())
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
