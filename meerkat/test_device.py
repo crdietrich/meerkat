@@ -1,24 +1,19 @@
 """Test device for development"""
 
-from meerkat.base import Base, DeviceData
+from meerkat.base import Base, TimePiece, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
+
+# TODO: make safe for MicroPython, leave here for now in Conda
+from collections import deque
+from math import sin, pi
 
 
 class TestDevice(Base):
     """Non-hardware test class"""
-    def __init__(self, output='json'):
-
-        # TODO: make safe for MicroPython, leave here for now in Conda
-        from collections import deque
-        from math import sin, pi
-
-        from meerkat.data import CSVWriter, JSONWriter
+    def __init__(self, bus_n, bus_addr=0x00, output='json', name='software_test'):
 
         # data bus placeholder
-        self.bus = None
-        self.bus_addr = None
-
-        # what kind of data output to file
-        self.output = output
+        self.bus = 'fake I2C bus object on bus {} and address {}'.format(bus_n, bus_addr)
 
         # types of verbose printing
         self.verbose = False
@@ -34,37 +29,50 @@ class TestDevice(Base):
         self.unlimited = False
         self.max_samples = 1000
 
-        # information about this device
-        self.device = DeviceData('Software Test')
-        self.device.description = 'Dummy data for software testing'
-        self.device.urls = None
-        self.device.manufacturer = None
-        self.device.version_hw = None
-        self.device.version_sw = None
-        self.device.accuracy = None
-        self.device.precision = None
-        self.device.bus = None
-        self.device.state = 'Test Not Running'
-        self.device.active = False
-        self.device.error = None
-        self.device.dtype = None
-        self.device.calibration_date = None
+        ## Metadata information about this device
+        self.metadata = Meta(name=name)
 
-        # data writer
-        if self.output == 'csv':
-            self.writer = CSVWriter('Software Test')
-            #self.writer.device = self.device.values()
-        elif self.output == 'json':
-            self.writer = JSONWriter('Software Test')
+        # device/source specific descriptions
+        self.metadata.description  = 'dummy_data'
+        
+        # URL(s) for data source reference
+        self.metadata.urls         = 'www.example.com'
+        
+        # manufacturer of device/source of data
+        self.metadata.manufacturer = 'Nikola Tesla Company'
+        
+        ## data output descriptions
+        # names of each kind of data value being recorded
+        self.metadata.header       = ['description', 'sample_n', 'degree', 'amplitude']
+        
+        # data types (int, float, etc) for each data value
+        self.metadata.dtype        = ['str', 'int', 'float', 'float']
+        
+        # measured units of data values
+        self.metadata.units        = [None, 'count', 'degrees', 'real numbers']
+        
+        # accuracy in units of data values
+        self.metadata.accuracy     = [None, 1, 0.2, 0.2] 
+        
+        # precision in units of data values
+        self.metadata.precision    = [None, 1, 0.1, 0.1]
+        
+        # I2C bus the device is on
+        self.metadata.bus_n = bus_n
+        
+        # I2C bus address the device is on
+        self.metadata.bus_addr = bus_addr
 
-        self.writer.header = ['index', 'degrees', 'amplitude']
-        self.writer.device = self.device.values()
-
-        # example data of one 360 degree, -1 to 1 sine wave
-        self._deg = [n for n in range(360)]
+        ## Data writers for this device
+        self.writer_output = output
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        
+        # synthetic data
+        self._deg = list(range(360))
         self._amp = [sin(d * (pi/180.0)) for d in self._deg]
         self._test_data = list(zip(self._deg, self._amp))
-
+        
     @staticmethod
     def _cycle(iterable):
         """Copied from Python 3.7 itertools.cycle example"""
@@ -77,14 +85,18 @@ class TestDevice(Base):
                 yield element
 
     def run(self, delay=0, index='count'):
-        """Run data collection"""
-
-        # TODO: make safe for MicroPython, leave here for now in Conda
-        from time import sleep, time, ctime
+        """Run data collection
+        
+        Parameters
+        ----------
+        delay : int, seconds to delay between returned data
+        index : str, 'count' or 'timestamp'
+        """
 
         if self.verbose:
             print('Test Started')
-
+            print('='*40)
+            
         # used in non-unlimited acquisition
         count = 0
 
@@ -94,33 +106,37 @@ class TestDevice(Base):
             for _ in range(self.q_maxlen):
                 self.q.append((0, 0))
 
-        if index == 'time':
+        tp = TimePiece()
+                
+        if index == 'timestamp':
             def get_index():
-                return time()
-        elif index == 'ctime':
-            def get_index():
-                return ctime()
+                return tp.get_time()
         else:
             def get_index():
                 return count
-
+        
+        if self.writer_output is not None:
+            wr = {"csv": self.csv_writer,
+                  "json": self.json_writer}[self.writer_output]
+            
         for d, a in self._cycle(self._test_data):
 
             if not self.go:
                 if self.verbose:
+                    print("="*40)
                     print('Test Stopped')
                 break
 
-            self.device.state = 'Test run() method'
+            self.metadata.state = 'Test run() method'
 
             i = get_index()
 
-            data = [i, d, a]
+            data = [self.metadata.description, i, d, a]
 
-            if self.output is not None:
-                self.writer.write(data)
+            if self.writer_output is not None:
+                wr.write(data)
 
-            q_out = self.writer.stream(data)
+            q_out = self.json_writer.publish(data)
             self.q.append(q_out)
 
             if self.verbose_data:
@@ -131,4 +147,4 @@ class TestDevice(Base):
                 if count == self.max_samples:
                     self.go = False
 
-            sleep(delay)
+            time.sleep(delay)

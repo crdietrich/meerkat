@@ -1,45 +1,37 @@
 """Sparkfun Relay for controlling high current devices"""
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 class Single:
 
-    def __init__(self, bus_n, bus_addr=0x18, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x18, output='csv', name='Qwiic_1xRelay'):
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
         self.state_mapper = {0: "closed", 1: "open"}
-
+        
         # information about this device
-        self.device = DeviceData("Qwiic Relay")
-        self.device.description = ("Sparkfun Single Pole Double Throw Relay")
-        self.device.urls = "https://learn.sparkfun.com/tutorials/qwiic-single-relay-hookup-guide/all"
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = "Sparkfun"
-        self.device.version_hw = "1"
-        self.device.version_sw = "1"
-
-        self.application = "test"
-
-        del self.device.accuracy
-        del self.device.precision
-        del self.device.dtype
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'Sparkfun Single Pole Double Throw Relay'
+        self.metadata.urls = 'https://learn.sparkfun.com/tutorials/qwiic-single-relay-hookup-guide/all'
+        self.metadata.manufacturer = 'Sparkfun'
+        
+        self.metadata.header    = ["description", "state"]
+        self.metadata.dtype     = ['str', 'str']
+        self.metadata.units     = None
+        self.metadata.accuracy  = None 
+        self.metadata.precision = None
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = hex(bus_addr)
 
         # data recording method
-
         self.writer_output = output
-        self.csv_writer = CSVWriter("Qwiic Relay", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ["sample_id", "state"]
-
-        self.json_writer = JSONWriter("Qwiic Relay", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = ["sample_id", "state"]
-
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        
     def get_version(self):
         """Get the firmware version of the relay
 

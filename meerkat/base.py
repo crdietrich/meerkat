@@ -10,6 +10,9 @@ if sys.platform == "linux":
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
 
+    def json_dumps(value):
+        return json.dumps(value, default=lambda x: x.class_values())
+
 elif sys.platform in ["FiPy"]:
     import ujson as json
     import utime as time
@@ -18,57 +21,23 @@ elif sys.platform in ["FiPy"]:
     from meerkat import i2c_upython
     I2C = i2c_upython.WrapI2C
 
+    def json_dumps(value):
+        return json.dumps(value)
+
 else:
     print("Error detecting system platform.")
 
-'''
-    
-def bit_set_old(idx, value):
-    """Set bit at index idx in value to 1
-
-    Parameters
-    ----------
-    idx : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    value : value to change bit
-    """
-    return value | (1 << idx)
-
-
-def bit_clear_old(idx, value):
-    """Set bit at index idx in value to 0
-
-    Parameters
-    ----------
-    idx : int, bit index to set
-        (binary notation: MSB left, LSB right - not Python indexing!)
-    value : value to change bit
-    """
-    return value & ~(1 << idx)
-
-
-def twos_comp_to_dec_old(value, bits):
-    """Convert Two's Compliment format to decimal"""
-    if (value & (1 << (bits - 1))) != 0:
-        value = value - (1 << bits)
-    return value
-'''
 
 class Base:
     """Common methods"""
 
-    def __init__(self):
-        self.name = None
-        self.description = None
-        self.urls = None
-        self.manufacturer = None
-
     def __repr__(self):
-        return str(self.values())
+        return str(self.class_values())
 
-    def values(self):
+    def class_values(self):
         """Get all class attributes from __dict__ attribute
-        except those prefixed with underscore ('_')
+        except those prefixed with underscore ('_') or
+        those that are None (to reduce metadata size)
 
         Returns
         -------
@@ -76,55 +45,95 @@ class Base:
         """
         d = {}
         for k, v in self.__dict__.items():
-            if k[0] != '_':
-                d[k] = v
+            if v is None:
+                continue
+            if k[0] == '_':
+                continue
+            d[k] = v
         return d
 
     def to_json(self, indent=None):
         """Return all class objects from __dict__ except
         those prefixed with underscore ('_')
+        See self.class_values method for implementation.
 
         Returns
         -------
         str, JSON formatted (attribute: value) pairs
         """
-        return json.dumps(self, default=lambda o: o.values(),
-                          sort_keys=True, indent=indent)
-
+        return json_dumps(self.class_values())
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, time_format='std_time'):
+    def __init__(self, time_format='std_time', time_zone=None):
         super().__init__()
+
+        self._import_error = []
+
         try:
             import pyb  # pyboard import
             rtc = pyb.RTC()
             self._struct_time = rtc.now
         except ImportError:
-            try:
-                import machine  # CircuitPython / Pycom import
-                rtc = machine.RTC()
-                self._struct_time = rtc.now
-            except ImportError:
-                try:
-                    from datetime import datetime  # CPython 3.7
+            self._import_error.append("No Pyboard RTC")
 
-                    def _struct_time():
-                        t = datetime.now()
-                        return (t.year, t.month, t.day, t.hour,
-                                t.minute, t.second, t.microsecond)
+        try:
+            import machine  # CircuitPython / Pycom import
+            rtc = machine.RTC()
+            self._struct_time = rtc.now
+        except ImportError:
+            self._import_error.append("No Circuit Python or PyCom machine.RTC import")
 
-                    self._struct_time = _struct_time
-                except ImportError:
-                    raise
+        try:
+            from datetime import datetime  # CPython 3.7
 
-        self.formats_available = {'std_time': '%Y-%m-%d %H:%M:%S',
+            def _struct_time():
+                t = datetime.now()
+                return (t.year, t.month, t.day, t.hour,
+                        t.minute, t.second, t.microsecond)
+            self._struct_time = _struct_time
+        except ImportError:
+            self._import_error.append("No CPython datetime import")
+
+        self.formats_available = {'std_time':    '%Y-%m-%d %H:%M:%S',
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
-                                  'iso_time': '%Y-%m-%dT%H:%M:%S.%f%z',
-                                  'file_time': '%Y_%m_%d_%H_%M_%S_%f'}
-
-        self.format = time_format
+                                  'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
+                                  'file_time':   '%Y_%m_%d_%H_%M_%S',
+                                  'rtc_time':    '%Y-%m-%d %H:%M:%S',        # same as std_time
+                                  'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z',  # same as iso_time
+                                  'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message
+                                 }
+        self._format   = None
+        self.format    = time_format
         self.strfmtime = self.formats_available[time_format]
+
+        # optional timezone
+        self._tz = None
+        self.tz  = time_zone
+
+        # external hardware time source
+        self.rtc = None
+        self.gps = None
+
+    @property
+    def format(self):
+        return self._format
+
+    @format.setter
+    def format(self, time_format):
+        self._format = time_format
+        self.strfmtime = self.formats_available[time_format]
+
+    @property
+    def tz(self):
+        return self._tz
+
+    @tz.setter
+    def tz(self, time_zone):
+        if time_zone is None:
+            self._tz = ''
+        else: self._tz = time_zone
+
 
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
@@ -135,7 +144,9 @@ class TimePiece(Base):
         str, formatted current time based on input argument
         """
         _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
-                    'iso_time': self.iso_time, 'file_time': self.file_time}
+                    'iso_time': self.iso_time, 'file_time':   self.file_time,
+                    'rtc_time': self.rtc_time, 'gps_time':    self.gps_time,
+                    'gps_location': self.gps_location}
         _method = _formats[self.format]
         return _method()
 
@@ -144,8 +155,21 @@ class TimePiece(Base):
         to the second
         """
         t = self._struct_time()
-        st = str_format
-        return st.format(t[0], t[1], t[2], t[3], t[4], t[5])
+        return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
+
+    def std_time_ms(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'):
+        """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and
+        accurate to the microsecond
+        """
+        t = self._struct_time()
+        return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
+
+    def iso_time(self):
+        """Get time in ISO 8601 format '%Y-%m-%dT%H:%M:%SZ' and
+        accurate to the second.  Note: assumes system clock is UTC.
+        """
+        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}.{:06}' + self.tz
+        return self.std_time_ms(str_format=str_format)
 
     def file_time(self):
         """Get time in a format compatible with filenames,
@@ -154,44 +178,66 @@ class TimePiece(Base):
         str_format = '{:02d}_{:02d}_{:02d}_{:02d}_{:02d}_{:02d}'
         return self.std_time(str_format)
 
-    def iso_time(self):
-        """Get time in ISO 8601 format '%Y-%m-%dT%H:%M:%SZ' and
-        accurate to the second.  Note: assumes system clock is UTC.
+    def rtc_time(self, bus_n=1, bus_addr=0x68):
+        """Get time from the DS3221 RTC
+
+        Parameters
+        ----------
+        bus_n : int, I2C bus number to access the RTC on
+        bus_addr : int, I2C bus address the RTC is at on the bus
+
+        Returns
+        -------
+        RTC time in std_time format
         """
-        str_format = '{:02d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z'
-        return self.std_time(str_format)
+        if self.rtc is None:
+            from meerkat import ds3231
+            self.rtc = ds3231.DS3231(bus_n=bus_n, bus_addr=bus_addr)
 
-    def std_time_ms(self):
-        """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and accurate
-        to the microsecond
+        t = self.rtc.get_time()
+        if self.tz is not None:
+            tz = self.tz
+
+        str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'
+        return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
+
+    def gps_location(self, bus_n=1, bus_addr=0x10):
+        """Get NMEA RMC message from the PA1010D GPS
+
+        Parameters
+        ----------
+        bus_n : int, I2C bus number to access the RTC on
+        bus_addr : int, I2C bus address the RTC is at on the bus
+
+        Returns
+        -------
+        GPS date, lat, lon and time in NMEA RMC format
         """
-        t = self._struct_time()
-        st = '{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'
-        return st.format(t[0], t[1], t[2], t[3], t[4], t[5], t[6])
+        if self.gps is None:
+            from meerkat import pa1010d
+            self.gps = pa1010d.PA1010D(bus_n=bus_n, bus_addr=bus_addr)
 
+        nmea_sentence = self.gps.get(nmea_sentences=['RMC'])[0]
+        return nmea_sentence
 
-class DeviceData(Base):
-    """Base class for device driver metadata"""
-    def __init__(self, device_name):
+    def gps_time(self, bus_n=1, bus_addr=0x10):
+        """Get time from the PA1010D GPS
 
-        self.name = device_name
+        Parameters
+        ----------
+        bus_n : int, I2C bus number to access the RTC on
+        bus_addr : int, I2C bus address the RTC is at on the bus
 
-        self.version_hw = None
-        self.version_sw = None
-        self.accuracy = None
-        self.precision = None
-
-        self.bus = None
-        self.state = None  # TODO: clarify what these mean
-        self.active = None
-        self.error = None
-        self.dtype = None
-
-
-class DeviceCalibration(Base):
-    """Base class for device calibration"""
-    def __init__(self):
-
-        self.version = None
-        self.dtype = None
-        self.date = None
+        Returns
+        -------
+        RTC time in iso_time format
+        """
+        nmea_sentence = self.gps_location(bus_n=bus_n, bus_addr=bus_addr)
+        nmea_sentence = nmea_sentence.split(',')
+        t = nmea_sentence[1].split('.')[0]
+        t_ms = nmea_sentence[1].split('.')[1]
+        t = [t[:2], t[2:4], t[4:]]
+        d = nmea_sentence[9]
+        d = ['20'+d[4:], d[2:4], d[:2]]
+        str_format='{}-{}-{}T{}:{}:{}.{}+0:00'
+        return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
