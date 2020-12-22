@@ -3,8 +3,8 @@ https://jap.hu/electronic/relay_module_i2c.html
 https://www.microchip.com/wwwproducts/en/MCP23008
 """
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 from meerkat import tools
 
@@ -29,29 +29,22 @@ class MCP23008:
         self.reg_olat = None
         
         # information about this device
-        self.device = DeviceData('mcp23008')
-        self.device.description = '8 channel I2C relay board by Peter Jakab'
-        self.device.urls = 'https://jap.hu/electronic/relay_module_i2c.html'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Peter Jakab'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = None
-        self.device.calibration_date = None
+        self.metadata = Meta('MCP23008')
+        self.metadata.description = '8 channel I2C relay board by Peter Jakab'
+        self.metadata.urls = 'https://jap.hu/electronic/relay_module_i2c.html'
+        self.metadata.manufacturer = 'Peter Jakab'
         
-        # data recording method
+        self.metadata.header    = ['description', 'sample_n', 'relay_state']
+        self.metadata.dtype     = ['str', 'int', 'str']
+        self.metadata.accuracy  = None
+        self.metadata.precision = None
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = hex(bus_addr)
+        
         self.writer_output = output
-        self.csv_writer = CSVWriter(driver_name=self.device.name, time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ["description", "sample_n", "relay_state"]
-
-        self.json_writer = JSONWriter(driver_name=self.device.name, time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
-        
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
         
     def get_all_channels(self):
         """Get all channel states, as a single 8 bit value. Each bit 

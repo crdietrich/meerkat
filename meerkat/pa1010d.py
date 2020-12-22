@@ -11,8 +11,8 @@ https://www.cdtop-tech.com/products/pa1010d
 
 import re
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import time, I2C, Base
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 regex = re.compile("[\r\n]")
@@ -26,11 +26,11 @@ def calc_checksum(s):
     return "{:02x}".format(checksum).upper()
 
 
-class PA1010D:
-    def __init__(self, bus_n, bus_addr=0x10, output='csv'):
+class PA1010D(Base):
+    def __init__(self, bus_n, bus_addr=0x10, output='csv', name='pa1010d'):
         """PA1010D GPS module using MTK3333 chipset
         
-        Supported NMEA sentences
+        Supported NMEA sentences: 'GGA', 'GSA', 'GSV', 'RMC', 'VTG'
         
         Parameters
         ----------
@@ -46,29 +46,32 @@ class PA1010D:
         # maximum data in buffer size
         self._bytes_per_burst = 255
         
-        # information about this device
-        self.device = DeviceData('pa1010d')
-        self.device.description = 'Adafruit PA1010D GPS/GNSS module'
-        self.device.urls = 'https://www.cdtop-tech.com/products/pa1010d'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'CDTop Technology'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = '<3.0 meters'
-        self.device.calibration_date = None
+        # standard metadata information about this device
+        self.metadata = Meta(name=name)
+        
+        self.metadata.description      = 'Adafruit PA1010D GPS/GNSS module'
+        self.metadata.urls             = 'https://www.cdtop-tech.com/products/pa1010d'
+        self.metadata.manufacturer     = 'CDTop Technology'
+        self.metadata.state            = None
+        
+        self.metadata.header    = ['description', 'sample_n', 'nmea_sentence']
+        self.metadata.dtype     = ['str', 'int', 'str']
+        self.metadata.units     = None
+        self.metadata.accuracy  = None
+        self.metadata.precision = '<3.0 meters'
+        
+        self.metadata.bus_n            = bus_n
+        self.metadata.bus_addr         = hex(bus_addr)
+        
+        # custom metadata attributes
+        self.metadata.supported_nmea_sentences = ['GGA', 'GSA', 'GSV', 'RMC', 'VTG']
         
         # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter("PA1010D", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ["description", "sample_n", "nmea_sentence"]
-
-        self.json_writer = JSONWriter("PA1010D", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = self.csv_writer.header
+        self.csv_writer = CSVWriter(metadata=self.metadata,
+                                    time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata,
+                                      time_format='std_time_ms')
 
     def raw_get(self):
         """Get byte data from the GPS module, filtered of blanks
@@ -97,7 +100,7 @@ class PA1010D:
 
         return data_out
         
-    def get(self, nmea_sentences=['GGA', 'GSA', 'GSV', 'RMC', 'VTG'], timeout=15):
+    def get(self, nmea_sentences=None, timeout=15):
         """Get NMEA sentences
         
         Parameters
@@ -109,6 +112,9 @@ class PA1010D:
         -------
         list of str, NMEA sentences
         """
+        
+        if nmea_sentences is None:
+            nmea_sentences = self.metadata.supported_nmea_sentences
         
         check = {s: False for s in nmea_sentences}
         
@@ -186,8 +192,7 @@ class PA1010D:
         from backup mode by software command."""
         self.send_command(b"$PMTK225,4*2F", add_format=False)
         
-    def publish(self, description='NA', n=1, 
-                nmea_sentences=['GGA', 'GSA', 'GSV', 'RMC', 'VTG'], delay=None):
+    def publish(self, description='NA', n=1, nmea_sentences=None, delay=None):
         """Output relay status data in JSON.
 
         Parameters
@@ -204,6 +209,9 @@ class PA1010D:
             n : sample number in this burst
             nmea_sentence : str, NMEA sentence
         """
+        if nmea_sentences is None:
+            nmea_sentences = self.metadata.supported_nmea_sentences
+
         data_list = []
         for m in range(n):
             nmea_data = self.get(nmea_sentences=nmea_sentences)
@@ -214,8 +222,7 @@ class PA1010D:
                 time.sleep(delay)
         return data_list
         
-    def write(self, description='NA', n=1, 
-              nmea_sentences=['GGA', 'GSA', 'GSV', 'RMC', 'VTG'], delay=None):
+    def write(self, description='NA', n=1, nmea_sentences=None, delay=None):
         """Format output and save to file, formatted as either .csv or .json.
 
         Parameters
@@ -232,6 +239,9 @@ class PA1010D:
             n : sample number in this burst
             nmea_sentence : str, NMEA sentence
         """ 
+        if nmea_sentences is None:
+            nmea_sentences = self.metadata.supported_nmea_sentences
+        
         wr = {"csv": self.csv_writer,
               "json": self.json_writer}[self.writer_output]
         for m in range(n):

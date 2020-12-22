@@ -1,7 +1,7 @@
 """MCP9808 Temperature Sensor Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, DeviceData, time
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 # chip register address
 REG_CONFIG             = 0x01
@@ -25,7 +25,7 @@ REG_CONFIG_ALERTMODE   = 0x0001
 
 
 class MCP9808(object):
-    def __init__(self, bus_n, bus_addr=0x18, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x18, output='csv', name='mcp9808'):
         """Initialize worker device on i2c bus.
 
         Parameters
@@ -54,36 +54,27 @@ class MCP9808(object):
         self.manufacturer_id = None
         self.device_id = None
         self.revision = None
-
+        
         # information about this device
-        self.device = DeviceData('MCP9808')
-        self.device.description = ('+/-0.5 degrees Celcius ' +
-            'maximum accuracy digital temperature sensor')
-        self.device.urls = 'https://www.microchip.com/datasheet/MCP9808'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Microchip'
-        self.device.version_hw = '0.1'
-        self.device.version_sw = '0.1'
-        self.device.accuracy = '+/-0.25 (typical) C'
-        self.device.precision = '0.0625 C maximum'
-        self.device.units = 'Degrees Celcius'
-        self.device.calibration_date = None
-
-        # data recording information
-        self.sample_id = None
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'Microchip Tech digital temperature sensor'
+        self.metadata.urls = 'https://www.microchip.com/datasheet/MCP9808'
+        self.metadata.manufacturer = 'Adafruit Industries & Microchip Tech'
+        
+        self.metadata.header    = ['description', 'sample_n', 'temp_C']
+        self.metadata.dtype     = ['str', 'int', 'float']
+        self.metadata.units     = [None, 'count', 'degrees Celcius']
+        self.metadata.accuracy  = [None, 1, '+/- 0.25 typical'] 
+        self.metadata.precision = [None, 1, '0.0625 max']
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = hex(bus_addr)
 
         # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter("MCP9808", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ['description', 'sample_n', 'temperature']
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
         
-        self.json_writer = JSONWriter("MCP9808", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = ['description', 'sample_n', 'temperature']
-
     def set_pointer(self, reg_name):
         """Set the pointer register address
 

@@ -59,5 +59,4 @@ def csv_resource(fp):
                      comment=meta['comment'],
                      quotechar='"')
     df['datetime64_ns'] = pd.to_datetime(df[meta['time_format']])
-
     return meta, df
