@@ -2,6 +2,7 @@
 
 import sys
 
+# Linux (Ubuntu & Raspbian)
 if sys.platform == "linux":
     import json
     import time
@@ -13,6 +14,7 @@ if sys.platform == "linux":
     def json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
 
+# PyCom
 elif sys.platform in ["FiPy"]:
     import ujson as json
     import utime as time
@@ -23,6 +25,15 @@ elif sys.platform in ["FiPy"]:
 
     def json_dumps(value):
         return json.dumps(value)
+
+# Circuit Python
+elif sys.platform in ['Atmel SAMD21']:
+    import ujson as json
+    import utime as time
+    import ustruct as struct
+
+    from meerkat import i2c_circuit
+    I2C = i2c_circuit.WrapI2C
 
 else:
     print("Error detecting system platform.")
