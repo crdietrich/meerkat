@@ -3,7 +3,6 @@
 import sys
 
 from meerkat import mcp9808
-from meerkat.base import time
 
 
 if sys.platform == "linux":
