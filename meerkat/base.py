@@ -2,7 +2,7 @@
 
 import sys
 
-if sys.platform == "linux":
+if sys.platform == 'linux':
     import json
     import time
     import struct
@@ -13,7 +13,14 @@ if sys.platform == "linux":
     def json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
 
-elif sys.platform in ["FiPy"]:
+    from datetime import datetime  # Python 3.7
+
+    def _struct_time():
+        t = datetime.now()
+        return (t.year, t.month, t.day, t.hour,
+                t.minute, t.second, t.microsecond)
+
+elif sys.platform in ['FiPy']:
     import ujson as json
     import utime as time
     import ustruct as struct
@@ -23,6 +30,28 @@ elif sys.platform in ["FiPy"]:
 
     def json_dumps(value):
         return json.dumps(value)
+
+    import machine
+    rtc = machine.RTC()
+    _struct_time = rtc.now()
+
+elif sys.platform in ['pyboard']:
+    import ujson as json
+    import utime as time
+    import ustruct as struct
+
+    from meerkat import i2c_pyboard
+    I2C = i2c_pyboard.WrapI2C
+
+    def json_dumps(value):
+        return json.dumps(value)
+
+    import machine
+    rtc = machine.RTC()
+
+    def _struct_time():
+        t = rtc.datetime()
+        return t[0], t[1], t[2], t[4], t[5], t[6], t[7]
 
 else:
     print("Error detecting system platform.")
@@ -69,32 +98,42 @@ class TimePiece(Base):
         super().__init__()
 
         self._import_error = []
+        self._struct_time = _struct_time
 
+        """
         try:
-            import pyb  # pyboard import
+            import pyb  # pyboard
             rtc = pyb.RTC()
-            self._struct_time = rtc.now
+
+            def _struct_time():
+                t = rtc.datetime()
+                return (t[0], t[1], t[2], t[4], t[5], t[6], t[7])
+            self._struct_time = _struct_time
+        
         except ImportError:
             self._import_error.append("No Pyboard RTC")
 
         try:
-            import machine  # CircuitPython / Pycom import
+            import machine  # CircuitPython / Pycom / Pyboard
+
             rtc = machine.RTC()
-            self._struct_time = rtc.now
+            self._struct_time = rtc.now()
+
         except ImportError:
             self._import_error.append("No Circuit Python or PyCom machine.RTC import")
 
         try:
-            from datetime import datetime  # CPython 3.7
+            from datetime import datetime  # Python 3.7
 
             def _struct_time():
                 t = datetime.now()
                 return (t.year, t.month, t.day, t.hour,
                         t.minute, t.second, t.microsecond)
             self._struct_time = _struct_time
+
         except ImportError:
             self._import_error.append("No CPython datetime import")
-
+        """
         self.formats_available = {'std_time':    '%Y-%m-%d %H:%M:%S',
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
                                   'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
