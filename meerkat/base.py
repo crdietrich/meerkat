@@ -9,6 +9,7 @@ if sys.platform == 'linux':
 
     from meerkat import i2c_pi
     I2C = i2c_pi.WrapI2C
+    i2c_default_bus = 1
 
     def json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
@@ -27,6 +28,7 @@ elif sys.platform in ['FiPy']:
 
     from meerkat import i2c_upython
     I2C = i2c_upython.WrapI2C
+    i2c_default_bus = 0
 
     def json_dumps(value):
         return json.dumps(value)
@@ -42,6 +44,7 @@ elif sys.platform in ['pyboard']:
 
     from meerkat import i2c_pyboard
     I2C = i2c_pyboard.WrapI2C
+    i2c_default_bus = 'X'
 
     def json_dumps(value):
         return json.dumps(value)
@@ -100,40 +103,6 @@ class TimePiece(Base):
         self._import_error = []
         self._struct_time = _struct_time
 
-        """
-        try:
-            import pyb  # pyboard
-            rtc = pyb.RTC()
-
-            def _struct_time():
-                t = rtc.datetime()
-                return (t[0], t[1], t[2], t[4], t[5], t[6], t[7])
-            self._struct_time = _struct_time
-        
-        except ImportError:
-            self._import_error.append("No Pyboard RTC")
-
-        try:
-            import machine  # CircuitPython / Pycom / Pyboard
-
-            rtc = machine.RTC()
-            self._struct_time = rtc.now()
-
-        except ImportError:
-            self._import_error.append("No Circuit Python or PyCom machine.RTC import")
-
-        try:
-            from datetime import datetime  # Python 3.7
-
-            def _struct_time():
-                t = datetime.now()
-                return (t.year, t.month, t.day, t.hour,
-                        t.minute, t.second, t.microsecond)
-            self._struct_time = _struct_time
-
-        except ImportError:
-            self._import_error.append("No CPython datetime import")
-        """
         self.formats_available = {'std_time':    '%Y-%m-%d %H:%M:%S',
                                   'std_time_ms': '%Y-%m-%d %H:%M:%S.%f',
                                   'iso_time':    '%Y-%m-%dT%H:%M:%S.%f%z',
