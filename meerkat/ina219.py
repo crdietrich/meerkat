@@ -1,6 +1,7 @@
 """TI INA219 current measurement driver for Raspberry PI & MicroPython"""
 
 from meerkat import base, tools
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
