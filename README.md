@@ -3,12 +3,13 @@
 ### Features  
 
 * Pure Python API to I2C devices
-* Data output to .csv with JSON header or pure JSON
-* Standardized timestamps formats, timestamp and GPS tagging of data  
+* Data output to JSON or CSV with JSON header
+* Standardized timestamps string formats
+* Data timestamping and GPS tagging of data  
 * Metadata description of devices in JSON
-* Code written for Raspberry Pi and MicroPython will run on both
-* Parser to convert .csv to Pandas DataFrame
+* Parser to convert CSV output to Pandas DataFrame
 * Object oriented class structure for REPL use
+* Code written for Raspberry Pi and MicroPython will run on both
 * Base methods separated from device drivers for reusability and extension
 
 ### Supported Python Platforms  
@@ -17,9 +18,11 @@ Python 3, Jupyter and Pandas
 * Raspberry Pi Model 3
 * Raspberry Pi Model 4  
 
-MicroPython
+MicroPython  
+
 * FiPy (should work on all PyCom boards)  
-* Note: CircuitPython is not supported due to it [missing ujson libraries](https://circuitpython.readthedocs.io/en/latest/docs/library/index.html)  
+* OpenMV Cam M7 (tested with OV7725)
+* Note: CircuitPython is NOT supported due to it [missing ujson libraries](https://circuitpython.readthedocs.io/en/latest/docs/library/index.html)  
 
 ### Supported Sensors and Devices  
 | Type | Device | Module | I2C Address |  
