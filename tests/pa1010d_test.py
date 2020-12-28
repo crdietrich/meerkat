@@ -1,29 +1,37 @@
 """Test the PA1010d GPS unit"""
 
-import sys
-
 from meerkat import pa1010d
+from meerkat.base import i2c_default_bus
 
-if sys.platform == "linux":
-    i2c_bus = 1
-else:
-    i2c_bus = 0
+gps = pa1010d.PA1010D(bus_n=i2c_default_bus, bus_addr=0x10)
 
-gps = pa1010d.PA1010D(bus_n=i2c_bus, bus_addr=0x10)
+print()
+print('GPS Metadata')
+print('------------')
+print(gps.metadata)
+print()
 
-print("GPS Metadata")
-print("-"*40)
-print(gps.csv_writer.metadata)
+print('Get one of each NMEA sentence type')
+print('----------------------------------')
+for meas in gps.get():
+    print(meas)
+print()
 
-print("Get one of each NMEA sentence type:")
-print("-"*40)
-print(gps.get())
+print("Get a subset of NMEA sentences, 'GSV', 'RMC' & 'VTG' ")
+print('----------------------------------------------------')
+for meas in gps.get(nmea_sentences=['GSV', 'RMC', 'VTG']):
+    print(meas)
+print()
 
-print("Get a subset of NMEA sentences, 'GSV', 'RMC' & 'VTG':")
-print("-"*40)
-print(gps.get(nmea_sentences=['GSV', 'RMC', 'VTG']))
+"""
+# uncomment to run write tests
+# On PyCom or PyBoard this
+# will write to the main flash drive, so 
+# by default this is commented out to
+# preserve limited space on the drive
 
-print("Write to GPS data to CSV file")
-print("-"*40)
-gps.write(description="test_1", n=4, nmea_sentences=['GGA', 'GSA'], delay=1)
-print("data written to: ", gps.csv_writer.path)
+print('Write to GPS data to CSV file')
+print('-----------------------------')
+gps.write(description='test_1', n=4, nmea_sentences=['GGA', 'GSA'], delay=1)
+print('data written to: ', gps.csv_writer.path)
+"""
