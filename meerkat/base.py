@@ -11,16 +11,16 @@ if sys.platform == 'linux':
     I2C = i2c_pi.WrapI2C
     i2c_default_bus = 1
 
-    def json_dumps(value):
-        return json.dumps(value, default=lambda x: x.class_values())
-
     from datetime import datetime  # Python 3.7
 
     def _struct_time():
         t = datetime.now()
         return (t.year, t.month, t.day, t.hour,
                 t.minute, t.second, t.microsecond)
-
+    
+    def json_dumps(value):
+        return json.dumps(value, default=lambda x: x.class_values())
+        
 elif sys.platform in ['FiPy']:
     import ujson as json
     import utime as time
@@ -29,25 +29,28 @@ elif sys.platform in ['FiPy']:
     from meerkat import i2c_upython
     I2C = i2c_upython.WrapI2C
     i2c_default_bus = 0
-
-    def json_dumps(value):
-        return json.dumps(value)
-
+    
     import machine
     rtc = machine.RTC()
     _struct_time = rtc.now()
 
-elif sys.platform in ['pyboard']:
+    def json_dumps(value):
+        return json.dumps(value)
+
+
+elif sys.platform in ['pyboard', 'OpenMV3-M7']:
     import ujson as json
     import utime as time
     import ustruct as struct
 
     from meerkat import i2c_pyboard
     I2C = i2c_pyboard.WrapI2C
-    i2c_default_bus = 'X'
 
-    def json_dumps(value):
-        return json.dumps(value)
+    if sys.platform in ['pyboard']:
+        i2c_default_bus = 'X'
+
+    if sys.platform in ['OpenMV3-M7']:
+        i2c_default_bus = 4
 
     import machine
     rtc = machine.RTC()
@@ -55,7 +58,9 @@ elif sys.platform in ['pyboard']:
     def _struct_time():
         t = rtc.datetime()
         return t[0], t[1], t[2], t[4], t[5], t[6], t[7]
-
+    
+    def json_dumps(value):
+        return json.dumps(value)
 else:
     print("Error detecting system platform.")
 
