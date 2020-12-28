@@ -457,27 +457,6 @@ class ADS1115(object):
             if delay is not None:
                 time.sleep(delay)
         return data_list
-    '''
-    def write(self, description='no_description', n=1):
-        """Format output and save to file, formatted as either .csv or .json.
-
-        Parameters
-        ----------
-        description : char, description of data sample collected
-        n : int, number of samples to record in this burst
-
-        Returns
-        -------
-        None, writes to disk the following data:
-            description : str, description of sample
-            sample_n : int, sample number in this burst
-            mux : str, multiplexer input used
-            voltage : float, voltage measurement
-        """
-        self.writer.header = ['description', 'sample_n', 'mux', 'voltage']
-        for m in range(1,n+1):
-            self.writer.write([description, m, self.mux_value, self.voltage()])
-        '''
     
     def write(self, description='NA', n=1, delay=None):
         """Get ADC output and save to file, formatted as either .csv or .json.

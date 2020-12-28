@@ -1,17 +1,7 @@
 """CSV and JSON writing and publishing methods"""
 
-import sys
 
-from meerkat.base import Base, TimePiece
-
-if sys.platform == 'linux':
-    import json
-
-elif sys.platform in ['FiPy']:
-    import ujson as json
-
-else:
-    print("Error detecting system platform.")
+from meerkat.base import Base, TimePiece, json
 
 
 class Meta(Base):
@@ -75,8 +65,7 @@ class WriterBase(Base):
 
         # filepath information
         self.path = None
-        #self.file_desc = self.metadata['name']
-        
+
         # timestamp formatter
         self._timepiece  = TimePiece(time_format)
         self.time_format = self._timepiece.format
