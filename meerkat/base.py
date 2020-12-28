@@ -17,7 +17,7 @@ if sys.platform == 'linux':
         t = datetime.now()
         return (t.year, t.month, t.day, t.hour,
                 t.minute, t.second, t.microsecond)
-    
+
     def json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
         
@@ -26,8 +26,8 @@ elif sys.platform in ['FiPy']:
     import utime as time
     import ustruct as struct
 
-    from meerkat import i2c_upython
-    I2C = i2c_upython.WrapI2C
+    from meerkat import i2c_pycom
+    I2C = i2c_pycom.WrapI2C
     i2c_default_bus = 0
     
     import machine
