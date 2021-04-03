@@ -5,16 +5,16 @@ from meerkat.base import Base, TimePiece, json
 
 
 class Meta(Base):
-    """Data source metadata"""
+    """Metadata for data source"""
     def __init__(self, name):
 
         # device/source specific descriptions
-        self.name         = name  # name of data source being recorded 
+        self.name         = name  # name of data source being recorded
         self.source_desc  = None  # description of the data source being recorded
         self.urls         = None  # URL(s) for data source reference
         self.manufacturer = None  # manufacturer of device/source of data
         self.state        = None  # general status of driver
-        
+
         # data output descriptions
         self.header       = None  # names of each kind of data value being recorded
         self.dtype        = None  # data types (int, float, etc) for each data value
@@ -25,7 +25,7 @@ class Meta(Base):
         # I2C bus descriptions
         self.bus_n        = None  # I2C bus the device is on
         self.bus_addr     = None  # I2C bus address the device is on
-        
+
 
 class Calibration(Base):
     """Device calibration"""
@@ -40,12 +40,12 @@ class WriterBase(Base):
     """Base class for data serialization
     Note 1: Any attribute prefixed with '_' or with value None will not be written
     Note 2: Output file name will be:
-        TimePiece.file_time() + '_' + self.metadata['name'] + self.metadata['description'] + (file extension)
+        TimePiece.file_time() + '_' + self._metadata['name'] + self._metadata['description'] + (file extension)
         where (file extension) is either '.csv' or '.jsontxt'
-        if self.metadata['description'] is None, it is omitted from the file name
+        if self._metadata['description'] is None, it is omitted from the file name
     """
     def __init__(self, metadata, time_format):
-        
+
         # file information
         self.encoding        = 'utf-8'  # encoding of output. Should stay 'utf-8'!
         self.format          = None     # format of data being written, CSV, JSON, etc
@@ -55,13 +55,13 @@ class WriterBase(Base):
         # file formatting conventions
         self.line_terminator = '\n'     #
         self.quote_char      = '"'      # note: in JSON, a quote will be "\""
-        self.double_quote    = True     # 
+        self.double_quote    = True     #
         self.escape_char     = '\\'     # note: \\ to escape \ in JSON... meta.
-        self.null_sequence   = 'NA'     # 
-        self.comment         = '#'      # 
+        self.null_sequence   = 'NA'     #
+        self.comment         = '#'      #
 
         # device metadata
-        self.metadata = metadata
+        self._metadata = metadata
 
         # filepath information
         self.path = None
@@ -85,11 +85,11 @@ class CSVWriter(WriterBase):
         self.format                = 'text/csv'         # file format
         self.standard              = 'Follow RFC 4180'  # formatting standard
         self.delimiter             = ','                # delimiter character
-        self.skip_initial_space    = True               # 
+        self.skip_initial_space    = True               #
         self.case_sensitive_header = False              # header names are case sensitive
         self.comment               = '#'                # comment character
         self.skip_lines            = 1                  # how many lines to skip in CSV parsing
-        
+
     def create_metadata(self):
         """Generate JSON metadata and format it with
         a leading shebang sequence, '#!'
@@ -108,13 +108,13 @@ class CSVWriter(WriterBase):
         for each item in self.data
         """
         if self.path is None:
-            self.path = (self._timepiece.file_time() + '_' + 
-                         self.metadata.name.lower().replace(' ', '_') + 
+            self.path = (self._timepiece.file_time() + '_' +
+                         self._metadata.name.lower().replace(' ', '_') +
                          '.csv')
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
-            if self.metadata.header is not None:
-                h = ','.join([self.time_format] + self.metadata.header)
+            if self._metadata.header is not None:
+                h = ','.join([self.time_format] + self._metadata.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
@@ -159,17 +159,10 @@ class JSONWriter(WriterBase):
         -------
         dict : public attributes from self.values method
         """
-        md = self.class_values()
-        for k, v in md.items():
-            # if there's a conflict of data keys, keep the device data
-            if k not in data_out.keys():
-                # if there's another class, convert to JSON
-                try:
-                    if type(v) != dict:
-                        v = v.class_values()
-                except:
-                    pass
-                data_out[k] = v
+        writer_metadata = self.class_values()
+        device_metadata = self._metadata.class_values()
+        data_out['writer'] = writer_metadata
+        data_out['metadata'] = device_metadata
         return data_out
 
     def publish(self, data):
@@ -183,7 +176,7 @@ class JSONWriter(WriterBase):
         -------
         data_out : str, JSON formatted data and metadata
         """
-        data_out = {k: v for k, v in zip(self.metadata.header, data)}
+        data_out = {k: v for k, v in zip(self._metadata.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self._metadata_stream_i == self.metadata_interval:
@@ -202,10 +195,10 @@ class JSONWriter(WriterBase):
         data : list, data to be zipped with header descriptions
         """
         if self.path is None:
-            self.path = (self._timepiece.file_time() + "_" + 
-                         self.metadata.name.lower().replace(' ', '_') + 
+            self.path = (self._timepiece.file_time() + "_" +
+                         self._metadata.name.lower().replace(' ', '_') +
                          '.jsontxt')
-        data_out = {k: v for k, v in zip(self.metadata.header, data)}
+        data_out = {k: v for k, v in zip(self._metadata.header, data)}
         data_out[self.time_format] = self._timepiece.get_time()
 
         if self._metadata_file_i == self.metadata_interval:
@@ -213,7 +206,7 @@ class JSONWriter(WriterBase):
             data_out = self.add_metadata(data_out)
 
         data_out = json.dumps(data_out)
-            
+
         with open(self.path, 'a') as f:
             f.write(data_out + self.line_terminator)
         self._metadata_file_i += 1

@@ -20,7 +20,7 @@ if sys.platform == 'linux':
 
     def json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
-        
+
 elif sys.platform in ['FiPy']:
     import ujson as json
     import utime as time
@@ -29,10 +29,10 @@ elif sys.platform in ['FiPy']:
     from meerkat import i2c_pycom
     I2C = i2c_pycom.WrapI2C
     i2c_default_bus = 0
-    
+
     import machine
     rtc = machine.RTC()
-    _struct_time = rtc.now()
+    _struct_time = rtc.now
 
     def json_dumps(value):
         return json.dumps(value)
@@ -58,7 +58,7 @@ elif sys.platform in ['pyboard', 'OpenMV3-M7']:
     def _struct_time():
         t = rtc.datetime()
         return t[0], t[1], t[2], t[4], t[5], t[6], t[7]
-    
+
     def json_dumps(value):
         return json.dumps(value)
 else:
