@@ -20,7 +20,7 @@ if sys.platform == 'linux':
 
     def json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
-        
+
 elif sys.platform in ['FiPy']:
     import ujson as json
     import utime as time
@@ -29,10 +29,10 @@ elif sys.platform in ['FiPy']:
     from meerkat import i2c_pycom
     I2C = i2c_pycom.WrapI2C
     i2c_default_bus = 0
-    
+
     import machine
     rtc = machine.RTC()
-    _struct_time = rtc.now()
+    _struct_time = rtc.now
 
     def json_dumps(value):
         return json.dumps(value)
@@ -58,7 +58,7 @@ elif sys.platform in ['pyboard', 'OpenMV3-M7']:
     def _struct_time():
         t = rtc.datetime()
         return t[0], t[1], t[2], t[4], t[5], t[6], t[7]
-    
+
     def json_dumps(value):
         return json.dumps(value)
 else:
@@ -116,7 +116,6 @@ class TimePiece(Base):
                                   'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z',  # same as iso_time
                                   'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message
                                  }
-        self._format   = None
         self.format    = time_format
         self.strfmtime = self.formats_available[time_format]
 
@@ -124,18 +123,9 @@ class TimePiece(Base):
         self._tz = None
         self.tz  = time_zone
 
-        # external hardware time source
+        # external hardware time sources, must be set after initialization
         self.rtc = None
         self.gps = None
-
-    @property
-    def format(self):
-        return self._format
-
-    @format.setter
-    def format(self, time_format):
-        self._format = time_format
-        self.strfmtime = self.formats_available[time_format]
 
     @property
     def tz(self):
@@ -147,6 +137,10 @@ class TimePiece(Base):
             self._tz = ''
         else: self._tz = time_zone
 
+    def set_format(self, time_format):
+        """Override default time source and output format"""
+        self.format    = time_format
+        self.strfmtime = self.formats_available[time_format]
 
     def get_time(self):
         """Get the time in a specific format.  For creating a reproducible
@@ -191,7 +185,7 @@ class TimePiece(Base):
         str_format = '{:02d}_{:02d}_{:02d}_{:02d}_{:02d}_{:02d}'
         return self.std_time(str_format)
 
-    def rtc_time(self, bus_n=1, bus_addr=0x68):
+    def rtc_time(self):  #, bus_n=1, bus_addr=0x68):
         """Get time from the DS3221 RTC
 
         Parameters
@@ -203,18 +197,11 @@ class TimePiece(Base):
         -------
         RTC time in std_time format
         """
-        if self.rtc is None:
-            from meerkat import ds3231
-            self.rtc = ds3231.DS3231(bus_n=bus_n, bus_addr=bus_addr)
-
         t = self.rtc.get_time()
-        if self.tz is not None:
-            tz = self.tz
-
         str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'
         return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
 
-    def gps_location(self, bus_n=1, bus_addr=0x10):
+    def gps_location(self):  #, bus_n=1, bus_addr=0x10):
         """Get NMEA RMC message from the PA1010D GPS
 
         Parameters
@@ -226,14 +213,10 @@ class TimePiece(Base):
         -------
         GPS date, lat, lon and time in NMEA RMC format
         """
-        if self.gps is None:
-            from meerkat import pa1010d
-            self.gps = pa1010d.PA1010D(bus_n=bus_n, bus_addr=bus_addr)
-
         nmea_sentence = self.gps.get(nmea_sentences=['RMC'])[0]
         return nmea_sentence
 
-    def gps_time(self, bus_n=1, bus_addr=0x10):
+    def gps_time(self):  #, bus_n=1, bus_addr=0x10):
         """Get time from the PA1010D GPS
 
         Parameters
