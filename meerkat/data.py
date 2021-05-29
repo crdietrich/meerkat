@@ -183,6 +183,7 @@ class JSONWriter(WriterBase):
         data_out : str, JSON formatted data and metadata
         """
         data_out = {k: v for k, v in zip(self._metadata.header, data)}
+        data_out[self.time_format] = self._timepiece.get_time()
 
         if timestamp is None:
             timestamp = self._timepiece.get_time()
