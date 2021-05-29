@@ -9,9 +9,8 @@ https://forum.pycom.io/topic/3021/gpy-with-hologram-io-sim?page=1
 import socket
 import time
 import pycom
-from machine import RTC
 from network import LTE
-from network import WLAN
+
 
 lte_modem = LTE()
 
@@ -29,7 +28,8 @@ def LTE_init(verbose=False):
     network.LTE object with an active Internet connection
     """
     if lte_modem.isconnected():
-        return lte_connection
+        if verbose: print('LTE Modem already connected.')
+        return
 
     # Modem does not connect successfully without first being reset.
     print('Resetting LTE modem ... ', end="")
@@ -55,13 +55,7 @@ def LTE_init(verbose=False):
         rsrpq = None
         fsm = None
 
-        #while(True):
-        #    if lte_modem.isattached():
-        #        if verbose: print(" OK")
-        #        break
-        #    if verbose: print('.', end='')
-        #    time.sleep(1)
-
+        # if not, print the LTE state... maybe record this later
         while not lte_modem.isattached():
             if verbose:
                 rsrpq2 = lte_modem.send_at_cmd('AT+CESQ').strip()
