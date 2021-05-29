@@ -38,7 +38,7 @@ class BME680:
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
-        
+
         # Default oversampling and filter register values.
         self.refresh_rate        = 1
         self.filter              = 1
@@ -115,42 +115,26 @@ class BME680:
         # sample collection metadata
         self._last_reading = 0
         self._min_refresh_time = 1 / self.refresh_rate
-        
+
         # information about this device
         self.metadata = Meta(name=name)
         self.metadata.description = 'Bosch Humidity, Pressure, Temperature, VOC Sensor'
         self.metadata.urls = 'https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/'
         self.metadata.manufacturer = 'Bosch Sensortec'
-        
-        self.metadata.header    = ['description', 'sample_n', 'T',       'P',            'RH',       'g_res', 'g_val', 'heat_stab']        
+
+        self.metadata.header    = ['description', 'sample_n', 'T',       'P',            'RH',       'g_res', 'g_val', 'heat_stab']
         self.metadata.dtype     = ['str',         'int',      'float',   'float',        'float',    'float', 'bool',  'bool']
         self.metadata.units     = [None,          'count',    'Celcius', 'hectopascals', 'percent',  'ohms',   None,   None, ]
-        self.metadata.accuracy  = [None,          1,          '+/-1.0',  '+/-0.12',      '+/-3',     '+/-15%', None,   None] 
+        self.metadata.accuracy  = [None,          1,          '+/-1.0',  '+/-0.12',      '+/-3',     '+/-15%', None,   None]
         self.metadata.precision = [None,          1,          0.1,       0.18,           0.008,       0.08,    None,   None]
-        
+
         self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
-        
+
         # data recording method
         self.writer_output = output
         self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
         self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
-
-    def debug_read_registers(self):
-        """Print out the values of read only registers
-        TODO: remove before finalizing driver"""
-        from meerkat import tools
-        data = self.bus.read_n_bytes(0x1F, 14)
-        reg = [0x1D, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x2A, 0x2B]
-        print("="*20)
-        for n, b in enumerate(data):
-            n = n + 0x1D
-            print("REG: {}".format(hex(n)))
-            if n in reg:
-                tools.bprint(int(b), n=8)
-            else:
-                print("Not Used")
-            print("="*20)
 
     def read_calibration(self):
         """Read chip calibration coefficients
@@ -300,7 +284,6 @@ class BME680:
         self.bus.write_n_bytes([])
 
     # Operation Methods
-
     def gas_on(self):
         self.run_gas = 0b1
         self.write_r_ctrl_gas_1()
@@ -311,6 +294,10 @@ class BME680:
 
     def forced_mode(self):
         self.mode = 0b01
+        self.write_r_ctrl_meas()
+
+    def sleep_mode(self):
+        self.mode = 0b00
         self.write_r_ctrl_meas()
 
     def set_filter(self, coeff):
@@ -402,7 +389,8 @@ class BME680:
         """
 
         if self.amb_temp is None:
-            self.measure()
+            data = self.bus.read_register_nbit(0x22, 3)  # 0x22
+            self._adc_temp = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
             self.amb_temp = self.temperature()
 
         amb_temp = int(self.amb_temp)
@@ -455,33 +443,33 @@ class BME680:
         self._gas_measuring = (reg_meas_status >> 6) & 0b1
         self._measuring = (reg_meas_status >> 5) & 0b1
 
-    def measure(self):
+    def measure(self, verbose=False):
         """Get the temperature, pressure and humidity"""
         self._new_data = 0
-        self.get_measurement_status()
 
         t0 = time.time()
-        while self._new_data == 0:
-            if (time.time() - t0) > 20:
-                break
-            else:
-                time.sleep(0.005)
+        cx = 1
+        while True:
             self.get_measurement_status()
+            dt = (time.time() - t0)
 
-        """
-        #data = self.bus.read_n_bytes(0x1F, 8)  # 0x1F to 0x2B
-        #data = self.bus.read_register_nbit(0x1F, 9)  # 0x1F to 0x2B
-        self._adc_temp = _read24(data[4:7]) // 16
-        self._adc_pres = _read24(data[1:4]) // 16
-        self._adc_hum = struct.unpack('>H', bytes(data[7:9]))[0]
-        """
+            if self._measuring == 1:
+                if verbose:
+                    print('Still measuring, waiting 1 second...')
+                time.sleep(1)
 
-        """
-        data = self.bus.read_register_nbit(0x1F, 8)  # 0x1F to 0x2B
-        self._adc_pres = _read24(data[0:3]) >> 4
-        self._adc_temp = _read24(data[3:6]) >> 4
-        self._adc_hum = struct.unpack('>H', bytes(data[6:8]))[0]
-        """
+            elif self._new_data == 1:
+                if verbose:
+                    print('New data found!')
+                break
+
+            elif dt > 5:
+                if verbose:
+                    print('Timeout waiting for new data :(')
+                return False
+            if verbose:
+                print('While loop %s' % cx)
+            cx += 1
 
         data = self.bus.read_register_nbit(0x1F, 3)  # 0x1F
         self._adc_pres = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
@@ -499,6 +487,7 @@ class BME680:
         self._gas_valid = (_gas_r_lsb >> 5) & 0b1
         self._heat_stab = (_gas_r_lsb >> 4) & 0b1
         self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <4:0>
+        return True
 
     def gas(self):
         """Calculate the gas resistance in ohms"""
@@ -566,44 +555,14 @@ class BME680:
             calc_hum = 0
         return calc_hum
 
-    def _get(self, description, m):
-        """Get one burst of all sensor values for public methods
-
-        Parameters
-        ----------
-        description : str, description of data sample collected
-        m : int, sample number for this burst
-
-        Returns
-        -------
-        description: str, description of sample under test
-        m : int, sample number in this burst
-        t : float, temperature in degress C
-        p : float, pressure in hectoPascals
-        h : float, relative humidty in percent
-        g : float, gas resistence
-        g_valid : int, gas value is valid
-        heat_stable : int, gas heater is stable
-        """
-
-        self.forced_mode()
-        self.measure()
-        t = self.temperature()
-        p = self.pressure()
-        h = self.humidity()
-        g = self.gas()
-        return [description, m, t, p, h, g, self._gas_valid, self._heat_stab]
-
-    def get(self, description='NA', n=1, delay=None, formatter=None):
-        """Get one or bursts of data
+    def get(self, description='NA', n=1, verbose=False):
+        """Get one sample of data
 
         Parameters
         ----------
         description : str, description of data sample collected
         n : int, number of samples to record in this burst
-        delay : float, seconds to delay between samples if n > 1
-        formatter : method to apply to raw list of values from self._get.
-            default: None, returns unformatted list
+        verbose : bool, print debug statements
 
         Returns
         -------
@@ -617,30 +576,25 @@ class BME680:
             g_valid : int, gas value is valid
             heat_stable : int, gas heater is stable
         """
+        self.forced_mode()
+        time.sleep(0.2)
 
-        if formatter is None:
-            def formatter(dl):
-                return dl
+        if not self.measure(verbose):
+            return False
+        t = self.temperature()
+        p = self.pressure()
+        h = self.humidity()
+        g = self.gas()
+        return [description, n, t, p, h, g, self._gas_valid, self._heat_stab]
 
-        data_list = []
-        for m in range(1, n + 1):
-            data = self._get(description, m)
-            data = formatter(data)
-            data_list.append(data)
-            if n == 1:
-                return data_list[0]
-            if delay is not None:
-                time.sleep(delay)
-        return data_list
-
-    def publish(self, description='NA', n=1, delay=None):
-        """Get one or more bursts of data in JSON.
+    def publish(self, description='NA', verbose=False):
+        """Get one sample of data in JSON.
 
         Parameters
         ----------
         description : str, description of data sample collected
         n : int, number of samples to record in this burst
-        delay : float, seconds to delay between samples if n > 1
+        verbose : bool, print debug statements
 
         Returns
         -------
@@ -654,10 +608,10 @@ class BME680:
             g_valid : int, gas value is valid
             heat_stable : int, gas heater is stable
         """
-        formatter = self.json_writer.publish
+        data = self.get(description=description, verbose=verbose)
+        json_data = self.json_writer.publish(data)
+        return json_data
 
-        return self.get(description=description, n=n,
-                        delay=delay, formatter=formatter)
 
     def write(self, description='NA', n=1, delay=None):
         """Format output and save to file, formatted as either .csv or .json.
@@ -683,6 +637,7 @@ class BME680:
         wr = {"csv": self.csv_writer,
               "json": self.json_writer}[self.writer_output]
         for m in range(n):
-            wr.write(self._get(description=description, m=m))
+            data = self.get(description=description)
+            wr.write(data)
             if delay is not None:
                 time.sleep(delay)
