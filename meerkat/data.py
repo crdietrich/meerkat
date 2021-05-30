@@ -69,19 +69,26 @@ class WriterBase(Base):
         # timestamp formatter
         self.time_format = time_format
         self._timepiece  = TimePiece(time_format)
-        self.strfmtime   = self._timepiece.strfmtime
+        self.set_time_format(time_format, external=False)
 
-    def set_time_format(self, time_format):
+    def set_time_format(self, time_format, external=False):
         """Override default TimePiece format"""
         self.time_format = time_format
-        self._timepiece.set_format(time_format)
-        self.strfmtime   = self._timepiece.strfmtime
+        if external:
+            # report what the strfmtime will be from the external source
+            self._timepiece.set_format('external')
+            self.strfmtime   = self._timepiece.formats_available[time_format]
+        else:
+            # set the format for generation of timestamps and formatting
+            self._timepiece.set_format(time_format)
+            self.strfmtime   = self._timepiece.strfmtime
+
+    def set_time(self, time_str):
+        self._timepiece.set_time(time_str)
 
 
 class CSVWriter(WriterBase):
-    """Specific attributes of comma delimited values (CSV) data formatting
-    based on Frictionless Data CSV dialect
-    """
+    """Attributes of comma delimited values (CSV) data formatting"""
     def __init__(self, metadata, time_format='std_time'):
         super().__init__(metadata, time_format)
 
@@ -142,6 +149,7 @@ class CSVWriter(WriterBase):
 
 
 class JSONWriter(WriterBase):
+    """Attributes of JSON key-value data formatting"""
     def __init__(self, metadata, time_format='std_time'):
         super().__init__(metadata, time_format)
 
