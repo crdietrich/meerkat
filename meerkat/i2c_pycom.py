@@ -156,5 +156,6 @@ class WrapI2C:
         -------
         n bit values
         """
-        #
-        return self.bus.readfrom_mem(self.bus_addr, reg_addr, n)
+
+        self.write_byte(reg_addr)
+        return self.read_n_bytes(n)
