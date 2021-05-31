@@ -22,7 +22,7 @@ print(rtc.get_temp())
 print('-'*40 + '\n')
 
 print('DS3221 RTC Metadata:')
-print(rtc.json_writer.metadata)
+print(rtc.json_writer._metadata)
 print('-'*40 + '\n')
 
 print('Publish JSON data:')
@@ -34,7 +34,7 @@ print('-'*40 + '\n')
 """
 # uncomment to run write tests
 # On PyCom or PyBoard this
-# will write to the main flash drive, so 
+# will write to the main flash drive, so
 # by default this is commented out to
 # preserve limited space on the drive
 
