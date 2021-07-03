@@ -1,13 +1,27 @@
-#!/usr/bin/env python3
+"""Sensirion SPS30 Particulate Matter Sensor
+Chapter references (chr x.x) to Datasheet version '1.0 - D1 - March 2020'
+2021 Colin Dietrich"""
 
-from smbus2 import SMBus, i2c_msg
+from meerkat.base import I2C, time
+from meerkat.data import Meta, CSVWriter, JSONWriter
+
 import struct
-from time import sleep
 
-def calculateCRC(input):
+
+def CRC_calc(data):
+    """Calculate the CRC checksum for 2-byte packets. See ch 6.2
+    
+    Parameters
+    ----------
+    data : sequence of 2 bytes
+    
+    Returns
+    -------
+    int, CRC check sum
+    """
     crc = 0xFF
     for i in range (0, 2):
-        crc = crc ^ input[i]
+        crc = crc ^ data[i]
         for j in range(8, 0, -1):
             if crc & 0x80:
                 crc = (crc << 1) ^ 0x31
@@ -16,206 +30,325 @@ def calculateCRC(input):
     crc = crc & 0x0000FF
     return crc
 
-def checkCRC(result):
-    for i in range(2, len(result), 3):
-        data = []
-        data.append(result[i-2])
-        data.append(result[i-1])
-
-        crc = result[i]
-
-        if crc == calculateCRC(data):
-            crc_result = True
+def CRC_check(data, verbose=False):
+    """Check that all values received are uncorrupted by matching
+    the CRC checksum byte
+    
+    Parameters
+    ----------
+    data : sequence of data, 3 per data value where 
+        bytes 0 and 1 are data
+        byte 2 is the CRC checksum bytes
+        
+    Returns
+    -------
+    sequence of data values with checksum removed
+    or
+    None if sequence is corrupt and does not match checksum
+    """
+    d = []
+    for i in range(2, len(data), 3):
+        crc = data[i]
+        n0 = data[i-2]
+        n1 = data[i-1]
+        crc_calc = CRC_calc([n0, n1])
+        if verbose:
+            print('crc:', crc, 'crc_calc:', crc_calc)
+        if (crc_calc == crc): # & (n0 != 0) & (n1 != 0):
+            d.append(n0)
+            d.append(n1)
         else:
-            crc_result = False
-    return crc_result
+            return d
+    return d
 
-def bytes_to_int(bytes):
-    result = 0
-    for b in bytes:
-        result = result * 256 + int(b)
-    return result
+def ascii_check(ordinal):
+    if (ordinal > 31) & (ordinal < 127):
+        return True
+    else:
+        return False
 
-def convertPMValues(value):
-    string_value = str(hex(value)).replace("0x", "")
+def ascii_join(data):
+    """Convert sequence of numbers to ASCII characters"""
+    return ''.join([chr(n) for n in data])
 
-    byte_value = bytes.fromhex(string_value)
-
-    return struct.unpack('>f', byte_value)[0]
 
 class SPS30():
-    SPS_ADDR = 0x69
+    def __init__(self, bus_n, bus_addr=0x69, output_format='float', output='csv', name='SPS30'):
+        """Initialize worker device on i2c bus.
 
-    START_MEAS   = [0x00, 0x10]
-    STOP_MEAS    = [0x01, 0x04]
-    R_DATA_RDY   = [0x02, 0x02]
-    R_VALUES     = [0x03, 0x00]
-    RW_AUTO_CLN  = [0x80, 0x04]
-    START_CLN    = [0x56, 0x07]
-    R_ARTICLE_CD = [0xD0, 0x25]
-    R_SERIAL_NUM = [0xD0, 0x33]
-    RESET        = [0xD3, 0x04]
+        Parameters
+        ----------
+        bus_n : int, i2c bus number on Controller
+        bus_addr : int, i2c bus number of this Worker device
+        """
 
-    NO_ERROR = 1
-    ARTICLE_CODE_ERROR = -1
-    SERIAL_NUMBER_ERROR = -2
-    AUTO_CLN_INTERVAL_ERROR = -3
-    DATA_READY_FLAG_ERROR = -4
-    MEASURED_VALUES_ERROR = -5
-
-    dict_values = {"pm1p0"  : None,
-                   "pm2p5"  : None,
-                   "pm4p0"  : None,
-                   "pm10p0" : None,
-                   "nc0p5"  : None,
-                   "nc1p0"  : None,
-                   "nc2p5"  : None,
-                   "nc4p0"  : None,
-                   "nc10p0" : None,
-                   "typical": None}
-
-    def __init__(self, port):
-        self.bus = SMBus(port)
-
-    def read_article_code(self):
-        result = []
-        article_code = []
-
-        write = i2c_msg.write(self.SPS_ADDR, self.R_ARTICLE_CD)
-        self.bus.i2c_rdwr(write)
-
-        read = i2c_msg.read(self.SPS_ADDR, 48)
-        self.bus.i2c_rdwr(read)
-
-        for i in range(read.len):
-            result.append(bytes_to_int(read.buf[i]))
-
-        if checkCRC(result):
-            for i in range (2, len(result), 3):
-                article_code.append(chr(result[i-2]))
-                article_code.append(chr(result[i-1]))
-            return str("".join(article_code))
-        else:
-            return self.ARTICLE_CODE_ERROR
-
-    def read_device_serial(self):
-        result = []
-        device_serial = []
-
-        write = i2c_msg.write(self.SPS_ADDR, self.R_SERIAL_NUM)
-        self.bus.i2c_rdwr(write)
-
-        read = i2c_msg.read(self.SPS_ADDR, 48)
-        self.bus.i2c_rdwr(read)
-
-        for i in range(read.len):
-            result.append(bytes_to_int(read.buf[i]))
-
-        if checkCRC(result):
-            for i in range(2, len(result), 3):
-                device_serial.append(chr(result[i-2]))
-                device_serial.append(chr(result[i-1]))
-            return str("".join(device_serial))
-        else:
-            return self.SERIAL_NUMBER_ERROR
-
-    def read_auto_cleaning_interval(self):
-        result = []
-
-        write = i2c_msg.write(self.SPS_ADDR, self.RW_AUTO_CLN)
-        self.bus.i2c_rdwr(write)
-
-        read = i2c_msg.read(self.SPS_ADDR, 6)
-        self.bus.i2c_rdwr(read)
-
-        for i in range(read.len):
-            result.append(bytes_to_int(read.buf[i]))
-
-        if checkCRC(result):
-            result = result[0] * pow(2, 24) + result[1] * pow(2, 16) + result[3] * pow(2, 8) + result[4]
-            return result
-        else:
-            return self.AUTO_CLN_INTERVAL_ERROR
-
-    def set_auto_cleaning_interval(self, seconds):
-        self.RW_AUTO_CLN.append((seconds >> 24) & 0xFF)
-        self.RW_AUTO_CLN.append((seconds >> 16) & 0xFF)
-
-        self.RW_AUTO_CLN.append(calculateCRC(self.RW_AUTO_CLN[2:4]))
-
-        self.RW_AUTO_CLN.append((seconds >> 8) & 0xFF)
-        self.RW_AUTO_CLN.append(seconds & 0xFF)
-
-        self.RW_AUTO_CLN.append(calculateCRC(self.RW_AUTO_CLN[5:7]))
-
-        write = i2c_msg.write(self.SPS_ADDR, self.RW_AUTO_CLN)
-        self.bus.i2c_rdwr(write)
-
-    def start_fan_cleaning(self):
-        write = i2c_msg.write(self.SPS_ADDR, self.START_CLN)
-        self.bus.i2c_rdwr(write)
-
+        self.output_format = None
+        
+        # i2c bus
+        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        
+        # information about this device
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'SPS30 Particulate Matter Sensor'
+        self.metadata.urls = 'https://www.sensirion.com/en/environmental-sensors/particulate-matter-sensors-pm25'
+        self.metadata.manufacturer = 'Sensirion'
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = hex(bus_addr)
+        self.metadata.speed_warning = 0
+        self.metadata.laser_error = 0
+        self.metadata.fan_error = 0
+        
+        self.set_format(output_format)
+        
+        # data recording information
+        self.sample_id = None
+        
+        self.writer_output = output
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+    
+    def set_format(self, output_format):
+        """Set output format to either float or integer.
+        
+        Parameters
+        ----------
+        output_format : str, either 'int' or 'float' where
+            'int' = Big-endian unsigned 16-bit integer values
+            'float' = Big-endian IEEE754 float values
+        """
+        self.output_format = output_format
+        
+        self.metadata.header = ['description', 'sample_n', 'mc_pm1.0', 'mc_pm2.5', 'mc_pm4.0', 'mc_pm10', 
+                   'nc_pm0.5', 'nc_pm1.0', 'nc_pm2.5', 'nc_pm4.0', 'nc_pm10', 'typical_partical_size']
+        _units = [None, 'count'] + ['µg/m3']*4 + ['#/cm3']*5
+        
+        self.metadata.precision = [None, 1, '+/-10', '+/-10', '+/-25', '+/-25', '+/-1.25', '+/-1.25']
+        self.metadata.range     = [None, None, '0.3-1.0', '0.3-2.5', '0.3-4.0', '0.3-10',
+                                   '0.3-0.5', '0.3-1.0', '0.3-2.5', '0.3-4.0', '0.3-10.0', '0-3000']
+        self.metadata.mass_concentration_range = '0-1000µg/m3'
+        self.metadata.number_concentration_range = '0-3000 #/cm3'
+        self.metadata.accuracy  = [None, 1] + ['NA'] * 10
+        
+        if output_format == 'int':
+            self.metadata.dtype     = ['str', 'int'] + ['int'] * 10
+            self.metadata.units     = _units + ['nm']
+            
+        if output_format == 'float':
+            self.metadata.dtype     = ['str', 'int'] + ['float'] * 10
+            self.metadata.units     = _units + ['µm']
+        
     def start_measurement(self):
-        self.START_MEAS.append(0x03)
-        self.START_MEAS.append(0x00)
-
-        crc = calculateCRC(self.START_MEAS[2:4])
-        self.START_MEAS.append(crc)
-
-        write = i2c_msg.write(self.SPS_ADDR, self.START_MEAS)
-        self.bus.i2c_rdwr(write)
-
+        """Start measurement and set the output format. See ch 6.3.1
+        
+        Parameters
+        ----------
+        output_format : str, either 'int' or 'float' where
+            'int' = Big-endian unsigned 16-bit integer values
+            'float' = Big-endian IEEE754 float values
+        """
+        command = {'int': [0x05, 0x00, 0xF6],
+                   'float': [0x03, 0x00, 0xAC]}[self.output_format]
+        self.bus.write_n_bytes([0x00, 0x10] + command)
+    
     def stop_measurement(self):
-        write = i2c_msg.write(self.SPS_ADDR, self.STOP_MEAS)
-        self.bus.i2c_rdwr(write)
-
-    def read_data_ready_flag(self):
-        result = []
-
-        write = i2c_msg.write(self.SPS_ADDR, self.R_DATA_RDY)
-        self.bus.i2c_rdwr(write)
-
-        read = i2c_msg.read(self.SPS_ADDR, 3)
-        self.bus.i2c_rdwr(read)
-
-        for i in range(read.len):
-            result.append(bytes_to_int(read.buf[i]))
-
-        if checkCRC(result):
-            return result[1]
+        """Stop measurement. See ch 6.3.2"""
+        self.bus.write_n_bytes([0x01, 0x04])
+    
+    def data_ready(self):
+        """Read Data-Ready Flag. See ch 6.3.3"""
+        self.bus.write_n_bytes([0x02, 0x02])
+        time.sleep(0.1)
+        d = self.bus.read_n_bytes(3)
+        d = CRC_check(d)
+        if d[1] == 0x00:
+            return False
+        elif d[1] == 0x01:
+            return True
+        
+    def measured_values_blocking(self, dt=1, timeout=30, continuous=False, verbose=False):
+        """Block and poll until new data is available
+        
+        Parameters
+        ----------
+        dt : int, seconds to pause between polling requests
+        timeout : int, maximum seconds to poll
+        continuous : bool, if True do not stop measurement to read latest data
+        verbose : bool, print debug statements
+        """
+        self.start_measurement()
+        time.sleep(dt)
+        
+        t0 = time.time()
+        while (time.time() - t0 < timeout):
+            if self.data_ready():
+                self.stop_measurement()
+                return self.measured_values()
+            time.sleep(dt)
+            if verbose:
+                print('waiting...')
+        return False
+    
+    def measured_values(self):
+        """Read measured values. See ch 6.3.4 for I2C method 
+        and ch 4.3 for format"""
+        byte_number = {'int': 30, 'float': 60}[self.output_format]
+        self.bus.write_n_bytes([0x03, 0x00])
+        time.sleep(0.1)
+        d = self.bus.read_n_bytes(byte_number)
+        d = CRC_check(d)
+        if self.output_format == 'float':
+            d_f = []
+            for n in range(0, len(d), 4):
+                d_f.append(struct.unpack('>f', bytes(d[n:n+4]))[0])
+            return d_f
+        elif self.output_format == 'int':
+            d_i = []
+            for n in range(0, len(d), 2):
+                d_i.append(struct.unpack('>h', bytes(d[n:n+2]))[0])
+            return d_i
+        # for just the bytes, set self.output_format == None
         else:
-            return self.DATA_READY_FLAG_ERROR
+            return d
+    
+    def sleep(self):
+        """Put sesnor to sleep. See ch 6.3.5"""
+        self.bus.write_n_bytes([0x10, 0x01])
+    
+    def wake(self):
+        """Power sensor up from sleep state. See ch 6.3.6"""
+        self.bus.write_n_bytes([0x11, 0x03])
+        self.bus.write_n_bytes([0x11, 0x03])
+    
+    def start_fan_cleaning(self):
+        """Start fan cleaning cycle. See ch 6.3.7"""
+        self.bus.write_n_bytes([0x56, 0x07])
+    
+    def read_cleaning_interval(self):
+        """Read the fan cleaning cycle. See ch 6.3.8"""
+        self.bus.write_n_bytes([0x80, 0x04])
+        time.sleep(0.1)
+        d = self.bus.read_n_bytes(6)
+        d = CRC_check(d)
+        return int((d[0] << 16) | d[1])
+    
+    def write_cleaning_interval(self, interval):
+        """Write the cleaning interval. See ch 6.3.8 and 4.2"""
+        i_msb = interval >> 16
+        i_lsb = interval & (2**16 -1)
+        self.bus.write_n_bytes([0x80, 0x04, i_msb, i_lsb])    
+    
+    def product_type(self):
+        """Read product type. See ch 6.3.9"""
+        self.bus.write_n_bytes([0XD0, 0X02])
+        time.sleep(0.1)
+        d = self.bus.read_n_bytes(12)
+        d = CRC_check(d)
+        d = [chr(x) for x in d if ascii_check(x)]
+        return ''.join(d)
+    
+    def serial(self):
+        """Read device serial number. See ch 6.3.9"""
+        self.bus.write_n_bytes([0xD0, 0x33])
+        time.sleep(0.1)
+        d = self.bus.read_n_bytes(48)
+        d = CRC_check(d)
+        d = [chr(x) for x in d if ascii_check(x)]
+        return ''.join(d)
+    
+    def version(self):
+        """Get firmware version in major.minor notation. See ch 6.3.10"""
+        self.bus.write_n_bytes([0xD1, 0x00])
+        d = CRC_check(d)
+        d = [chr(x) for x in d if ascii_check(x)]
+        return '.'.join(d)
+    
+    def status(self):
+        """Get status device status. See ch 4.4"""
+        self.bus.write_n_bytes([0xD2, 0x06])
+        time.sleep(0.1)
+        d = self.bus.read_n_bytes(6)
+        d = CRC_check(d)
+        d = (d[0] << 8) + d[1]
+        self.metadata.speed_warning = d & (1 << 21 -1)
+        self.metadata.laser_error = d & (1 << 5 -1)
+        self.metadata.fan_error = d & (1 << 4 -1)
+        return (self.metadata.speed_warning, 
+                self.metadata.laser_error,
+                self.metadata.fan_error)
+        
+    def status_clear(self):
+        """Clear device status. See ch 6.3.12"""
+        self.bus.write_n_bytes([0xD2, 0x10])
+    
+    def reset(self):
+        """Reset device. See ch 6.3.13"""
+        self.bus.write_n_bytes([0xD3, 0x04])
 
-    def read_measured_values(self):
-        result = []
-
-        write = i2c_msg.write(self.SPS_ADDR, self.R_VALUES)
-        self.bus.i2c_rdwr(write)
-
-        read = i2c_msg.read(self.SPS_ADDR, 60)
-        self.bus.i2c_rdwr(read)
-
-        for i in range(read.len):
-            result.append(bytes_to_int(read.buf[i]))
-
-        if checkCRC(result):
-            self.parse_sensor_values(result)
-            return self.NO_ERROR
+    def publish(self, description='NA', n=1, delay=None, blocking=True):
+        """Get measured air partical data and output in JSON, 
+        plus metadata at intervals set by self.metadata_interval
+        
+        Parameters
+        ----------
+        description : str, description of data collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+        blocking : bool, if True wait until data is ready. If False, 
+            self.start_measurement and self.stop_measurement must be 
+            called externally to this method.
+        
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description : str
+            n : sample number in this burst
+            and values as described in self.metadata.header
+        """
+        
+        if blocking:
+            get = self.measured_values_blocking
         else:
-            return self.MEASURED_VALUES_ERROR
+            get = self.measured_values
+        
+        data_list = []
+        for m in range(n):
+            data_list.append(self.json_writer.publish([description, m] + get()))
+            if n == 1:
+                return data_list[0]
+            if delay is not None:
+                time.sleep(delay)
+        return data_list
 
-    def device_reset(self):
-        write = i2c_msg.write(self.SPS_ADDR, self.RESET)
-        self.bus.i2c_rdwr(write)
-        sleep(1)
+    def write(self, description='NA', n=1, delay=None, blocking=True):
+        """Get measured air partical data and save to file, 
+        formatted as either CSV with extension .csv or 
+        JSON and extension .jsontxt.
 
-    def parse_sensor_values(self, input):
-        index = 0
-        pm_list = []
-        for i in range (4, len(input), 6):
-            value = input[i] + input[i-1] * pow(2, 8) +input[i-3] * pow(2, 16) + input[i-4] * pow(2, 24)
-            pm_list.append(value)
+        Parameters
+        ----------
+        description : str, description of data collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+        blocking : bool, if True wait until data is ready. If False, 
+            self.start_measurement and self.stop_measurement must be 
+            called externally to this method.
 
-        for i in self.dict_values.keys():
-            self.dict_values[i] = convertPMValues(pm_list[index])
-            index += 1
+        Returns
+        -------
+        None, writes to disk the following data:
+            description : str
+            n : sample number in this burst
+            and values as described in self.metadata.header
+        """
+        
+        if blocking:
+            get = self.measured_values_blocking
+        else:
+            get = self.measured_values
+            
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for m in range(n):
+            wr.write([description, m] + get())
+            if delay is not None:
+                time.sleep(delay)
