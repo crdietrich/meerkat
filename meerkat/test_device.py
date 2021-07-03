@@ -1,6 +1,7 @@
 """Test device for development"""
 
-from meerkat.base import Base, TimePiece, time
+from meerkat.base import Base, time
+from meerkat.timepiece import TimePiece
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 # TODO: make safe for MicroPython, leave here for now in Conda

@@ -10,7 +10,8 @@ from meerkat import bme680
 from meerkat import mcp9808
 from meerkat import ds3231
 
-from meerkat.base import time, i2c_default_bus, TimePiece
+from meerkat.base import time, i2c_default_bus
+from meerkat.timepiece import TimePiece
 
 bme = bme680.BME680(bus_n=i2c_default_bus)
 mcp = mcp9808.MCP9808(bus_n=i2c_default_bus)

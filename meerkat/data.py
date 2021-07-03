@@ -1,7 +1,8 @@
 """CSV and JSON writing and publishing methods"""
 
 
-from meerkat.base import Base, TimePiece, json
+from meerkat.base import Base, json
+from meerkat.timepiece import TimePiece
 
 
 class Meta(Base):
