@@ -79,6 +79,7 @@ I2C_FUNCS   = 0x0705    # Get the adapter functionality
 I2C_RDWR    = 0x0707    # Combined R/W transfer (one stop only)
 
 import sys
+import time
 from contextlib import closing
 import posix
 from fcntl import ioctl
@@ -161,9 +162,13 @@ class I2CController(object):
         msg_count = len(msgs)
         msg_array = (i2c_msg*msg_count)(*msgs)
         ioctl_arg = i2c_rdwr_ioctl_data(msgs=msg_array, nmsgs=msg_count)
-
-        ioctl(self.fd, I2C_RDWR, ioctl_arg)
-
+        
+        try:
+            ioctl(self.fd, I2C_RDWR, ioctl_arg)
+        except OSError:
+            time.sleep(0.5)  # if the bus has an error, wait and try again
+            ioctl(self.fd, I2C_RDWR, ioctl_arg)
+            
         return [i2c_msg_to_bytes(m) for m in msgs if (m.flags & I2C_M_RD)]
 
     def get(self, addr, n_bytes):
