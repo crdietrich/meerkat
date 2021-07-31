@@ -9,7 +9,7 @@ import struct
 
 
 def CRC_calc(data):
-    """Calculate the CRC checksum for 2-byte packets. See ch 6.2
+    """Sensirion Common CRC checksum for 2-byte packets. See ch 6.2
     
     Parameters
     ----------
@@ -31,8 +31,10 @@ def CRC_calc(data):
     return crc
 
 def CRC_check(data, verbose=False):
-    """Check that all values received are uncorrupted by matching
-    the CRC checksum byte
+    """Apply the Sensirion Common CRC checksum for 2-byte packets
+    to a byte array. Check that all values received are uncorrupted 
+    by matching the CRC checksum byte (third after 2 data bytes) and 
+    returning the data bytes.
     
     Parameters
     ----------
@@ -54,7 +56,7 @@ def CRC_check(data, verbose=False):
         crc_calc = CRC_calc([n0, n1])
         if verbose:
             print('crc:', crc, 'crc_calc:', crc_calc)
-        if (crc_calc == crc): # & (n0 != 0) & (n1 != 0):
+        if (crc_calc == crc):
             d.append(n0)
             d.append(n1)
         else:
@@ -155,7 +157,12 @@ class SPS30():
         self.bus.write_n_bytes([0x01, 0x04])
     
     def data_ready(self):
-        """Read Data-Ready Flag. See ch 6.3.3"""
+        """Read Data-Ready Flag. See ch 6.3.3
+        
+        Returns
+        -------
+        bool, True if data is ready, otherwise False
+        """
         self.bus.write_n_bytes([0x02, 0x02])
         time.sleep(0.1)
         d = self.bus.read_n_bytes(3)
