@@ -18,7 +18,13 @@ class WrapI2C:
         """
         self.bus = I2C(bus_n, I2C.MASTER, baudrate=frequency)
         self.bus_addr = bus_addr
+    """
+    def start(self):
+        self.bus.start()
 
+    def stop(self):
+        self.bus.stop()
+    """
     def scan(self):
         """Scan I2C bus for devices
 
