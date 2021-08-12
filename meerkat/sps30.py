@@ -293,9 +293,9 @@ class SPS30():
         d = self.bus.read_n_bytes(6)
         d = CRC_check(d)
         d = (d[0] << 8) + d[1]
-        self.metadata.speed_warning = d & (1 << 21 -1)
-        self.metadata.laser_error = d & (1 << 5 -1)
-        self.metadata.fan_error = d & (1 << 4 -1)
+        self.metadata.speed_warning = d >> 21 & 1
+        self.metadata.laser_error   = d >> 5 & 1
+        self.metadata.fan_error     = d >> 4 & 1
         return (self.metadata.speed_warning,
                 self.metadata.laser_error,
                 self.metadata.fan_error)
