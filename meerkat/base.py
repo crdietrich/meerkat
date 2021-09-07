@@ -5,6 +5,7 @@ import sys
 if sys.platform == 'linux':
     import json
     import time
+    import struct
 
     from meerkat import i2c_pi
 
@@ -26,6 +27,7 @@ if sys.platform == 'linux':
 elif sys.platform in ['FiPy']:
     import ujson as json
     import utime as time
+    import ustruct as struct
 
     from meerkat import i2c_pycom
 
@@ -45,6 +47,7 @@ elif sys.platform in ['FiPy']:
 elif sys.platform in ['pyboard', 'OpenMV3-M7']:
     import ujson as json
     import utime as time
+    import ustruct as struct
 
     from meerkat import i2c_pyboard
 
