@@ -585,7 +585,9 @@ class BME680:
         p = self.pressure()
         h = self.humidity()
         g = self.gas()
-        return [description, n, t, p, h, g, self._gas_valid, self._heat_stab]
+        d = [t, p, h, g]
+        d = [round(n, 2) for n in d]
+        return [description, n] + d + [self._gas_valid, self._heat_stab]
 
     def publish(self, description='NA', verbose=False):
         """Get one sample of data in JSON.

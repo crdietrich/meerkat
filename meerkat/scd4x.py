@@ -125,7 +125,9 @@ class SCD4x():
         t = -45 + 175 * t / 2**16
         rh = 100 * rh / 2**16
         
-        return co2, t, rh
+        d = [co2, t, rh]
+        d = [round(n, 2) for n in d]
+        return d
         
     def stop_periodic_measurement(self):
         """Stop periodic measurement to change configuration or 

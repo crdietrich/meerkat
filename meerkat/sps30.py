@@ -222,6 +222,7 @@ class SPS30():
             d_f = []
             for n in range(0, len(d), 4):
                 d_f.append(struct.unpack('>f', bytes(d[n:n+4]))[0])
+            d_f = [round(n, 2) for n in d_f]
             return d_f
         elif self.output_format == 'int':
             d_i = []
