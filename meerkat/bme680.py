@@ -25,7 +25,7 @@ def _read24(arr):
 
 
 class BME680:
-    def __init__(self, bus_n, bus_addr=0x77, output='csv', name='BME680'):
+    def __init__(self, bus_n, bus_addr=0x77, output='csv', sensor_id='BME680'):
         """Initialize worker device on i2c bus.
 
         For register memory map, see datasheet pg 28, section 5.2
@@ -34,6 +34,8 @@ class BME680:
         ----------
         bus_n : int, i2c bus number on Controller
         bus_addr : int, i2c bus number of this Worker device
+        output : str, writer output format, either 'csv' or 'json'
+        sensor_id : str, sensor id, 'BME680' by default
         """
 
         # i2c bus
@@ -117,23 +119,25 @@ class BME680:
         self._min_refresh_time = 1 / self.refresh_rate
 
         # information about this device
-        self.metadata = Meta(name=name)
+        self.metadata = Meta(name='BME680')
         self.metadata.description = 'Bosch Humidity, Pressure, Temperature, VOC Sensor'
         self.metadata.urls = 'https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/'
         self.metadata.manufacturer = 'Bosch Sensortec'
 
-        self.metadata.header    = ['description', 'sample_n', 'T',       'P',            'RH',       'g_res', 'g_val', 'heat_stab']
-        self.metadata.dtype     = ['str',         'int',      'float',   'float',        'float',    'float', 'bool',  'bool']
-        self.metadata.units     = [None,          'count',    'Celcius', 'hectopascals', 'percent',  'ohms',   None,   None, ]
-        self.metadata.accuracy  = [None,          1,          '+/-1.0',  '+/-0.12',      '+/-3',     '+/-15%', None,   None]
-        self.metadata.precision = [None,          1,          0.1,       0.18,           0.008,       0.08,    None,   None]
-
+        self.metadata.header    = ['system_id', 'sensor_id', 'description', 'sample_n', 'T',       'P',            'RH',       'g_res',  'g_val', 'heat_stab']
+        self.metadata.dtype     = ['str',       'str',       'str',         'int',      'float',   'float',        'float',    'float',  'bool',  'bool']
+        self.metadata.units     = ['NA',        'NA',        'NA',          'count',    'Celcius', 'hectopascals', 'percent',  'ohms',    'NA',   'NA', ]
+        self.metadata.accuracy  = ['NA',        'NA',        'NA',          '1',         '+/-1.0',  '+/-0.12',      '+/-3',     '+/-15%', 'NA',   'NA']
+        self.metadata.precision = ['NA',        'NA',        'NA',          '1',         '0.1',     '0.18',         '0.008',    '0.08',   'NA',   'NA']
         self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
 
-        # data recording method
+        # data recording information
+        self.system_id = None
+        self.sensor_id = sensor_id
+        
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer   = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
         self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
 
     def read_calibration(self):
@@ -587,7 +591,7 @@ class BME680:
         g = self.gas()
         d = [t, p, h, g]
         d = [round(n, 2) for n in d]
-        return [description, n] + d + [self._gas_valid, self._heat_stab]
+        return [self.system_id, self.sensor_id, description, n] + d + [self._gas_valid, self._heat_stab]
 
     def publish(self, description='NA', verbose=False):
         """Get one sample of data in JSON.

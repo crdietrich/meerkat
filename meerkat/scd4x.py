@@ -63,40 +63,43 @@ def CRC_check(data, verbose=False):
 
 
 class SCD4x():
-    def __init__(self, bus_n, bus_addr=0x62, output='csv', name='SCD4x'):
+    def __init__(self, bus_n, bus_addr=0x62, output='csv', sensor_id='SCD4x'):
         """Initialize worker device on i2c bus.
 
         Parameters
         ----------
         bus_n : int, i2c bus number on Controller
         bus_addr : int, i2c bus number of this Worker device
+        output : str, writer output format, either 'csv' or 'json'
+        sensor_id : str, sensor id, 'BME680' by default
         """
 
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
         
         # information about this device
-        self.metadata = Meta(name=name)
+        self.metadata = Meta(name='SCD4x')
         self.metadata.description = 'SCD4x CO2 gas Sensor'
         self.metadata.urls = 'https://www.sensirion.com/en/environmental-sensors/carbon-dioxide-sensors/carbon-dioxide-sensor-scd4x/'
         self.metadata.manufacturer = 'Sensirion'
         
-        self.metadata.header    = ['description', 'sample_n', 'co2', 'tC', 'rh']
-        self.metadata.dtype     = ['str', 'int', 'int', 'float', 'int']
-        self.metadata.units     = [None, 'count', 'ppm', 'degrees Celsius', 'percent']
-        self.metadata.accuracy  = [None, 1, None, '+/- 40 + 5%', '+/- 1.5', '+/- 0.4']
-        self.metadata.precision = [None, 1, None, '+/- 10', '+/- 0.1' '+/- 0.4']
-        self.metadata.range     = [None, None, '0-40000', '-10-60', '0-100']
+        self.metadata.header    = ['system_id', 'sensor_id', 'description', 'sample_n', 'co2',         'tC',              'rh']
+        self.metadata.dtype     = ['str',       'str',       'str',         'int',      'int',         'float',           'int']
+        self.metadata.units     = ['NA',        'NA',        'NA',          'count',    'ppm',         'degrees Celsius', 'percent']
+        self.metadata.accuracy  = ['NA',        'NA',        'NA',          '1',        '+/- 40 + 5%', '+/- 1.5',         '+/- 0.4']
+        self.metadata.precision = ['NA',        'NA',        'NA',          'NA',       '+/- 10',      '+/- 0.1',         '+/- 0.4']
+        self.metadata.range     = ['NA',        'NA',        'NA',          'NA',       '0-40000',     '-10-60',          '0-100']
         
         self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
         
         # data recording information
-        self.sample_id = None
+        self.system_id = None
+        self.sensor_id = sensor_id
         self.dt = None
         
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer  = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
         self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
     
     # Basic Commands, Ch 3.5
@@ -395,7 +398,7 @@ class SCD4x():
         data_list = []
         for m in range(n):
             d = list(get())
-            data_list.append(self.json_writer.publish([description, m] + d))
+            data_list.append(self.json_writer.publish([self.system_id, self.sensor_id, description, m] + d))
             if n == 1:
                 return data_list[0]
             if delay is not None:
@@ -433,6 +436,6 @@ class SCD4x():
               "json": self.json_writer}[self.writer_output]
         for m in range(n):
             d = list(get())
-            wr.write([description, m] + d)
+            wr.write([self.sytem_id, self.sensor_id, self.description, m] + d)
             if delay is not None:
                 time.sleep(delay)

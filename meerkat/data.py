@@ -11,7 +11,7 @@ class Meta(Base):
 
         # device/source specific descriptions
         self.name         = name  # name of data source being recorded
-        self.source_desc  = None  # description of the data source being recorded
+        self.description  = None  # description of the data source being recorded
         self.urls         = None  # URL(s) for data source reference
         self.manufacturer = None  # manufacturer of device/source of data
         self.state        = None  # general status of driver
@@ -54,10 +54,10 @@ class WriterBase(Base):
         self.licenses        = None     # if there's licensing restrictions
 
         # file formatting conventions
-        self.line_terminator = '\n'     #
-        self.quote_char      = '"'      # note: in JSON, a quote will be "\""
-        self.double_quote    = True     #
-        self.escape_char     = '\\'     # note: \\ to escape \ in JSON... meta.
+        #self.line_terminator = '\\n'    # note: in JSON, this will load as '\n' into a dict
+        #self.quote_char      = '"'     # note: in JSON, a quote will be "\""
+        #self.double_quote    = True     #
+        #self.escape_char     = '\\'    # note: \\ to escape \ in JSON... meta.
         self.null_sequence   = 'NA'     #
         self.comment         = '#'      #
 

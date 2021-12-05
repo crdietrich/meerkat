@@ -79,13 +79,17 @@ def ascii_join(data):
 
 
 class SPS30():
-    def __init__(self, bus_n, bus_addr=0x69, output_format='float', output='csv', name='SPS30'):
+    def __init__(self, bus_n, bus_addr=0x69, output_format='float', output='csv', sensor_id='SPS30'):
         """Initialize worker device on i2c bus.
 
         Parameters
         ----------
         bus_n : int, i2c bus number on Controller
         bus_addr : int, i2c bus number of this Worker device
+        output_format : str, what format measurements will be returned in
+            either 'float' or 'int'
+        output : str, writer output format, either 'csv' or 'json'
+        sensor_id : str, sensor id, 'BME680' by default
         """
 
         self.output_format = None
@@ -94,7 +98,7 @@ class SPS30():
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
 
         # information about this device
-        self.metadata = Meta(name=name)
+        self.metadata = Meta(name='SPS30')
         self.metadata.description = 'SPS30 Particulate Matter Sensor'
         self.metadata.urls = 'https://www.sensirion.com/en/environmental-sensors/particulate-matter-sensors-pm25'
         self.metadata.manufacturer = 'Sensirion'
@@ -107,7 +111,8 @@ class SPS30():
         self.set_format(output_format)
 
         # data recording information
-        self.sample_id = None
+        self.system_id = None
+        self.sensor_id = sensor_id
         self.blocking_settle_dt = 15  # seconds
         self.blocking_timeout   = 30  # seconds
 
@@ -125,24 +130,25 @@ class SPS30():
             'float' = Big-endian IEEE754 float values
         """
         self.output_format = output_format
-
-        self.metadata.header = ['description', 'sample_n', 'mc_pm1.0', 'mc_pm2.5', 'mc_pm4.0', 'mc_pm10',
-                   'nc_pm0.5', 'nc_pm1.0', 'nc_pm2.5', 'nc_pm4.0', 'nc_pm10', 'typical_partical_size']
-        _units = [None, 'count'] + ['µg/m3']*4 + ['#/cm3']*5
-
-        self.metadata.precision = [None, 1, '+/-10', '+/-10', '+/-25', '+/-25', '+/-1.25', '+/-1.25']
-        self.metadata.range     = [None, None, '0.3-1.0', '0.3-2.5', '0.3-4.0', '0.3-10',
-                                   '0.3-0.5', '0.3-1.0', '0.3-2.5', '0.3-4.0', '0.3-10.0', '0-3000']
-        self.metadata.mass_concentration_range = '0-1000µg/m3'
+        
+        # Note: precision reported is for the lower of the two concentration ranges listed in the datasheet
+        self.metadata.header    = ['system_id', 'sensor_id', 'description', 'sample_n', 'mc_pm_1_0', 'mc_pm_2_5', 'mc_pm_4_0', 'mc_pm_10', 'nc_pm_0_5', 'nc_pm_1_0', 'nc_pm_2_5', 'nc_pm_4_0', 'nc_pm_10', 'typical_partical_size']
+        self.metadata.range     = ['NA',        'NA',        'NA',          'NA',       '0.3-1.0',   '0.3-2.5',   '0.3-4.0',   '0.3-10',   '0.3-0.5',   '0.3-1.0',   '0.3-2.5',   '0.3-4.0',   '0.3-10.0', '0-3000']
+        self.metadata.precision = ['NA',        'NA',        'NA',          '1',        '+/-10',     '+/-10',     '+/-25',     '+/-25',    '+/-100',    '+/-100',    '+/-100',    '+/-250',    '+/-250',   '1']
+        
+        self.metadata.mass_concentration_range   = '0-1000µg/m3'
         self.metadata.number_concentration_range = '0-3000 #/cm3'
-        self.metadata.accuracy  = [None, 1] + ['NA'] * 10
-
+        
+        # Note: accuracy is not specified from the manufacturer, calibration required to report accuracy
+        self.metadata.accuracy  = ['NA', 'NA', 'NA', '1'] + ['NA'] * 10
+        
+        _units = ['NA', 'NA', 'NA', 'count'] + ['µg/m3']*4 + ['#/cm3']*5
         if output_format == 'int':
-            self.metadata.dtype     = ['str', 'int'] + ['int'] * 10
+            self.metadata.dtype     = ['str', 'str', 'str', 'int'] + ['int'] * 10
             self.metadata.units     = _units + ['nm']
-
+            
         if output_format == 'float':
-            self.metadata.dtype     = ['str', 'int'] + ['float'] * 10
+            self.metadata.dtype     = ['str', 'str', 'str', 'int'] + ['float'] * 10
             self.metadata.units     = _units + ['µm']
 
     def start_measurement(self):
@@ -338,7 +344,8 @@ class SPS30():
 
         data_list = []
         for m in range(n):
-            data_list.append(self.json_writer.publish([description, m] + get()))
+            _data = self.json_writer.publish([self.system_id, self.sensor_id, description, m] + get())
+            data_list.append(_data)
             if n == 1:
                 return data_list[0]
             if delay is not None:
@@ -376,6 +383,6 @@ class SPS30():
         wr = {"csv": self.csv_writer,
               "json": self.json_writer}[self.writer_output]
         for m in range(n):
-            wr.write([description, m] + get())
+            wr.write([self.system_id, self.sensor_id, description, m] + get())
             if delay is not None:
                 time.sleep(delay)
