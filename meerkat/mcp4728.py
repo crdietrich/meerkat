@@ -49,6 +49,27 @@ class MCP4728(object):
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
         self.udac = 0
         
+        # information about this device
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'MCP4728 12-bit Digitial to Analog Converter'
+        self.metadata.urls = 'http://ww1.microchip.com/downloads/en/DeviceDoc/22187E.pdf'
+        self.metadata.manufacturer = 'Microchip'
+        
+        self.metadata.header    = ['description', 'channel', 'vref',  'vdd',   'power_down', 'gain', 'code']
+        self.metadata.dtype     = ['str',         'str',     'str',   'float', 'str',        'int',  'int']
+        self.metadata.units     = [None,          None,      'volts', 'volts', None,         None,   None]
+        self.metadata.accuracy  = None 
+        self.metadata.precision = 'vref: gain 1 = 0.5mV/LSB, gain 2 = 1mV/LSB; vdd: vdd/4096'
+        
+        self.metadata.bus_n    = bus_n
+        self.metadata.bus_addr = hex(bus_addr)
+
+        # data recording method
+        self.writer_output = output
+        self.csv_writer  = CSVWriter(metadata=self.metadata,  time_format='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        
+        
     def general_call_reset(self):
         """Reset similar to power-on reset. See section 5.4.1."""
         self.bus.write_n_bytes(data=[0x00, 0x06])
