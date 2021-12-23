@@ -3,7 +3,7 @@
 Colin Dietrich, 2021
 """
 
-from meerkat.base import I2C, time
+from meerkat.base import I2C
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -37,8 +37,20 @@ class MCP4728(object):
         
         Note 2
         ------
+        In most I2C cases, v_dd will be either 3.3V or 5.0V. The MCP4728 can
+        handle as much as 24mA current at 5V (0.12W) in short circuit. 
+        By comparison, the Raspberry Pi can source at most 16mA of current 
+        at 3.3V (0.05W). Unless the application output will draw a very 
+        small amount of current, an external (to the I2C bus) voltage source 
+        should probably be used. 
+        See the Adafruit ISO1540 Bidirectional I2C Isolator as a possible solution.
         
-
+        Note 3
+        ------
+        The manufacturer uses the term VDD (Vdd) for external voltage, many other 
+        sources use the term VCC (Vcc). VDD is used here to be consistent with the
+        datasheet, but manufacturers like Adafruit use VCC on the pinouts labels.
+        
         Parameters
         ----------
         bus_n : int, i2c bus number on Controller
@@ -48,6 +60,9 @@ class MCP4728(object):
         # i2c bus
         self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
         self.udac = 0
+        self.state = {'a': None, 'b': None, 
+                      'c': None, 'd': None}
+        self.v_dd = None
         
         # information about this device
         self.metadata = Meta(name=name)
@@ -55,9 +70,9 @@ class MCP4728(object):
         self.metadata.urls = 'http://ww1.microchip.com/downloads/en/DeviceDoc/22187E.pdf'
         self.metadata.manufacturer = 'Microchip'
         
-        self.metadata.header    = ['description', 'channel', 'vref',  'vdd',   'power_down', 'gain', 'code']
-        self.metadata.dtype     = ['str',         'str',     'str',   'float', 'str',        'int',  'int']
-        self.metadata.units     = [None,          None,      'volts', 'volts', None,         None,   None]
+        self.metadata.header    = ['description', 'channel', 'v_ref_source',  'v_dd',   'power_down', 'gain', 'input_code', 'output_voltage']
+        self.metadata.dtype     = ['str',         'str',     'str',           'float',  'str',        'int',  'int', 'float']
+        self.metadata.units     = [None,          None,      None,            'volts',  None,         None,   None, 'volts']
         self.metadata.accuracy  = None 
         self.metadata.precision = 'vref: gain 1 = 0.5mV/LSB, gain 2 = 1mV/LSB; vdd: vdd/4096'
         
@@ -87,14 +102,14 @@ class MCP4728(object):
         self.bus.write_n_bytes(data=[0x00, 0x0C])
         return self.bus.read_byte()
     
-    def single_write(self, channel, vref, power_down, gain, input_code):
+    def set_channel(self, channel, v_ref_source, power_down, gain, input_code, description='no description'):
         """Write single channel output
         
         Parameters
         ----------
         channel : str, either 'a', 'b', 'c' or 'd' corresponding 
             to the output channel
-        vref : str, either 'internal' (2.048V) or 'external'
+        v_ref_source : str, either 'internal' (2.048V/4.096V) or 'external' (VDD)
         power_down : str, either 'normal' or one of the power-down
             resistor to ground values of '1k' '100k' or '500k'
         gain : int, either 1 or 2 for multiplier relative to
@@ -103,17 +118,19 @@ class MCP4728(object):
             output voltage
         """
         
-        channel_map    = {'a': 0b00, 'b': 0b01, 'c': 0b10, 'd': 0b11}
-        vref_map       = {'internal': 1, 'external': 0}
-        power_down_map = {'normal': 0b00, '1k': 0b01, '100k': 0b10, '500k': 0b11}
-        gain_map       = {1: 0, 2: 1}
+        assert self.v_dd is not None, "External reference voltage, `v_dd` is not set."
+        
+        channel_map      = {'a': 0b00, 'b': 0b01, 'c': 0b10, 'd': 0b11}
+        v_ref_source_map = {'internal': 1, 'external': 0}
+        power_down_map   = {'normal': 0b00, '1k': 0b01, '100k': 0b10, '500k': 0b11}
+        gain_map         = {1: 0, 2: 1}
         
         # single write command
         # C2 = 0, C1 = 1, C0 = 0, W1 = 1, W0 = 1
         single_write_command = 0b01011000
         byte_2 = single_write_command + channel_map[channel] + self.udac
         
-        byte_3 = ((vref_map[vref] << 7) + 
+        byte_3 = ((v_ref_source_map[v_ref_source] << 7) + 
                   (power_down_map[power_down] << 5) +
                   (gain_map[gain] << 4) + 
                   (input_code >> 8))
@@ -122,36 +139,142 @@ class MCP4728(object):
         
         self.bus.write_n_bytes(data=[byte_2, byte_3, byte_4])
         
+        self.channel_state = self.channel_state[channel] = {'v_ref_source': v_ref_source, 
+                                                            'power_down': power_down,
+                                                            'gain': gain, 
+                                                            'input_code': input_code, 
+                                                            'description': description}
+        
+        v_dd_to_v_ref_map = {'internal': 2.048 * gain, 'external': self.v_dd}
+        v_ref_voltage = v_dd_to_v_ref_map[v_ref_source]
+        output_voltage = self.output_voltage(input_code, v_ref_source=v_ref_source, gain=gain, v_dd=v_ref_voltage)
+        
+        # round to one more place than the precision of the chip
+        # gain 1 = 0.5mV/LSB so 0.5mV = 0.0005V, therefore return 5 decimal places
+        # gain 2 = 1mV/LSB so 1mV = 0.001V, therefore return 4 decimal places
+        gain_rounder = {1: 5, 2: 4}
+        output_voltage = round(output_voltage, gain_rounder[gain])
+        
+        self.state[channel] = [description, channel, v_ref_source, self.v_dd, power_down, gain, input_code, output_voltage]
+        
     @staticmethod
-    def target_voltage(v_target, v_ref=2.048, gain=1):
-        """Compute the required input register code 
+    def calculate_input_code(v_target, v_ref_source, gain, v_dd):
+        """Calculate the required input register code
         required to produce a specific voltage
 
         Parameters
         ----------
         v_target : float, voltage target output on the DAC
-        v_ref : float, voltage reference. Default is Vref = 2.048
+        v_ref_source : str, either 'internal' (2.048V/4.096V) or 'external' (VDD)
         gain : int, gain of DAC, either 1 or 2
+        v_dd : float, voltage source for the device. Could be I2C 3.3V or 5.0V, 
+            or something else supplied on VDD
 
         Returns
         -------
         int, DAC inpute code required to achieve v_target
         """
-        return round(((v_target * 4095 ) / v_ref) / gain)
+
+        if v_ref_source == 'internal':
+            if v_target > v_dd:
+                return 'v_target must be <= v_dd'
+            
+            if (v_target > 2.048) & (gain == 1):
+                return 'Gain must be 2 for v_target > v_ref internal'
+
+            if (v_target > 4.096) & (gain == 2):
+                return 'v_target must be <= 4.096V if using internal'
+                
+            return int((v_target * 4096) / (2.048* gain))
+        if v_ref_source == 'external':
+            if v_target > v_dd:
+                return 'v_target must be <= v_dd'
+            
+            return int((v_target * 4096) /  v_dd)
 
     @staticmethod
-    def output_voltage(input_code, v_ref=2.048, gain=1):
+    def output_voltage(input_code, v_ref_source, gain, v_dd=None):
         """Check output code voltage output
 
         Parameters
         ----------
-        inpute_code : int, DAC inpute code required to achieve v_target
-        v_target : float, voltage target output on the DAC
-        v_ref : float, voltage reference. Default is Vref = 2.048
+        input_code : int, DAC inpute code required to achieve v_target
+        v_ref_source : str, either 'internal' (2.048V/4.096V) or 'external' (VDD)
         gain : int, gain of DAC, either 1 or 2
-
+        v_dd : float, voltage source for the device. Could be I2C 3.3V or 5.0V, 
+            or something else supplied on VDD
         Returns
         -------
         v_target : float, DAC vol
         """
-        return v_ref * (input_code / 4095) * gain
+
+        if v_ref_source == 'internal':
+            return (2.048 * input_code * gain) / 4096
+        
+        if v_ref_source == 'external':
+            return (v_dd * input_code) / 4096
+    
+    @staticmethod
+    def data_filler(data, cid):
+        """Fill non-initialized channel data for publishing and writing
+
+        Parameters
+        ----------
+        data : dict, self.state
+        cid : str, channel id, one of 'a', 'b', 'c' or 'd'
+
+        Returns
+        -------
+        list of lists, self.state data with None data filled 
+            to match self.metadata.header
+        """
+
+        if data[cid] is None:
+            return ['not_initialized', cid, None, None, None, None, None]
+        else:
+            return data[cid]
+            
+    def publish(self):
+        """Output relay status data in JSON.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+
+        Returns
+        -------
+        str, formatted in JSON with keys:
+            description: str, description of sample under test
+            temperature : float, temperature in degrees Celcius
+        """
+        
+        data_list = []
+        for channel in ['a', 'b', 'c', 'd']:
+            data = self.data_filler(self.state, channel)
+            data_list.append(self.json_writer.publish(data))
+        return data_list
+    
+    def write(self):
+        """Format output and save to file, formatted as either
+        .csv or .json.
+
+        Parameters
+        ----------
+        description : str, description of data sample collected
+        n : int, number of samples to record in this burst
+        delay : float, seconds to delay between samples if n > 1
+        
+        Returns
+        -------
+        None, writes to disk the following data:
+            description : str, description of sample
+            sample_n : int, sample number in this burst
+            temperature : float, temperature in degrees Celcius
+        """
+        wr = {"csv": self.csv_writer,
+              "json": self.json_writer}[self.writer_output]
+        for channel in ['a', 'b', 'c', 'd']:
+            data = self.data_filler(self.state, channel)
+            wr.write(data)
