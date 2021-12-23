@@ -33,7 +33,8 @@ MicroPython
 | Ambient Temperature    | [MCP9808](https://www.adafruit.com/product/1782)   | mcp9808.py | 0x18 |  
 | DC Current & Power     | [INA219](https://www.adafruit.com/product/904)     | ina219.py  | 0x40 |  
 | Acceleration & Gyro    | [MPU6050](https://www.adafruit.com/product/3886)   | mpu6050.py | 0x68 |  
-| Analog to Digital      | [ADS1115](https://www.adafruit.com/product/1085)   | ads.py     | 0x48 |  
+| Analog to Digital      | [ADS1115](https://www.adafruit.com/product/1085)   | ads.py     | 0x48 |
+| Digital to Analog      | [MCP4728](/notebooks/mcp4728_example.ipynb)  | mcp4728.py | 0x60 |
 | pH, Conductivity       | [Atlas Sensors](https://www.atlas-scientific.com/) | atlas.py   | 0x61, 0x62, 0x63, 0x64 |  
 | Temperature, Humidity, Pressure, VOC Gas | [Bosch BME680](https://www.sparkfun.com/products/14570) | bme680.py  | 0x77 |  
 | GPS                    | [PA1010D](https://www.adafruit.com/product/4415)   | pa1010d.py | 0x10 |  
