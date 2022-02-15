@@ -1,4 +1,22 @@
-"""Networking Helper Classes"""
+"""Networking Helper Classes
+
+Reference
+---------
+https://docs.micropython.org/en/latest/esp8266/tutorial/network_tcp.html#http-get-request
+
+Example usage
+-------------
+
+wifi = net.Wifi()
+wifi.select_ap(wifi_ssid, wifi_password)
+wifi.verbose = True  # optional debug statements
+wifi.connect()
+
+sock = net.Socket()
+# sock.verbose = True  # optional debug statements
+response_data = sock.get(url=server_url)
+print(response_data)
+"""
 
 from meerkat.base import time
 
@@ -21,10 +39,12 @@ class Wifi:
     def __init__(self):
 
         self.wlan = WLAN(mode=WLAN.STA, antenna=WLAN.INT_ANT)
-        time.sleep(2)  # give it chance to initialize
+        #time.sleep(2)  # give it chance to initialize
 
-        self.scan_results = None
-        self.ssid_list = None
+        # TODO: check if these are available with a newer version of MicroPython
+        #self.wlan.hostname = 'pycom_fipy_02'
+        #self.wlan.max_tx_power([78])
+
         self.connect_timeout = 3  # seconds
         self.antenna = WLAN.INT_ANT
 
@@ -34,58 +54,98 @@ class Wifi:
         self.wifi_channel = None
         self.key = None
 
+        self.scan_results = None
         self.verbose = False
 
-    def scan(self):
+    def scan(self, verbose=True):
         self.scan_results = self.wlan.scan()
-        if self.verbose:
-            print('Found SSIDs:', self.scan_results)
-            print('Known wifi:', self.ssid_list)
-        _ssid_list = [x[0] for x in self.ssid_list]
-        found_aps = [n for n in self.scan_results if n.ssid in _ssid_list]
-        if len(found_aps) == 0:
-            if self.verbose:
-                print('No known SSIDs found')
-            return None
-        if self.verbose:
-            print('Found known SSIDs:', found_aps)
-        strongest_ap = found_aps[0]
 
-        self.ssid = strongest_ap.ssid
-        self.bssid = strongest_ap.bssid
-        self.rssi = strongest_ap.rssi
-        self.channel = strongest_ap.channel
-        self.key = dict(self.ssid_list)[self.ssid]
+        sec_mapper = {0: 'open', 1: 'WEP',
+            2: 'WPA-PSK', 3: 'WPA2-PSK', 4: 'WPA/WPA2-PSK'}
 
-        return self.ssid, self.bssid
+        if verbose:
+            print('Found SSID Name     Auth           Ch   RSSI')
+            print('-'*44)
+            for nx in self.scan_results:
+                _sec = sec_mapper[nx.sec]   # security
+                _channel = str(nx.channel)  # transmission channel
+                _rssi    = str(nx.rssi)     # received signal strength indicator
+                print(nx.ssid  + (20 - len(nx.ssid))  * ' ' +
+                      _sec     + (15 - len(_sec))     * ' ' +
+                      _channel + (5  - len(_channel)) * ' ' +
+                      _rssi    + (5  - len(_rssi))    * ' ')
+
+    def select_ap(self, ssid, key, verbose=False):
+        """Find the access point with highest signal strength and
+
+        Parameters
+        ----------
+        ssid : str, network SSID to connect to if present
+        key : str, WPA2 passkey to connect to ssid
+        """
+
+        self.scan(verbose=verbose)
+
+        # scan results are ordered by highest strength signal first
+        for n in self.scan_results:
+            if n.ssid == ssid:
+                self.ssid    = n.ssid
+                self.bssid   = n.bssid
+                self.rssi    = n.rssi
+                self.channel = n.channel
+                self.key     = key
+                if verbose:
+                    print('Found known SSIDs:', found_aps)
+                return self.ssid, self.bssid
+        if verbose:
+            print('No known SSID found')
 
     def connect(self):
 
-        def _connect(_round):
+        connect_tries   = 4   # number of times to try connecting
+        connect_timeout = 20  # time in seconds to wait each attempt
+
+        if self.verbose:
+            print('Attempting connection to SSID:', self.ssid)
+
+        if self.wlan.isconnected():
+            if verbose:
+                print('Wifi is already connected.')
+            return True
+
+        connection_attempt = 1
+        while connection_attempt < connect_tries:
+
+            print('Connection attempt: ', connection_attempt)
+
             self.wlan.connect(ssid=self.ssid, bssid=self.bssid,
                               auth=(WLAN.WPA2, self.key))
 
             t0 = time.time()
-            while not self.wlan.isconnected():
-                machine.idle()
+            while True:
+                dt = time.time() - t0
 
-                if time.time() - t0 > self.connect_timeout:
-                    return False
+                if dt > connect_timeout:
+                    connection_attempt += 1
+
+                if self.wlan.isconnected():
+                    return True
 
                 if self.verbose:
-                    print(_round, time.time())
-            return True
+                    print('WLAN connect attempt:', connection_attempt)
+                    print('Time elapsed:', dt)
+                    # ifconfig = (IP address, subnet mask, gateway, DNS server)
+                    _ifconfig = self.wlan.ifconfig()
+                    print('DNS Server: ', _ifconfig[3])
+                time.sleep(2)
 
-        round = 0
-        connected = False
-        while not connected:
-            round += 1
-            connected = _connect(round)
-
-        if self.verbose:
-            print("WiFi connected succesfully")
-            print(self.wlan.ifconfig())
+            return False
         pycom.rgbled(0x0000FF)
+
+    def status(self):
+
+        print('Wifi Status:')
+        print(self.wlan.ifconfig())
 
 
 class Socket:
@@ -93,17 +153,47 @@ class Socket:
 
         self.url = None
         self.scheme = None
-        self.host   = None
-        self.path   = None
+        self.host = None
+        self.path = None
         self.host_port = None
-        self.ip_addr = None
-        self.socket = None
-
+        self.host_ip_addr = None
+        self.socket = None  # usocket instance
         self.verbose = False
 
+    def url_splitter(self, url):
+        """Split a URL for use in an HTTP request
+
+        Parameters
+        ----------
+        url : str, URL to split
+
+        Returns
+        -------
+        scheme : str, either 'http' or 'https'
+        host : str, host name of the remote server
+        path : str, path on remote server to request
+        """
+
+        shp = url.split('/', 3)
+        scheme, _, host = shp[0:3]
+        scheme = scheme.replace(':', '')
+        if len(shp) == 3:
+            path = '/'
+        if len(shp) == 4:
+            path = '/' + shp[3]
+        if self.verbose:
+            print('url:', url, '| split length:', len(shp), '|', scheme, '|', host, '|', path)
+        return scheme, host, path
+
     def set_url(self, url):
+        """Set the remote server URL, host, scheme, path and port
+
+        Parameters
+        ----------
+        url : str, URL of remote host to connect to
+        """
         self.url = url
-        self.scheme, _, self.host, self.path = self.url.split("/", 3)
+        self.scheme, self.host, self.path = self.url_splitter(url)
 
         if 'https' in self.scheme:
             self.port = 443
@@ -111,50 +201,79 @@ class Socket:
             self.port = 80
 
     def get_ip_address(self):
-
-        if self.verbose:
-            print('Using URL:', self.url)
-            print('Using host_port:', self.port)
-
-        self.ip_addr = usocket.getaddrinfo(self.host, self.port)
-        if self.verbose:
-            print('self.ip_addr:', self.ip_addr)
-
-        self.host_port = self.ip_addr[0][-1]
-        if self.verbose:
-            print("host:port:", self.host_port)
+        """Get the IP address of the remote host server"""
+        _addr_info = usocket.getaddrinfo(self.host, self.port)
+        self.host_ip_addr = _addr_info[0][-1][0]
+        self.host_port    = _addr_info[0][-1][1]
 
     def connect(self):
+        """Create a socket connection to the remote host server"""
         self.socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
         if self.port == 443:
             self.socket = ussl.wrap_socket(self.socket)
-        self.socket.connect(self.host_port)
+        self.socket.connect((self.host_ip_addr, self.host_port))
 
     def send(self, request_text):
+        """Send HTTP/HTTPS request"""
         if self.verbose:
-            print('HTTP Request\n'+'-'*16)
+            print('Connection Parameters')
+            print('---------------------')
+            print('url: ' + self.url + '\n' +
+                  'port: ' + str(self.port) + '\n' +
+                  'scheme: ' + self.scheme + '\n' +
+                  'host: ' + self.host + '\n' +
+                  'path: ' + self.path + '\n' +
+                  'ip_address: ' + str(self.host_ip_addr) + '\n' +
+                  'socket: ' + '\n')
+            print('-----[Begin %s Request]-----' % self.scheme)
             print(request_text)
-            print('HTTP Response\n'+'-'*13)
+            print('-----[End %s Request]-----' % self.scheme)
 
         self.socket.send(request_text)
 
+        if self.verbose:
+            print('-----[Begin %s Response]-----' % self.scheme)
+        response_data = ''
         while True:
-            response_data = self.socket.recv(1024)
-            response_data = str(response_data, "utf8")
-            if self.verbose:
-                print(response_data, end="")
-            if response_data == '':
-                if self.verbose:
-                    print('\n'+'-'*16)
-                break
+            response_chunk = self.socket.recv(1024)
+            response_chunk = str(response_chunk, "utf8")
 
-    def get(self):
-        request_text = bytes("GET /%s HTTP/1.1\nHost: %s\nConnection: close\n\n" % (self.path, self.host), "utf8")
-        self.send(request_text)
+            if response_chunk != '':
+                response_data = response_data + response_chunk
+                if self.verbose:
+                    print(response_chunk, end="")
+            else:
+                if self.verbose:
+                    print('\n-----[End %s Response]-----' % self.scheme)
+                break
+        return response_data
+
+    def get(self, url):
+        """Get data from a remote server set in self.url
+
+        Parameters
+        ----------
+        url : str, URL of remote server to send HTTP GET request to
+        """
+
+        self.set_url(url)
+        self.get_ip_address()
+        self.connect()
+        request_text = bytes("GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (self.path, self.host), "utf8")
+        return self.send(request_text)
 
     def post(self, data):
+        """Post data remote server set in self.url
+
+        Parameters
+        ----------
+        data : str, data to send
+        """
         data_length = len(data)
-        request_text = "POST /%s HTTP/1.1\nHost: %s\nConnection: close\nContent-Length: %s\n\n%s\n" % (self.path, self.host, data_length, data)
+        # TODO: probably have to add the '\r\n' like above GET method
+        #request_text = "POST /%s HTTP/1.1\nHost: %s\nConnection: close\nContent-Length: %s\n\n%s\n" % (self.path, self.host, data_length, data)
+        # updated to /r/n but not tested:
+        request_text = "POST %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length: %s\r\n\r\n%s\r\n" % (self.path, self.host, data_length, data)
         self.send(request_text)
 
     def close(self):
