@@ -67,14 +67,14 @@ class DS3231:
         self.metadata.bus_addr = hex(bus_addr)
 
         # python strftime specification for RTC output precision
-        self.metadata.rtc_time_format = '%Y-%m-%d %H:%M:%S'
+        self.metadata.rtc_time_source = '%Y-%m-%d %H:%M:%S'
         
         # data recording method
         # note: using millisecond accuracy on driver timestamp, even though
         # RTC is only 1 second resolution
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
         
     def set_time(self, YY, MM, DD, hh, mm, ss, micro, tz):
         """Set time of RTC

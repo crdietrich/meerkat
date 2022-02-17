@@ -72,8 +72,8 @@ class MCP9808(object):
 
         # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
         
     def set_pointer(self, reg_name):
         """Set the pointer register address

@@ -18,13 +18,13 @@ mcp = mcp9808.MCP9808(bus_n=i2c_default_bus)
 rtc = ds3231.DS3231(bus_n=i2c_default_bus, bus_addr=0x68)
 
 ## I. RTC timestamp two devices
-tp_ex = TimePiece(time_format='rtc_time')
+tp_ex = TimePiece(time_source='rtc_time')
 tp_ex.rtc = rtc
 
-bme.json_writer.set_time_format('rtc_time', external=True)
+bme.json_writer.set_time_source('rtc_time', external=True)
 bme.json_writer.metadata_interval = 3
 
-mcp.json_writer.set_time_format('rtc_time', external=True)
+mcp.json_writer.set_time_source('rtc_time', external=True)
 mcp.json_writer.metadata_interval = 3
 
 ## I. Setup and First Measurement

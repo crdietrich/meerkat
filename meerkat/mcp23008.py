@@ -43,8 +43,8 @@ class MCP23008:
         self.metadata.bus_addr = hex(bus_addr)
         
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
         
     def get_all_channels(self):
         """Get all channel states, as a single 8 bit value. Each bit 

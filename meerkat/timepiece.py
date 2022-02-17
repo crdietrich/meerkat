@@ -5,7 +5,7 @@ from meerkat.base import Base, _struct_time
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, time_format='std_time', time_zone=None):
+    def __init__(self, time_source='std_time', time_zone=None):
         super().__init__()
 
         self._import_error = []
@@ -19,9 +19,9 @@ class TimePiece(Base):
                                   'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z',  # same as iso_time
                                   'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message
                                  }
-        #self.format    = time_format
-        #self.strfmtime = self.formats_available[time_format]
-        self.set_format(time_format)
+        #self.format    = time_source
+        #self.strfmtime = self.formats_available[time_source]
+        self.set_format(time_source)
 
         # optional timezone
         self._tz = None
@@ -44,7 +44,7 @@ class TimePiece(Base):
             self._tz = ''
         else: self._tz = time_zone
 
-    def set_format(self, time_format):
+    def set_format(self, time_source):
         """Override default time source and output format. Must be one of the
         the following (from self.formats_available):
             'std_time',
@@ -56,9 +56,9 @@ class TimePiece(Base):
             'gps_location',
             'external'   # strfmtime from external timepiece instance
         """
-        self.format     = time_format
+        self.format     = time_source
         if self.format != 'external':
-            self.strfmtime = self.formats_available[time_format]
+            self.strfmtime = self.formats_available[time_source]
 
     def set_time(self, time_str):
         """Set the returned string formatted time manually. Used for shared
