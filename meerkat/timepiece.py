@@ -162,6 +162,7 @@ class TimePiece(Base):
         """
         t0 = time.time()
         while True:
+            t1 = time.time()
             try:
                 nmea_sentence = self.gps_location()
                 nmea_sentence = nmea_sentence.split(',')
@@ -169,14 +170,13 @@ class TimePiece(Base):
                 t_ms = nmea_sentence[1].split('.')[1]
                 t = [t[:2], t[2:4], t[4:]]
                 d = nmea_sentence[9]
-                d = ['20'+d[4:], d[2:4], d[:2]]
-                str_format='{}-{}-{}T{}:{}:{}.{}+0:00'
-                break
+                d = ['20' + d[4:], d[2:4], d[:2]]
+                str_format = '{}-{}-{}T{}:{}:{}.{}+0:00'
+                return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
             except:
                 if t1 - t0 > timeout:
                     return 'gps_timeout'
                 continue
-        return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
 
     def external_time(self):
         """Return a previously set external time. Useful for synchronizing
