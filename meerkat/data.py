@@ -1,5 +1,6 @@
 """CSV and JSON writing and publishing methods"""
 
+# TODO: perhaps change 'time_format' to 'time_source'
 
 from meerkat.base import Base, json
 from meerkat.timepiece import TimePiece
@@ -54,7 +55,8 @@ class WriterBase(Base):
         self.licenses        = None     # if there's licensing restrictions
 
         # file formatting conventions
-        #self.line_terminator = '\\n'    # note: in JSON, this will load as '\n' into a dict
+        # TODO: establish if line_terminator is needed, it might complicate JSON parsing
+        self.line_terminator = '\n'    # note: in JSON, this will load as '\n' into a dict
         #self.quote_char      = '"'     # note: in JSON, a quote will be "\""
         #self.double_quote    = True     #
         #self.escape_char     = '\\'    # note: \\ to escape \ in JSON... meta.
@@ -128,13 +130,14 @@ class CSVWriter(WriterBase):
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
             if self._metadata.header is not None:
-                h = ','.join([self.time_format] + self._metadata.header)
+                h = ','.join(['timestamp', self.time_format] + self._metadata.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
         """Append data to an existing file at location self.path"""
         with open(self.path, 'a') as f:
-            dc = ','.join([self._timepiece.get_time()]+[str(_x) for _x in data])
+            dc = ','.join([self._timepiece.get_time(), self.time_format] +
+                          [str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data):
@@ -192,17 +195,19 @@ class JSONWriter(WriterBase):
         data_out : str, JSON formatted data and metadata
         """
         data_out = {k: v for k, v in zip(self._metadata.header, data)}
-        data_out[self.time_format] = self._timepiece.get_time()
 
         if timestamp is None:
             timestamp = self._timepiece.get_time()
-        data_out[self.time_format] = timestamp
+        data_out['timestamp'] = timestamp
+        data_out['time_format'] = self.time_format
+
+        #data_out[self.time_format] = timestamp
 
         if self._metadata_stream_i == self.metadata_interval:
-            self._metadata_stream_i = 0
             data_out = self.add_metadata(data_out)
-
-        self._metadata_stream_i += 1
+            self._metadata_stream_i = 1
+        else:
+            self._metadata_stream_i += 1
         return json.dumps(data_out)
 
     def write(self, data):
@@ -217,15 +222,8 @@ class JSONWriter(WriterBase):
             self.path = (self._timepiece.file_time() + "_" +
                          self._metadata.name.lower().replace(' ', '_') +
                          '.jsontxt')
-        data_out = {k: v for k, v in zip(self._metadata.header, data)}
-        data_out[self.time_format] = self._timepiece.get_time()
 
-        if self._metadata_file_i == self.metadata_interval:
-            self._metadata_file_i = 0
-            data_out = self.add_metadata(data_out)
-
-        data_out = json.dumps(data_out)
+        data_out = self.publish(data)
 
         with open(self.path, 'a') as f:
             f.write(data_out + self.line_terminator)
-        self._metadata_file_i += 1

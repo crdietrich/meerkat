@@ -88,6 +88,7 @@ class TimePiece(Base):
         return _method()
 
     def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
+        # TODO: remove in favor of ISO time
         """Get time in stardard format '%Y-%m-%d %H:%M:%S' and accurate
         to the second
         """
@@ -95,6 +96,7 @@ class TimePiece(Base):
         return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
 
     def std_time_ms(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'):
+        # TODO: remove in favor of ISO time
         """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and
         accurate to the microsecond
         """
