@@ -109,7 +109,7 @@ class Wifi:
             print('Attempting connection to SSID:', self.ssid)
 
         if self.wlan.isconnected():
-            if verbose:
+            if self.verbose:
                 print('Wifi is already connected.')
             return True
 
@@ -158,6 +158,8 @@ class Socket:
         self.host_port = None
         self.host_ip_addr = None
         self.socket = None  # usocket instance
+        self.timeout = 20  # seconds for socket connect timeout
+        self.response_retries = 5  # number of attempts to read server response
         self.verbose = False
 
     def url_splitter(self, url):
@@ -211,7 +213,21 @@ class Socket:
         self.socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
         if self.port == 443:
             self.socket = ussl.wrap_socket(self.socket)
-        self.socket.connect((self.host_ip_addr, self.host_port))
+
+        t0 = time.time()
+        while True:
+            try:
+                self.socket.connect((self.host_ip_addr, self.host_port))
+                return
+            except OSError:
+                dt = time.time() - t0
+                if dt > self.timeout:
+                    print('Timeout on socket.connect OSError')
+                    break
+                print('waiting to retry...')
+                time.sleep(1)
+                continue
+        #raise
 
     def send(self, request_text):
         """Send HTTP/HTTPS request"""
@@ -229,13 +245,35 @@ class Socket:
             print(request_text)
             print('-----[End %s Request]-----' % self.scheme)
 
-        self.socket.send(request_text)
+        #self.socket.send(request_text)
+        t0 = time.time()
+        while True:
+            try:
+                self.socket.send(request_text)
+                break
+            except OSError:
+                dt = time.time() - t0
+                if dt > self.timeout:
+                    return
+                time.sleep(1)
+                continue
 
         if self.verbose:
             print('-----[Begin %s Response]-----' % self.scheme)
+
+        response_attempt = 1
         response_data = ''
         while True:
-            response_chunk = self.socket.recv(1024)
+            try:
+                response_chunk = self.socket.recv(1024)
+            except OSError:
+                if response_attempt >= response_retries:
+                    print('Socket Response failed after %s tries' % self.response_retries)
+                    break
+                else:
+                    response_attempt += 1
+                continue
+
             response_chunk = str(response_chunk, "utf8")
 
             if response_chunk != '':
@@ -246,6 +284,7 @@ class Socket:
                 if self.verbose:
                     print('\n-----[End %s Response]-----' % self.scheme)
                 break
+        self.close()
         return response_data
 
     def get(self, url):
@@ -262,19 +301,25 @@ class Socket:
         request_text = bytes("GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (self.path, self.host), "utf8")
         return self.send(request_text)
 
-    def post(self, data):
+    def post(self, url, data):
         """Post data remote server set in self.url
 
         Parameters
         ----------
         data : str, data to send
         """
+        self.set_url(url)
+        self.get_ip_address()
+        self.connect()
         data_length = len(data)
-        # TODO: probably have to add the '\r\n' like above GET method
-        #request_text = "POST /%s HTTP/1.1\nHost: %s\nConnection: close\nContent-Length: %s\n\n%s\n" % (self.path, self.host, data_length, data)
-        # updated to /r/n but not tested:
-        request_text = "POST %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length: %s\r\n\r\n%s\r\n" % (self.path, self.host, data_length, data)
-        self.send(request_text)
+
+        request_text = ("POST %s HTTP/1.1\r\n" +
+                        "Host: %s\r\n" +
+                        "Content-Length: %s\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n" +
+                        "%s") % (self.path, self.host, data_length, data)
+        return self.send(request_text)
 
     def close(self):
         self.socket.close()
