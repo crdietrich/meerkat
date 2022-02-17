@@ -20,7 +20,7 @@ class TimePiece(Base):
                                   'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message
                                  }
         #self.format    = time_source
-        #self.strfmtime = self.formats_available[time_source]
+        #self.time_format = self.formats_available[time_source]
         self.set_format(time_source)
 
         # optional timezone
@@ -54,11 +54,11 @@ class TimePiece(Base):
             'rtc_time',  # same format as std_time, but sourced from RTC
             'gps_time',  # same format as iso_time, but sourced from GPS
             'gps_location',
-            'external'   # strfmtime from external timepiece instance
+            'external'   # time_format from external timepiece instance
         """
         self.format     = time_source
         if self.format != 'external':
-            self.strfmtime = self.formats_available[time_source]
+            self.time_format = self.formats_available[time_source]
 
     def set_time(self, time_str):
         """Set the returned string formatted time manually. Used for shared

@@ -78,13 +78,13 @@ class WriterBase(Base):
         """Override default TimePiece format"""
         self.time_source = time_source
         if external:
-            # report what the strfmtime will be from the external source
+            # report what the time_format will be from the external source
             self._timepiece.set_format('external')
-            self.strfmtime   = self._timepiece.formats_available[time_source]
+            self.time_format   = self._timepiece.formats_available[time_source]
         else:
             # set the format for generation of timestamps and formatting
             self._timepiece.set_format(time_source)
-            self.strfmtime   = self._timepiece.strfmtime
+            self.time_format   = self._timepiece.time_format
 
     def set_time(self, time_str):
         self._timepiece.set_time(time_str)
