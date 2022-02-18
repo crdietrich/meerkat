@@ -5,7 +5,7 @@ from meerkat.base import Base, _struct_time
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, time_source='std_time', time_zone=None):
+    def __init__(self, time_source='iso_time', time_zone=None):
         super().__init__()
 
         self._import_error = []
@@ -19,8 +19,6 @@ class TimePiece(Base):
                                   'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z',  # same as iso_time
                                   'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message
                                  }
-        #self.format    = time_source
-        #self.time_format = self.formats_available[time_source]
         self.set_format(time_source)
 
         # optional timezone
@@ -80,15 +78,19 @@ class TimePiece(Base):
         -------
         str, formatted current time based on input argument
         """
-        _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
-                    'iso_time': self.iso_time, 'file_time':   self.file_time,
-                    'rtc_time': self.rtc_time, 'gps_time':    self.gps_time,
-                    'gps_location': self.gps_location, 'external': self.external_time}
+
+        _formats = {'std_time': self.std_time,
+                    'std_time_ms': self.std_time_ms,
+                    'iso_time':     self.iso_time,
+                    'file_time':    self.file_time,
+                    'rtc_time':     self.rtc_time,
+                    'gps_time':     self.gps_time,
+                    'gps_location': self.gps_location,
+                    'external':     self.external_time}
         _method = _formats[self.format]
         return _method()
 
     def std_time(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}'):
-        # TODO: remove in favor of ISO time
         """Get time in stardard format '%Y-%m-%d %H:%M:%S' and accurate
         to the second
         """
@@ -96,7 +98,6 @@ class TimePiece(Base):
         return str_format.format(t[0], t[1], t[2], t[3], t[4], t[5])
 
     def std_time_ms(self, str_format='{:02d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:06}'):
-        # TODO: remove in favor of ISO time
         """Get time in standard format '%Y-%m-%d %H:%M:%S.%f' and
         accurate to the microsecond
         """
