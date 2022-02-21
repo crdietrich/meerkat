@@ -267,7 +267,7 @@ class Socket:
             try:
                 response_chunk = self.socket.recv(1024)
             except OSError:
-                if response_attempt >= response_retries:
+                if response_attempt >= self.response_retries:
                     print('Socket Response failed after %s tries' % self.response_retries)
                     break
                 else:
