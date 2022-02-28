@@ -56,8 +56,8 @@ class GroveMotor:
         self.metadata.bus_addr = hex(bus_addr)
         
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
         
     def get_info(self):
         pid = self.bus.read_register_16bit(0x00)

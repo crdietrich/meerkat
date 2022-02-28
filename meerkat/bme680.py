@@ -137,8 +137,8 @@ class BME680:
         self.sensor_id = sensor_id
         
         self.writer_output = output
-        self.csv_writer   = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer   = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
 
     def read_calibration(self):
         """Read chip calibration coefficients
