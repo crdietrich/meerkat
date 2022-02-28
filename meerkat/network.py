@@ -18,14 +18,16 @@ response_data = sock.get(url=server_url)
 print(response_data)
 """
 
-from meerkat.base import time
-
 from network import WLAN
 import pycom
 import ubinascii
 import machine
 import usocket
 import ussl
+
+from meerkat.base import time
+from meerkat.data import Meta, CSVWriter, JSONWriter
+
 
 pycom.heartbeat(False)
 
@@ -127,6 +129,7 @@ class Wifi:
 
                 if dt > connect_timeout:
                     connection_attempt += 1
+                    break
 
                 if self.wlan.isconnected():
                     return True
@@ -245,7 +248,6 @@ class Socket:
             print(request_text)
             print('-----[End %s Request]-----' % self.scheme)
 
-        #self.socket.send(request_text)
         t0 = time.time()
         while True:
             try:
@@ -269,7 +271,7 @@ class Socket:
             except OSError:
                 if response_attempt >= self.response_retries:
                     print('Socket Response failed after %s tries' % self.response_retries)
-                    break
+                    return 'filler no_reply filler'
                 else:
                     response_attempt += 1
                 continue
@@ -325,3 +327,26 @@ class Socket:
         self.socket.close()
         if self.verbose:
             print("Socket closed.")
+
+class Log:
+
+    def __init__(self, output='json', name='transmit_log'):
+        # information about this device
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'Network Transmit Log'
+        self.metadata.urls = None
+        self.metadata.manufacturer = None
+
+        self.metadata.header = ["description", "state"]
+        self.metadata.dtype = ['str', 'str']
+        self.metadata.units = None
+        self.metadata.accuracy = None
+        self.metadata.precision = None
+
+        self.metadata.bus_n = None
+        self.metadata.bus_addr = None
+
+        # data recording method
+        self.writer_output = output
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
