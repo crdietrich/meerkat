@@ -117,8 +117,8 @@ class SPS30():
         self.blocking_timeout   = 30  # seconds
 
         self.writer_output = output
-        self.csv_writer = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
 
     def set_format(self, output_format):
         """Set output format to either float or integer.

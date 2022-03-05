@@ -5,7 +5,7 @@ from meerkat.base import Base, _struct_time
 
 class TimePiece(Base):
     """Formatting methods for creating strftime compliant timestamps"""
-    def __init__(self, time_format='std_time', time_zone=None):
+    def __init__(self, time_source='iso_time', time_zone=None):
         super().__init__()
 
         self._import_error = []
@@ -19,9 +19,7 @@ class TimePiece(Base):
                                   'gps_time':    '%Y-%m-%dT%H:%M:%S.%f+%z',  # same as iso_time
                                   'gps_location': 'NMEA_RMC'  # recommended minimum specific GPS/transit data message
                                  }
-        #self.format    = time_format
-        #self.strfmtime = self.formats_available[time_format]
-        self.set_format(time_format)
+        self.set_format(time_source)
 
         # optional timezone
         self._tz = None
@@ -44,7 +42,7 @@ class TimePiece(Base):
             self._tz = ''
         else: self._tz = time_zone
 
-    def set_format(self, time_format):
+    def set_format(self, time_source):
         """Override default time source and output format. Must be one of the
         the following (from self.formats_available):
             'std_time',
@@ -54,11 +52,11 @@ class TimePiece(Base):
             'rtc_time',  # same format as std_time, but sourced from RTC
             'gps_time',  # same format as iso_time, but sourced from GPS
             'gps_location',
-            'external'   # strfmtime from external timepiece instance
+            'external'   # time_format from external timepiece instance
         """
-        self.format     = time_format
+        self.format     = time_source
         if self.format != 'external':
-            self.strfmtime = self.formats_available[time_format]
+            self.time_format = self.formats_available[time_source]
 
     def set_time(self, time_str):
         """Set the returned string formatted time manually. Used for shared
@@ -80,10 +78,15 @@ class TimePiece(Base):
         -------
         str, formatted current time based on input argument
         """
-        _formats = {'std_time': self.std_time, 'std_time_ms': self.std_time_ms,
-                    'iso_time': self.iso_time, 'file_time':   self.file_time,
-                    'rtc_time': self.rtc_time, 'gps_time':    self.gps_time,
-                    'gps_location': self.gps_location, 'external': self.external_time}
+
+        _formats = {'std_time': self.std_time,
+                    'std_time_ms': self.std_time_ms,
+                    'iso_time':     self.iso_time,
+                    'file_time':    self.file_time,
+                    'rtc_time':     self.rtc_time,
+                    'gps_time':     self.gps_time,
+                    'gps_location': self.gps_location,
+                    'external':     self.external_time}
         _method = _formats[self.format]
         return _method()
 
@@ -160,6 +163,7 @@ class TimePiece(Base):
         """
         t0 = time.time()
         while True:
+            t1 = time.time()
             try:
                 nmea_sentence = self.gps_location()
                 nmea_sentence = nmea_sentence.split(',')
@@ -167,14 +171,13 @@ class TimePiece(Base):
                 t_ms = nmea_sentence[1].split('.')[1]
                 t = [t[:2], t[2:4], t[4:]]
                 d = nmea_sentence[9]
-                d = ['20'+d[4:], d[2:4], d[:2]]
-                str_format='{}-{}-{}T{}:{}:{}.{}+0:00'
-                break
+                d = ['20' + d[4:], d[2:4], d[:2]]
+                str_format = '{}-{}-{}T{}:{}:{}.{}+0:00'
+                return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
             except:
                 if t1 - t0 > timeout:
                     return 'gps_timeout'
                 continue
-        return str_format.format(d[0], d[1], d[2], t[0], t[1], t[2], t_ms)
 
     def external_time(self):
         """Return a previously set external time. Useful for synchronizing

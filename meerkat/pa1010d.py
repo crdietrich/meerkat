@@ -69,9 +69,9 @@ class PA1010D(Base):
         # data recording method
         self.writer_output = output
         self.csv_writer = CSVWriter(metadata=self.metadata,
-                                    time_format='std_time_ms')
+                                    time_source='std_time_ms')
         self.json_writer = JSONWriter(metadata=self.metadata,
-                                      time_format='std_time_ms')
+                                      time_source='std_time_ms')
 
     def raw_get(self):
         """Get byte data from the GPS module, filtered of blanks

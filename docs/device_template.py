@@ -43,9 +43,9 @@ class ExampleDevice:
 
         # data recording method
         if output == 'csv':
-            self.writer = CSVWriter('ExampleDevice', time_format='std_time_ms')
+            self.writer = CSVWriter('ExampleDevice', time_source='std_time_ms')
         elif output == 'json':
-            self.writer = JSONWriter('ExampleDevice', time_format='std_time_ms')
+            self.writer = JSONWriter('ExampleDevice', time_source='std_time_ms')
         else: 
             pass  # holder for another writer or change in default  
         # set writer header for device's output format, ADS1115 shown example
