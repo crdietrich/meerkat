@@ -150,7 +150,7 @@ class WrapI2C:
 
     ### nbit Register ###
 
-    def read_register_nbit(self, reg_addr, n):
+    def read_register_nbyte(self, reg_addr, n):
         """Get the values from one registry
 
         Parameters
