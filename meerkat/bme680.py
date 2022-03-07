@@ -135,7 +135,7 @@ class BME680:
         # data recording information
         self.system_id = None
         self.sensor_id = sensor_id
-        
+
         self.writer_output = output
         self.csv_writer   = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
         self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
@@ -269,15 +269,15 @@ class BME680:
 
     def reg_gas_wait_x(self):
         """Control register for gas wait profiles"""
-        self.gas_wait_x = self.bus.read_n_bytes(0x64, 10)
+        self.gas_wait_x = self.bus.read_register_nbyte(0x64, 10)
 
     def reg_res_heat_x(self):
         """Control register for heater resistance profiles"""
-        self.res_heat_x = self.bus.read_n_bytes(0x5A, 10)
+        self.res_heat_x = self.bus.read_register_nbyte(0x5A, 10)
 
     def reg_idac_heat_x(self):
         """Control register for heater current profiles"""
-        self.idac_heat_x = self.bus.read_n_bytes(0x50, 10)
+        self.idac_heat_x = self.bus.read_register_nbyte(0x50, 10)
 
     def mode_sleep(self):
         """Set chip mode to Sleep Mode"""
