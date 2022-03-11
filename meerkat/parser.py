@@ -58,5 +58,5 @@ def csv_resource(fp):
                      delimiter=meta['delimiter'],
                      comment=meta['comment'],
                      quotechar='"')
-    df['datetime64_ns'] = pd.to_datetime(df[meta['time_source']])
+    df['datetime64_ns'] = pd.to_datetime(df.timestamp)
     return meta, df
