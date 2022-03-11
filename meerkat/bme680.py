@@ -24,8 +24,8 @@ def _read24(arr):
     return ret
 
 
-class BME680:
-    def __init__(self, bus_n, bus_addr=0x77, output='csv', sensor_id='BME680'):
+class BME68x:
+    def __init__(self, bus_n, bus_addr, output, sensor_id):
         """Initialize worker device on i2c bus.
 
         For register memory map, see datasheet pg 28, section 5.2
@@ -279,14 +279,6 @@ class BME680:
         """Control register for heater current profiles"""
         self.idac_heat_x = self.bus.read_register_nbyte(0x50, 10)
 
-    def mode_sleep(self):
-        """Set chip mode to Sleep Mode"""
-        self.bus.write_n_bytes([])
-
-    def mode_forced(self):
-        """Set chip mode to Forced Mode (active for measurement)"""
-        self.bus.write_n_bytes([])
-
     # Operation Methods
     def gas_on(self):
         self.run_gas = 0b1
@@ -297,10 +289,12 @@ class BME680:
         self.write_r_ctrl_gas_1()
 
     def forced_mode(self):
+        """Set chip mode to Forced Mode (active for measurement)"""
         self.mode = 0b01
         self.write_r_ctrl_meas()
 
     def sleep_mode(self):
+        """Set chip mode to Sleep Mode"""
         self.mode = 0b00
         self.write_r_ctrl_meas()
 
@@ -484,25 +478,33 @@ class BME680:
         data = self.bus.read_register_nbyte(0x25, 3)  # 0x25
         self._adc_hum = (data[0] << 8) + data[1]
 
-        _gas_r_msb  = self.bus.read_register_8bit(0x2A)
-        _gas_r_lsb  = self.bus.read_register_8bit(0x2B)
-
+        # TODO: where register calls should normally be called
+        #_gas_r_msb  = self.bus.read_register_8bit(self.gas_r_msb)  # 680: 0x2A, 688: 0x2C
+        #_gas_r_lsb  = self.bus.read_register_8bit(self.gas_r_lsb)  # 680: 0x2B, 688: 0x2D 
+        
+        # TODO: BME688 parallel register dev
+        _gas_r_msb  = self.bus.read_register_8bit(0x2C)
+        _gas_r_lsb  = self.bus.read_register_8bit(0x2D)
+        
+        print('HERE')
+        print('_gas_r_msb:', bin(_gas_r_msb), _gas_r_msb)
+        print('_gas_r_lsb:', bin(_gas_r_lsb), _gas_r_lsb)
+        
+        _gas_r_msb_1  = self.bus.read_register_8bit(0x3D)
+        _gas_r_lsb_1  = self.bus.read_register_8bit(0x3E)
+        print('_gas_r_msb_1:', bin(_gas_r_msb), _gas_r_msb)
+        print('_gas_r_lsb_1:', bin(_gas_r_lsb), _gas_r_lsb)
+        
+        _gas_r_msb_2  = self.bus.read_register_8bit(0x4E)
+        _gas_r_lsb_2  = self.bus.read_register_8bit(0x4F)
+        print('_gas_r_msb_2:', bin(_gas_r_msb), _gas_r_msb)
+        print('_gas_r_lsb_2:', bin(_gas_r_lsb), _gas_r_lsb)
+        
         self._adc_gas = (_gas_r_msb << 2) + (_gas_r_lsb >> 6)
         self._gas_valid = (_gas_r_lsb >> 5) & 0b1
         self._heat_stab = (_gas_r_lsb >> 4) & 0b1
-        self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <4:0>
+        self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <3:0>
         return True
-
-    def gas(self):
-        """Calculate the gas resistance in ohms"""
-        var1 = ((1340 + (5 * self._range_switch_error)) *
-                (self._const_array1_int[self._gas_range])) >> 16
-
-        var2 = (self._adc_gas << 15) - 16777216 + var1  # 1 << 24 = 16777216
-
-        gas_res = (((self._const_array2_int[self._gas_range] * var1) >> 9) +
-                   (var2 >> 1)) / var2
-        return int(gas_res) #, self._adc_gas, self._gas_range, var1, var2
 
     def temperature(self):
         """Calculate the compensated temperature in degrees celsius"""
@@ -647,3 +649,36 @@ class BME680:
             wr.write(data)
             if delay is not None:
                 time.sleep(delay)
+
+
+class BME680(BME68x):
+    def __init__(self, bus_n, bus_addr=0x77, output='csv', sensor_id='BME680'):
+        super().__init__(bus_n, bus_addr=bus_addr, output=output, sensor_id=sensor_id)
+        self.gas_r_lsb = 0x2B
+        self.gas_r_msb = 0x2A
+        
+    def gas(self):
+        """Calculate the gas resistance in ohms"""
+        var1 = ((1340 + (5 * self._range_switch_error)) *
+                (self._const_array1_int[self._gas_range])) >> 16
+        var2 = (self._adc_gas << 15) - 16777216 + var1  # 1 << 24 = 16777216
+        gas_res = (((self._const_array2_int[self._gas_range] * var1) >> 9) +
+                   (var2 >> 1)) / var2
+        return int(gas_res)
+
+
+class BME688(BME68x):
+    def __init__(self, bus_n, bus_addr=0x77, output='csv', sensor_id='BME680'):
+        super().__init__(bus_n, bus_addr=bus_addr, output=output, sensor_id=sensor_id)
+        self.gas_r_lsb = 0x2D
+        self.gas_r_msb = 0x2C
+
+    def gas(self):
+        """Calculate the gas resistance in ohms"""
+        var1 = 262144 >> self._gas_range
+        var2 = self._adc_gas - 512
+        var2 *= 3
+        var2 = 4096 + var2
+        calc_gas_res = (10000 * var1) / var2
+        gas_res = calc_gas_res * 100
+        return int(gas_res)
