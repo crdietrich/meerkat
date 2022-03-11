@@ -110,8 +110,8 @@ class SCD4x():
     def metadata_update(self):
         """Get the configuration settings for this device
         and add to metadata"""
-        self.metadata.tC_offset = get_temperature_offset()
-        self.metadata.altitude  = get_sensor_altitude()
+        self.metadata.tC_offset = self.get_temperature_offset()
+        self.metadata.altitude  = self.get_sensor_altitude()
 
     # Basic Commands, Ch 3.5
     def start_periodic_measurement(self):
