@@ -591,8 +591,12 @@ class BME68x:
         p = self.pressure()
         h = self.humidity()
         g = self.gas()
+
+        t = round(t, 2)
+        h = round(h, 2)
+        p = round(p, 2)
+
         d = [t, p, h, g]
-        d = [round(n, 2) for n in d]
         return [self.system_id, self.sensor_id, description, n] + d + [self._gas_valid, self._heat_stab]
 
     def publish(self, description='NA', verbose=False):
