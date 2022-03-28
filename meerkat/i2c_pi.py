@@ -98,7 +98,7 @@ class WrapI2C:
         -------
         16 bit value of registry
         """
-        value = self.read_register_nbit(reg_addr, 1)
+        value = self.read_register_nbyte(reg_addr, 1)
         return int.from_bytes(value, byteorder='big')
 
     def write_register_8bit(self, reg_addr, data):
@@ -128,7 +128,7 @@ class WrapI2C:
         -------
         16 bit value of registry
         """
-        value = self.read_register_nbit(reg_addr, 2)
+        value = self.read_register_nbyte(reg_addr, 2)
         return int.from_bytes(value, byteorder='big')
 
     def write_register_16bit(self, reg_addr, data):
@@ -147,7 +147,7 @@ class WrapI2C:
 
     ### nbit Register ###
 
-    def read_register_nbit(self, reg_addr, n):
+    def read_register_nbyte(self, reg_addr, n):
         """Get the values from one registry
 
         Parameters

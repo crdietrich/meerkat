@@ -146,8 +146,8 @@ class BME680:
         Coefficients are not listed in Table 20: Memory Map.  Instead they are
         referenced in Tables 11, 12, 13 and 14.
         """
-        coeff  = self.bus.read_register_nbit(0x89, 25)
-        coeff += self.bus.read_register_nbit(0xE1, 16)
+        coeff  = self.bus.read_register_nbyte(0x89, 25)
+        coeff += self.bus.read_register_nbyte(0xE1, 16)
 
         coeff = list(struct.unpack('<hbBHhbBhhbbHhhBBBHbbbBbHhbb', bytes(coeff[1:39])))
         coeff = [float(i) for i in coeff]
@@ -361,7 +361,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.bus.read_register_nbit(0x64, 10)
+        return self.bus.read_register_nbyte(0x64, 10)
 
     def get_res_heat(self):
         """Res_heat_x  : res_heat_0  @ 0x63 downto  res_heat_0 @ 0x5A
@@ -369,7 +369,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.bus.read_register_nbit(0x5A, 10)
+        return self.bus.read_register_nbyte(0x5A, 10)
 
     def get_idac_heat(self):
         """Idac_heat_x : idac_heat_9 @ 0x59 downto idac_heat_0 @ 0x50
@@ -377,7 +377,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.bus.read_register_nbit(0x50, 10)
+        return self.bus.read_register_nbyte(0x50, 10)
 
     def calc_res_heat(self, target_temp):
         """Convert a target temperature for the heater to a resistance
@@ -393,7 +393,7 @@ class BME680:
         """
 
         if self.amb_temp is None:
-            data = self.bus.read_register_nbit(0x22, 3)  # 0x22
+            data = self.bus.read_register_nbyte(0x22, 3)  # 0x22
             self._adc_temp = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
             self.amb_temp = self.temperature()
 
@@ -475,13 +475,13 @@ class BME680:
                 print('While loop %s' % cx)
             cx += 1
 
-        data = self.bus.read_register_nbit(0x1F, 3)  # 0x1F
+        data = self.bus.read_register_nbyte(0x1F, 3)  # 0x1F
         self._adc_pres = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
 
-        data = self.bus.read_register_nbit(0x22, 3)  # 0x22
+        data = self.bus.read_register_nbyte(0x22, 3)  # 0x22
         self._adc_temp = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
 
-        data = self.bus.read_register_nbit(0x25, 3)  # 0x25
+        data = self.bus.read_register_nbyte(0x25, 3)  # 0x25
         self._adc_hum = (data[0] << 8) + data[1]
 
         _gas_r_msb  = self.bus.read_register_8bit(0x2A)

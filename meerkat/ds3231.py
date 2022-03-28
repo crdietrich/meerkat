@@ -119,7 +119,7 @@ class DS3231:
         ss : int, second, range 1-59
         """
 
-        data = self.bus.read_register_nbit(reg_addr=0x00, n=7)
+        data = self.bus.read_register_nbyte(reg_addr=0x00, n=7)
 
         ss = bcd2dec(data[0] & 0b01111111)
         mm = bcd2dec(data[1] & 0b01111111)
@@ -145,7 +145,7 @@ class DS3231:
         -------
         float, temperature in degrees Celsius
         """
-        data = self.bus.read_register_nbit(reg_addr=0x11, n=2)
+        data = self.bus.read_register_nbyte(reg_addr=0x11, n=2)
         return float(data[0]) + (data[1] >> 6) * 0.25
 
     def publish(self, description='NA', n=1, delay=None):
