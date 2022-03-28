@@ -137,10 +137,11 @@ class SCD4x():
         rh  = d[4] << 8 | d[5]
 
         t = -45 + 175 * t / 2**16
+        t   = round(t, 2)
         rh = 100 * rh / 2**16
+        rh  = round(rh, 2)
 
         d = [co2, t, rh]
-        d = [round(n, 2) for n in d]
         return d
 
     def stop_periodic_measurement(self):
@@ -276,7 +277,7 @@ class SCD4x():
             return True
 
     # Low Power, Ch 3.8
-    def start_low_power_periodic_measuremet(self):
+    def start_low_power_periodic_measurement(self):
         """Start low power periodic measurement, updates in
         approximately 30 seconds. See Ch 3.8.1"""
         self.bus.write_n_bytes([0x21, 0xAC])
