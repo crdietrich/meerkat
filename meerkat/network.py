@@ -41,13 +41,11 @@ class Wifi:
     def __init__(self):
 
         self.wlan = WLAN(mode=WLAN.STA, antenna=WLAN.INT_ANT)
-        #time.sleep(2)  # give it chance to initialize
 
         # TODO: check if these are available with a newer version of MicroPython
         #self.wlan.hostname = 'pycom_fipy_02'
         #self.wlan.max_tx_power([78])
 
-        self.connect_timeout = 3  # seconds
         self.antenna = WLAN.INT_ANT
 
         self.ssid = None
@@ -102,10 +100,14 @@ class Wifi:
         if verbose:
             print('No known SSID found')
 
-    def connect(self):
+    def connect(self, retries=4, timeout=20):
+        """Connect to a Wireless Network.
 
-        connect_tries   = 4   # number of times to try connecting
-        connect_timeout = 20  # time in seconds to wait each attempt
+        Parameters
+        ----------
+        retries : int, number of times to try connecting
+        timeout : int, time in seconds to wait each attempt
+        """
 
         if self.verbose:
             print('Attempting connection to SSID:', self.ssid)
@@ -116,7 +118,7 @@ class Wifi:
             return True
 
         connection_attempt = 1
-        while connection_attempt < connect_tries:
+        while connection_attempt < retries:
 
             print('Connection attempt: ', connection_attempt)
 
@@ -127,7 +129,7 @@ class Wifi:
             while True:
                 dt = time.time() - t0
 
-                if dt > connect_timeout:
+                if dt > timeout:
                     connection_attempt += 1
                     break
 
@@ -146,9 +148,21 @@ class Wifi:
         pycom.rgbled(0x0000FF)
 
     def status(self):
-
+        """Print the current wireless network status"""
         print('Wifi Status:')
         print(self.wlan.ifconfig())
+
+    def reset(self, delay=5):
+        """Reset the Wifi connection
+
+        Parameters
+        ----------
+        delay : int, seconds to wait before reconnecting
+        """
+
+        self.wlan.deinit()
+        time.sleep(delay)
+        self.connect()
 
 
 class Socket:
