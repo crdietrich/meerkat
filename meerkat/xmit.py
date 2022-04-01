@@ -20,7 +20,12 @@ class Ring:
 
 class Sender:
     def __init__(self, output='json', name='transmit_log', sensor_id='network_log'):
-        # information about this device
+
+        # wifi or ethernet connection - in case it needs resetting
+        # TODO: decide if the network connection should be reset in this class
+        #self.nework_connection = network_connection
+
+        # information about this connection
         self.metadata = Meta(name=name)
         self.metadata.description = 'Network Transmit Server Response Log'
         self.metadata.urls = None
@@ -47,6 +52,7 @@ class Sender:
         self.sock = network.Socket()
         self.url = None
         self.retries = 3
+        self.auto_connect = False  # open and close socket for each send
 
         # response data buffers
         self._response = Ring()
@@ -76,28 +82,44 @@ class Sender:
 
     def send(self, data, timestamp, desc):
         retry_counter = self.retries
-        while retry_counter >= 0:
-            try:
-                post_response = self.sock.post(self.url, data)
-                if self.verbose:
-                    print('='*40)
-                    print(post_response)
-                    print('='*40)
-                status_code = self.response_parser(post_response)
-                break
-            except:
-                status_code = '090 - send error'
-                retry_counter -= 1
-                time.sleep(1)
+        socket_resets = 3
+
+        if self.auto_connect:
+            self.sock.connect()
+
+        for sr in range(socket_resets):
+            ok = False
+            for retry_counter in range(self.retries):
+                try:
+                    post_response = self.sock.post(self.url, data)
+                    if self.verbose:
+                        print('='*40)
+                        print(post_response)
+                        print('='*40)
+                    status_code = self.response_parser(post_response)
+                    ok = True
+                    break
+                except:
+                    ok = False
+                    retry_counter -= 1
+                    time.sleep(1)
+
+            if not ok:
+                self.sock.close()
+                time.sleep(5)
+                self.sock.connect()
+
+        if not ok:
+            status_code = '090 - send error'
 
         self._response.append(status_code)
         self._response_timestamp.append(timestamp)
         self._label.append(desc)
 
+        if self.auto_connect:
+            self.sock.close()
+
     def get(self, description='NA'):
-#        data = [list(x) for x in zip(self.timestamp,
-#                                     self.label,
-#                                     self.response) if x[0] is not None]
 
         data = [self.system_id,
                 self.sensor_id,
