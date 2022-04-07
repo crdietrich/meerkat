@@ -227,13 +227,14 @@ class Socket:
 
     def connect(self):
         """Create a socket connection to the remote host server"""
-        self.socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
-        if self.port == 443:
-            self.socket = ussl.wrap_socket(self.socket)
+
 
         t0 = time.time()
         while True:
             try:
+                self.socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+                if self.port == 443:
+                    self.socket = ussl.wrap_socket(self.socket)
                 self.socket.connect((self.host_ip_addr, self.host_port))
                 return
             except OSError:
@@ -244,7 +245,11 @@ class Socket:
                 print('waiting to retry...')
                 time.sleep(1)
                 continue
-        #raise
+
+        # if all else fails
+        #print('>> RESTARTING DEVICE <<')
+        #import machine
+        #machine.reset()
 
     def send(self, request_text):
         """Send HTTP/HTTPS request"""
