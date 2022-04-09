@@ -52,8 +52,11 @@ def CRC_check(data, verbose=False):
     or
     None if sequence is corrupt and does not match checksum
     """
+    d_len = len(data)
+    if d_len == 0:
+        return None
     d = []
-    for i in range(2, len(data), 3):
+    for i in range(2, d_len, 3):
         crc = data[i]
         n0 = data[i-2]
         n1 = data[i-1]
@@ -173,7 +176,7 @@ class SPS30():
         time.sleep(0.1)
         d = self.bus.read_n_bytes(3)
         d = CRC_check(d)
-        if d[1] == 0x00:
+        if (d is None) or (d[1] == 0x00):
             return False
         elif d[1] == 0x01:
             return True
