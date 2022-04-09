@@ -72,9 +72,21 @@ class Socket:
 
     def get_ip_address(self):
         """Get the IP address of the remote host server"""
-        _addr_info = socket.getaddrinfo(self.host, self.port)
-        self.host_ip_addr = _addr_info[0][-1][0]
-        self.host_port    = _addr_info[0][-1][1]
+        t0 = time.time()
+        while True:
+            try:
+                _addr_info = usocket.getaddrinfo(self.host, self.port)
+                self.host_ip_addr = _addr_info[0][-1][0]
+                self.host_port    = _addr_info[0][-1][1]
+                return
+            except OSError:
+                dt = time.time() - t0
+                if dt > self.timeout:
+                    print('Timeout on socket.connect OSError')
+                    break
+                print('waiting to retry...')
+                time.sleep(1)
+                continue
 
     def connect(self):
         """Create a socket connection to the remote host server"""
