@@ -12,8 +12,8 @@ if sys.platform == 'linux':
     import requests
 
 elif sys.platform in ['FiPy', 'pyboard', 'OpenMV3-M7']:
-    import usocket as socket
-    import ussl as ssl
+    import usocket
+    import ussl
 
 
 class Socket:
@@ -95,9 +95,9 @@ class Socket:
         t0 = time.time()
         while True:
             try:
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
                 if self.port == 443:
-                    self.socket = ssl.wrap_socket(self.socket)
+                    self.socket = ussl.wrap_socket(self.socket)
                 self.socket.connect((self.host_ip_addr, self.host_port))
                 return
             except OSError:
@@ -256,7 +256,7 @@ class Sender:
         self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
 
         self.verbose = False
-        
+
         # network connection
         self.sock = None
         self.url = None
@@ -267,24 +267,24 @@ class Sender:
         self._response = Ring()
         self._label = Ring()
         self._response_timestamp = Ring()
-        
+
         # platform support
         if sys.platform == 'linux':
             self.platform = 'linux'
         elif sys.platform in ['FiPy', 'pyboard', 'OpenMV3-M7']:
             self.platform = 'upython'
             self.sock = Socket()
-            
+
     def send(self, data, timestamp, desc):
-    
+
         retry_counter = self.retries
         socket_resets = 3
-        
+
         if self.platform == 'upython':
             self.sock.verbose = self.verbose
             if self.auto_connect:
                 self.sock.connect()
-        
+
         for sr in range(socket_resets):
             ok = False
             for retry_counter in range(self.retries):
@@ -310,7 +310,7 @@ class Sender:
                 break
             else:
                 time.sleep(5)
-                
+
         if not ok:
             if self.platform == 'upython':
                 self.sock.close()
@@ -345,7 +345,7 @@ class Sender:
         status_code = status.split(' ')[1]
         return status_code
 
-    
+
     def get(self, description='NA'):
 
         data = [self.system_id,
@@ -372,13 +372,13 @@ class Sender:
 class SenderLinux(Sender):
     def __init__(self, output='json', name='transmit_log', sensor_id='network_log'):
         super().__init__(output, name, sensor_id)
-        
+
     def send(self, data, timestamp, desc):
         retry_counter = self.retries
         socket_resets = 3
 
         self.sock.verbose = self.verbose
-        
+
         for sr in range(socket_resets):
             ok = False
             for retry_counter in range(self.retries):
@@ -409,8 +409,8 @@ class SenderLinux(Sender):
         if self.auto_connect:
             self.sock.close()
 
-        
-    
+
+
 class SenderMicroPython(Sender):
     def __init__(self, output='json', name='transmit_log', sensor_id='network_log'):
         super().__init__(output, name, sensor_id)
@@ -420,7 +420,7 @@ class SenderMicroPython(Sender):
         socket_resets = 3
 
         self.sock.verbose = self.verbose
-        
+
         if self.auto_connect:
             self.sock.connect()
 
@@ -456,7 +456,7 @@ class SenderMicroPython(Sender):
         if self.auto_connect:
             self.sock.close()
 
-        
+
 if sys.platform == 'linux':
     Semder = SenderLinux
 
