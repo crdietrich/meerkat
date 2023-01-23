@@ -68,6 +68,7 @@ class WriterBase(Base):
 
         # filepath information
         self.path = None
+        self.directory = None
 
         # timestamp formatter
         self.time_source = time_source
@@ -124,7 +125,11 @@ class CSVWriter(WriterBase):
         for each item in self.data
         """
         if self.path is None:
-            self.path = (self._timepiece.file_time() + '_' +
+            if self.directory is None:
+                directory = ""
+            else:
+                directory = self.directory + '/'
+            self.path = (directory + self._timepiece.file_time() + '_' +
                          self._metadata.name.lower().replace(' ', '_') +
                          '.csv')
         with open(self.path, 'w') as f:
@@ -219,7 +224,9 @@ class JSONWriter(WriterBase):
         data : list, data to be zipped with header descriptions
         """
         if self.path is None:
-            self.path = (self._timepiece.file_time() + "_" +
+            if self.directory is None:
+                self.directory = ""
+            self.path = (self.directory + '/' + self._timepiece.file_time() + "_" +
                          self._metadata.name.lower().replace(' ', '_') +
                          '.jsontxt')
 
