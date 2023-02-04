@@ -11,7 +11,7 @@ https://www.cdtop-tech.com/products/pa1010d
 
 import re
 
-from meerkat.base import time, I2C, Base
+from meerkat.base import time, I2C
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -26,7 +26,7 @@ def calc_checksum(s):
     return "{:02x}".format(checksum).upper()
 
 
-class PA1010D(Base):
+class PA1010D:
     def __init__(self, bus_n, bus_addr=0x10, output='csv', name='pa1010d'):
         """PA1010D GPS module using MTK3333 chipset
         
