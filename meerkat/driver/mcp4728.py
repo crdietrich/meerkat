@@ -3,13 +3,12 @@
 Colin Dietrich, 2021
 """
 
-from meerkat.base import I2C
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 class MCP4728(object):
-    def __init__(self, bus_n, bus_addr=0x60, output='csv', name='mcp4728'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x60, output='csv', name='mcp4728'):
+        """Initialize Target device on i2c bus.
 
         Note 1
         ------
@@ -53,12 +52,13 @@ class MCP4728(object):
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
         self.udac = 0
         self.state = {'a': None, 'b': None,
                       'c': None, 'd': None}
@@ -100,7 +100,7 @@ class MCP4728(object):
     def general_call_read_address(self):
         """Return the I2C address. See section 5.4.4"""
         self.bus.write_n_bytes(data=[0x00, 0x0C])
-        return self.bus.read_byte()
+        return self.bus.read_n_bytes(1)
 
     def set_channel(self, channel, v_ref_source, power_down, gain, input_code, description='no description'):
         """Write single channel output
