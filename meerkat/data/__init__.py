@@ -1,8 +1,9 @@
 """CSV and JSON writing and publishing methods"""
 
+# TODO: perhaps change 'time_source' to 'time_source'
 
-from meerkat.base import Base, json
-from meerkat.timepiece import TimePiece
+from meerkat.base import Base, _json_dumps
+from meerkat.data.timepiece import TimePiece
 
 
 class Meta(Base):
@@ -45,7 +46,7 @@ class WriterBase(Base):
         where (file extension) is either '.csv' or '.jsontxt'
         if self._metadata['description'] is None, it is omitted from the file name
     """
-    def __init__(self, metadata, time_format):
+    def __init__(self, metadata, time_source):
 
         # file information
         self.encoding        = 'utf-8'  # encoding of output. Should stay 'utf-8'!
@@ -54,7 +55,8 @@ class WriterBase(Base):
         self.licenses        = None     # if there's licensing restrictions
 
         # file formatting conventions
-        #self.line_terminator = '\\n'    # note: in JSON, this will load as '\n' into a dict
+        # TODO: establish if line_terminator is needed, it might complicate JSON parsing
+        self.line_terminator = '\n'    # note: in JSON, this will load as '\n' into a dict
         #self.quote_char      = '"'     # note: in JSON, a quote will be "\""
         #self.double_quote    = True     #
         #self.escape_char     = '\\'    # note: \\ to escape \ in JSON... meta.
@@ -66,23 +68,24 @@ class WriterBase(Base):
 
         # filepath information
         self.path = None
+        self.directory = None
 
         # timestamp formatter
-        self.time_format = time_format
-        self._timepiece  = TimePiece(time_format)
-        self.set_time_format(time_format, external=False)
+        self.time_source = time_source
+        self._timepiece  = TimePiece(time_source)
+        self.set_time_source(time_source, external=False)
 
-    def set_time_format(self, time_format, external=False):
+    def set_time_source(self, time_source, external=False):
         """Override default TimePiece format"""
-        self.time_format = time_format
+        self.time_source = time_source
         if external:
-            # report what the strfmtime will be from the external source
+            # report what the time_format will be from the external source
             self._timepiece.set_format('external')
-            self.strfmtime   = self._timepiece.formats_available[time_format]
+            self.time_format   = self._timepiece.formats_available[time_source]
         else:
             # set the format for generation of timestamps and formatting
-            self._timepiece.set_format(time_format)
-            self.strfmtime   = self._timepiece.strfmtime
+            self._timepiece.set_format(time_source)
+            self.time_format   = self._timepiece.time_format
 
     def set_time(self, time_str):
         self._timepiece.set_time(time_str)
@@ -90,8 +93,8 @@ class WriterBase(Base):
 
 class CSVWriter(WriterBase):
     """Attributes of comma delimited values (CSV) data formatting"""
-    def __init__(self, metadata, time_format='std_time'):
-        super().__init__(metadata, time_format)
+    def __init__(self, metadata, time_source='std_time'):
+        super().__init__(metadata, time_source)
 
         self._file_init            = False              # file initialization flag
 
@@ -122,19 +125,24 @@ class CSVWriter(WriterBase):
         for each item in self.data
         """
         if self.path is None:
-            self.path = (self._timepiece.file_time() + '_' +
+            if self.directory is None:
+                directory = ""
+            else:
+                directory = self.directory + '/'
+            self.path = (directory + self._timepiece.file_time() + '_' +
                          self._metadata.name.lower().replace(' ', '_') +
                          '.csv')
         with open(self.path, 'w') as f:
             f.write(self.create_metadata() + self.line_terminator)
             if self._metadata.header is not None:
-                h = ','.join([self.time_format] + self._metadata.header)
+                h = ','.join(['timestamp', self.time_source] + self._metadata.header)
                 f.write(h + self.line_terminator)
 
     def _write_append(self, data):
         """Append data to an existing file at location self.path"""
         with open(self.path, 'a') as f:
-            dc = ','.join([self._timepiece.get_time()]+[str(_x) for _x in data])
+            dc = ','.join([self._timepiece.get_time(), self.time_source] +
+                          [str(_x) for _x in data])
             f.write(dc + self.line_terminator)
 
     def write(self, data):
@@ -151,8 +159,8 @@ class CSVWriter(WriterBase):
 
 class JSONWriter(WriterBase):
     """Attributes of JSON key-value data formatting"""
-    def __init__(self, metadata, time_format='std_time'):
-        super().__init__(metadata, time_format)
+    def __init__(self, metadata, time_source='std_time'):
+        super().__init__(metadata, time_source)
 
         self._file_init = False  # file initialization flag
 
@@ -192,18 +200,18 @@ class JSONWriter(WriterBase):
         data_out : str, JSON formatted data and metadata
         """
         data_out = {k: v for k, v in zip(self._metadata.header, data)}
-        data_out[self.time_format] = self._timepiece.get_time()
 
         if timestamp is None:
             timestamp = self._timepiece.get_time()
-        data_out[self.time_format] = timestamp
+        data_out['timestamp'] = timestamp
+        data_out['time_source'] = self.time_source
 
         if self._metadata_stream_i == self.metadata_interval:
-            self._metadata_stream_i = 0
             data_out = self.add_metadata(data_out)
-
-        self._metadata_stream_i += 1
-        return json.dumps(data_out)
+            self._metadata_stream_i = 1
+        else:
+            self._metadata_stream_i += 1
+        return _json_dumps(data_out)
 
     def write(self, data):
         """Write JSON data and metadata at intervals set by
@@ -214,18 +222,13 @@ class JSONWriter(WriterBase):
         data : list, data to be zipped with header descriptions
         """
         if self.path is None:
-            self.path = (self._timepiece.file_time() + "_" +
+            if self.directory is None:
+                self.directory = ""
+            self.path = (self.directory + '/' + self._timepiece.file_time() + "_" +
                          self._metadata.name.lower().replace(' ', '_') +
                          '.jsontxt')
-        data_out = {k: v for k, v in zip(self._metadata.header, data)}
-        data_out[self.time_format] = self._timepiece.get_time()
 
-        if self._metadata_file_i == self.metadata_interval:
-            self._metadata_file_i = 0
-            data_out = self.add_metadata(data_out)
-
-        data_out = json.dumps(data_out)
+        data_out = self.publish(data)
 
         with open(self.path, 'a') as f:
             f.write(data_out + self.line_terminator)
-        self._metadata_file_i += 1

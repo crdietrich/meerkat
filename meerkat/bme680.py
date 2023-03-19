@@ -119,7 +119,7 @@ class BME680:
         self._min_refresh_time = 1 / self.refresh_rate
 
         # information about this device
-        self.metadata = Meta(name='BME680')
+        self.metadata = Meta(name=sensor_id)
         self.metadata.description = 'Bosch Humidity, Pressure, Temperature, VOC Sensor'
         self.metadata.urls = 'https://www.bosch-sensortec.com/products/environmental-sensors/gas-sensors-bme680/'
         self.metadata.manufacturer = 'Bosch Sensortec'
@@ -135,10 +135,11 @@ class BME680:
         # data recording information
         self.system_id = None
         self.sensor_id = sensor_id
-        
+
+        # data recording method
         self.writer_output = output
-        self.csv_writer   = CSVWriter(metadata=self.metadata, time_format='std_time_ms')
-        self.json_writer = JSONWriter(metadata=self.metadata, time_format='std_time_ms')
+        self.csv_writer   = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
 
     def read_calibration(self):
         """Read chip calibration coefficients
@@ -146,8 +147,8 @@ class BME680:
         Coefficients are not listed in Table 20: Memory Map.  Instead they are
         referenced in Tables 11, 12, 13 and 14.
         """
-        coeff  = self.bus.read_register_nbit(0x89, 25)
-        coeff += self.bus.read_register_nbit(0xE1, 16)
+        coeff  = self.bus.read_register_nbyte(0x89, 25)
+        coeff += self.bus.read_register_nbyte(0xE1, 16)
 
         coeff = list(struct.unpack('<hbBHhbBhhbbHhhBBBHbbbBbHhbb', bytes(coeff[1:39])))
         coeff = [float(i) for i in coeff]
@@ -269,23 +270,15 @@ class BME680:
 
     def reg_gas_wait_x(self):
         """Control register for gas wait profiles"""
-        self.gas_wait_x = self.bus.read_n_bytes(0x64, 10)
+        self.gas_wait_x = self.bus.read_register_nbyte(0x64, 10)
 
     def reg_res_heat_x(self):
         """Control register for heater resistance profiles"""
-        self.res_heat_x = self.bus.read_n_bytes(0x5A, 10)
+        self.res_heat_x = self.bus.read_register_nbyte(0x5A, 10)
 
     def reg_idac_heat_x(self):
         """Control register for heater current profiles"""
-        self.idac_heat_x = self.bus.read_n_bytes(0x50, 10)
-
-    def mode_sleep(self):
-        """Set chip mode to Sleep Mode"""
-        self.bus.write_n_bytes([])
-
-    def mode_forced(self):
-        """Set chip mode to Forced Mode (active for measurement)"""
-        self.bus.write_n_bytes([])
+        self.idac_heat_x = self.bus.read_register_nbyte(0x50, 10)
 
     # Operation Methods
     def gas_on(self):
@@ -297,10 +290,12 @@ class BME680:
         self.write_r_ctrl_gas_1()
 
     def forced_mode(self):
+        """Set chip mode to Forced Mode (active for measurement)"""
         self.mode = 0b01
         self.write_r_ctrl_meas()
 
     def sleep_mode(self):
+        """Set chip mode to Sleep Mode"""
         self.mode = 0b00
         self.write_r_ctrl_meas()
 
@@ -361,7 +356,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.bus.read_register_nbit(0x64, 10)
+        return self.bus.read_register_nbyte(0x64, 10)
 
     def get_res_heat(self):
         """Res_heat_x  : res_heat_0  @ 0x63 downto  res_heat_0 @ 0x5A
@@ -369,7 +364,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.bus.read_register_nbit(0x5A, 10)
+        return self.bus.read_register_nbyte(0x5A, 10)
 
     def get_idac_heat(self):
         """Idac_heat_x : idac_heat_9 @ 0x59 downto idac_heat_0 @ 0x50
@@ -377,7 +372,7 @@ class BME680:
         Returns
         -------
         bytes : 10 bytes from register range reg_0 to reg_0 + 10"""
-        return self.bus.read_register_nbit(0x50, 10)
+        return self.bus.read_register_nbyte(0x50, 10)
 
     def calc_res_heat(self, target_temp):
         """Convert a target temperature for the heater to a resistance
@@ -393,7 +388,7 @@ class BME680:
         """
 
         if self.amb_temp is None:
-            data = self.bus.read_register_nbit(0x22, 3)  # 0x22
+            data = self.bus.read_register_nbyte(0x22, 3)  # 0x22
             self._adc_temp = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
             self.amb_temp = self.temperature()
 
@@ -475,13 +470,13 @@ class BME680:
                 print('While loop %s' % cx)
             cx += 1
 
-        data = self.bus.read_register_nbit(0x1F, 3)  # 0x1F
+        data = self.bus.read_register_nbyte(0x1F, 3)  # 0x1F
         self._adc_pres = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
 
-        data = self.bus.read_register_nbit(0x22, 3)  # 0x22
+        data = self.bus.read_register_nbyte(0x22, 3)  # 0x22
         self._adc_temp = ((data[0] << 16) + (data[1] << 8) + data[2]) >> 4
 
-        data = self.bus.read_register_nbit(0x25, 3)  # 0x25
+        data = self.bus.read_register_nbyte(0x25, 3)  # 0x25
         self._adc_hum = (data[0] << 8) + data[1]
 
         _gas_r_msb  = self.bus.read_register_8bit(0x2A)
@@ -490,7 +485,7 @@ class BME680:
         self._adc_gas = (_gas_r_msb << 2) + (_gas_r_lsb >> 6)
         self._gas_valid = (_gas_r_lsb >> 5) & 0b1
         self._heat_stab = (_gas_r_lsb >> 4) & 0b1
-        self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <4:0>
+        self._gas_range = _gas_r_lsb & 0b1111  # 0x2B <3:0>
         return True
 
     def gas(self):
@@ -589,8 +584,12 @@ class BME680:
         p = self.pressure()
         h = self.humidity()
         g = self.gas()
+
+        t = round(t, 2)
+        h = round(h, 2)
+        p = round(p, 2)
+
         d = [t, p, h, g]
-        d = [round(n, 2) for n in d]
         return [self.system_id, self.sensor_id, description, n] + d + [self._gas_valid, self._heat_stab]
 
     def publish(self, description='NA', verbose=False):

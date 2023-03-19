@@ -7,7 +7,59 @@ On MicroPython:
 >>> from machine import I2C
 >>> i2c = I2C(0, I2C.MASTER)
 >>> i2c.scan()
+
+On CircuitPython:
+>>> import board
+then
+>>> i2c = board.I2C()
+or if it's a STEMMA connector:
+>>> i2c = board.STEMMA_I2C()
+then scan with
+>>> i2c.scan()
 """
+
+def i2c_scan(bus_n=0, **kwargs):
+    try: 
+        from machine import I2C
+        i2c = I2C(bus_n, I2C.MASTER)
+        return i2c.scan()
+    except:
+        pass
+
+    try:
+        from machine import i2c
+        i2c = I2C(bus_n, **kwargs)
+        return i2c.scan()
+    except:
+        pass
+
+
+    def _circuit_python_scan(i2c_instance):
+        while not i2c_instance.try_lock():
+            pass
+
+        try:
+            while True:
+                print(
+                    "I2C addresses found:",
+                    [hex(device_address) for device_address in i2c_instance.scan()],
+                )
+                time.sleep(2)
+
+        finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+            i2c_instance.unlock()
+
+    try:
+        from board import I2C
+        _circuit_python_scan(I2C())
+    except:
+        pass
+
+    try:
+        from board import STEMMA_I2C
+        _circuit_python_scan(STEMMA_I2C())
+    except:
+        pass
 
 def toI2C(n):
     """Print read and write address bytes formatted as
@@ -45,11 +97,12 @@ def bprint(v, n=16, indexes=True, verbose=True):
     v : int or hex, value to string print
     b : int, number of bytes in representation
     indexes : bool, print indexes below binary string representation
-    verbose : bool, print debug statements
+    verbose : bool, print hex and int representationss
     """
     if verbose:
         print("HEX value:", hex(v))
-        print("Binary value:")
+        print("Integer value:", int(v))
+        print("Binary value & indexes:")
     b = bin(v)[2:]
     print(left_fill(b, n))
     if indexes:

@@ -1,11 +1,16 @@
 """Wrapper Library for controlling I2C devices connected to MicroPython.
-Tested with PyCom FiPy"""
+Tested with Adafruit Py Qt S2 Espressif
+Note: CircuitPython wraps busio.I2C with board.I2c and board.STEMMA_I2C
+https://docs.circuitpython.org/en/latest/shared-bindings/busio/index.html#busio.I2C
+https://docs.circuitpython.org/projects/busdevice/en/latest/index.html
+"""
 
-from machine import I2C
+from board import I2C
+from board import STEMMA_I2C
 
 
-class WrapI2C:
-    def __init__(self, bus_n, bus_addr, frequency=100000):
+class WrapI2CBase:
+    def __init__(self):
         """Set the I2C communications to the worker device specified by
         the address
 
@@ -16,8 +21,8 @@ class WrapI2C:
         frequency : int, frequency of i2c bus.  Note MicroPython arg is 'frequencey'
             whereas PyCom term is 'baudrate'
         """
-        self.bus = I2C(bus_n, freq=frequency)
-        self.bus_addr = bus_addr
+        self.bus      = None
+        self.bus_addr = None
 
     def scan(self):
         """Scan I2C bus for devices
@@ -31,29 +36,6 @@ class WrapI2C:
         #
         #
         return [hex(a) for a in self.bus.scan()]
-
-    ### 1 byte = 8 bits ###
-
-    def read_byte(self):
-        """Read one byte from worker device
-
-        Returns
-        -------
-        int, 8 bits of data
-        """
-        return self.bus.readfrom(self.bus_addr, 1, True)
-
-    def write_byte(self, data):
-        """Write one byte to worker device.  Same as write_n_bytes.
-
-        Parameters
-        ----------
-        data : int, 8 bits of data
-        """
-        buff = bytearray(data)
-        self.bus.writeto(self.bus_addr, buff, True)
-
-    ### nbytes ###
 
     def read_n_bytes(self, n):
         """Read bytes (n total) from worker device.
@@ -69,12 +51,22 @@ class WrapI2C:
         -------
         iterable of bytes
         """
-        #
-        #
-        #
-        #
-        return self.bus.readfrom(self.bus_addr, n, True)
+        """
+        buff = bytearray()
+        while not self.bus.try_lock():
+            time.sleep(0)
+        self.bus.readfrom(self.bus_addr, buff, 0, n)
+        self.bus.unlock()
+        return buff
+        """
 
+        buff = bytearray(n)
+        while not self.bus.try_lock():
+            time.sleep(0)
+        self.bus.readfrom_into(self.bus_addr, buff)
+        self.bus.unlock()
+        return buff
+        
     def write_n_bytes(self, data):
         """Write bytes (n total) to worker device
 
@@ -83,8 +75,11 @@ class WrapI2C:
         data : iterable of bytes
         """
         buff = bytearray(data)
-        self.bus.writeto(self.bus_addr, buff, True)
-
+        while not self.bus.try_lock():
+            time.sleep(0)
+        self.bus.writeto(self.bus_addr, buff)
+        self.bus.unlock()
+        
     ### 8bit Register ###
 
     def read_register_8bit(self, reg_addr):
@@ -98,9 +93,12 @@ class WrapI2C:
         -------
         16 bit value of registry
         """
-        #value = self.bus.readfrom_mem(self.bus_addr, reg_addr, 1)
-        value = self.read_register_nbit(reg_addr, 1)
-        return int.from_bytes(value, 'big')
+        buff = bytearray(1)
+        while not self.bus.try_lock():
+            time.sleep(0)
+        self.bus.writeto_then_readfrom(self.bus_addr, bytes([reg_addr]), buff)
+        self.bus.unlock()
+        return buff[0]
 
     def write_register_8bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of
@@ -111,10 +109,11 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 8 bit value to write
         """
-        buff = bytearray(1)
-        buff[0] = data
-        self.bus.writeto_mem(self.bus_addr, reg_addr, buff)
-
+        while not self.bus.try_lock():
+            time.sleep(0)
+        self.bus.writeto(self.bus_addr, bytearray([reg_addr, data]))
+        self.bus.unlock()
+        
     ### 16bit Register ###
 
     def read_register_16bit(self, reg_addr):
@@ -128,8 +127,8 @@ class WrapI2C:
         -------
         16 bit value of registry
         """
-        #x, y = self.bus.readfrom_mem(self.bus_addr, reg_addr, 2)
-        x, y = self.read_register_nbit(reg_addr, 2)
+
+        x, y = self.read_register_nbyte(reg_addr, 2)
         return (x << 8) | y
 
     def write_register_16bit(self, reg_addr, data):
@@ -141,14 +140,18 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 16 bit value to write
         """
-        buff = bytearray(2)
-        buff[0] = data >> 8
-        buff[1] = data & 0xFF
-        self.bus.writeto_mem(self.bus_addr, reg_addr, buff, addrsize=8)
+        buff = bytearray(3)
+        buff[0] = reg_addr
+        buff[1] = data >> 8
+        buff[2] = data & 0xFF
+        while not self.bus.try_lock():
+            time.sleep(0)
+        self.bus.writeto(self.bus_addr, buff, 0, len(buff))
+        self.bus.unlock()
 
     ### nbit Register ###
 
-    def read_register_nbit(self, reg_addr, n):
+    def read_register_nbyte(self, reg_addr, n):
         """Get the values from one registry
 
         Parameters
@@ -160,5 +163,25 @@ class WrapI2C:
         -------
         n bit values
         """
-        #
-        return self.bus.readfrom_mem(self.bus_addr, reg_addr, n, addrsize=8)
+
+        self.write_n_bytes(reg_addr)
+        while not self.bus.try_lock():
+            time.sleep(0)
+        buff = bytearray(n)
+        self.bus.writeto_then_readfrom(self.bus_addr, bytes([reg_addr]), buff) #, 0, 1, 0, len(buff))
+        self.bus.unlock()
+        return buff
+
+
+class WrapI2C(WrapI2CBase):
+
+    def __init__(self):
+        super().__init__()
+        self.bus = I2C()
+
+
+class WrapSTEMMA_I2C(WrapI2CBase):
+
+    def __init__(self):
+        super().__init__()
+        self.bus = STEMMA_I2C()

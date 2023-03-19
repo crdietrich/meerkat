@@ -18,13 +18,13 @@ mcp = mcp9808.MCP9808(bus_n=i2c_default_bus)
 gps = pa1010d.PA1010D(bus_n=i2c_default_bus, bus_addr=0x10)
 
 ## I. GPS timestamp two devices
-tp_ex = TimePiece(time_format='gps_location')
+tp_ex = TimePiece(time_source='gps_location')
 tp_ex.gps = gps
 
-bme.json_writer.set_time_format('gps_location', external=True)
+bme.json_writer.set_time_source('gps_location', external=True)
 bme.json_writer.metadata_interval = 3
 
-mcp.json_writer.set_time_format('gps_location', external=True)
+mcp.json_writer.set_time_source('gps_location', external=True)
 mcp.json_writer.metadata_interval = 3
 
 ## I. Setup and First Measurement

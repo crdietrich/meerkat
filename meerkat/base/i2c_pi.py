@@ -1,11 +1,11 @@
-"""Wrapper Library for controlling I2C devices connected to MicroPython.
-Tested with PyCom FiPy"""
+"""Wrapper Library for controlling I2C devices connected to Raspberry Pi (Linux)
+Tested with Raspberry Pi 4"""
 
-from machine import I2C
+from meerkat import i2c_quickwire
 
 
 class WrapI2C:
-    def __init__(self, bus_n, bus_addr, frequency=100000):
+    def __init__(self, bus_n, bus_addr):
         """Set the I2C communications to the worker device specified by
         the address
 
@@ -13,18 +13,12 @@ class WrapI2C:
         ----------
         bus_n : int, i2c bus connected to worker devices
         bus_addr : hex, address of worker device on i2c bus
-        frequency : int, frequency of i2c bus.  Note MicroPython arg is 'frequencey'
-            whereas PyCom term is 'baudrate'
+        #
+        #
         """
-        self.bus = I2C(bus_n, I2C.MASTER, baudrate=frequency)
+        self.bus = i2c_quickwire.I2CController(n=bus_n)
         self.bus_addr = bus_addr
-    """
-    def start(self):
-        self.bus.start()
 
-    def stop(self):
-        self.bus.stop()
-    """
     def scan(self):
         """Scan I2C bus for devices
 
@@ -32,62 +26,42 @@ class WrapI2C:
         -------
         list of addresses found, in hex notation
         """
-        #
-        #
-        #
-        #
-        return [hex(a) for a in self.bus.scan()]
+        import subprocess
+        bash_command = "i2cdetect -y 1"
+        process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+        output, error = process.communicate()
+        return ["0x"+a.decode() for a in output.split()[16:] if (b":" not in a) and (a != b"--")]
 
-    ### 1 byte = 8 bits ###
-
-    def read_byte(self):
-        """Read one byte from worker device
-
-        Returns
-        -------
-        int, 8 bits of data
-        """
-        return self.bus.readfrom(self.bus_addr, 1)
-
-    def write_byte(self, data):
-        """Write one byte to worker device.  Same as write_n_bytes.
-
-        Parameters
-        ----------
-        data : int, 8 bits of data
-        """
-        self.bus.writeto(self.bus_addr, data)
-
-    ### nbytes ###
-
-    def read_n_bytes(self, n):
-        """Read bytes (n total) from worker device.
-        #
-        #
+    def read_n_bytes(self, n, flip_MSB=True):
+        """Read bytes (n total) from worker device, handle MSB flip behavior
+        on Raspberry Pi.  Tested on Pi3 B v1.2 and Pi4 4GB.
+        Atlas Sci source pointed to this solution.
 
         Parameters
         ----------
         n : int, number of bytes to read
-        #
+        flip_MSB : bool, flip the Most Significant Bit (MSB)
 
         Returns
         -------
         iterable of bytes
         """
-        #
-        #
-        #
-        #
-        return self.bus.readfrom(self.bus_addr, n)
+        values = self.bus.get(self.bus_addr, n)[0]
+        return values
+    
+        #if flip_MSB:
+        #    return bytes(bytearray(c & ~0x80 for c in values[1:] if c != 0))
+        #else:
+        #    return values
 
     def write_n_bytes(self, data):
-        """Write bytes (n total) to worker device
+        """Write bytes (n total) to worker device.
 
         Parameters
         ----------
-        data : iterable of bytes
+        *data : iterable of bytes
         """
-        self.bus.writeto(self.bus_addr, bytes(data))
+        self.bus.write_bytes(self.bus_addr, *data)
 
     ### 8bit Register ###
 
@@ -102,8 +76,8 @@ class WrapI2C:
         -------
         16 bit value of registry
         """
-        value = self.bus.readfrom_mem(self.bus_addr, reg_addr, 1)
-        return int.from_bytes(value, 'big')
+        value = self.read_register_nbyte(reg_addr, 1)
+        return int.from_bytes(value, byteorder='big')
 
     def write_register_8bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of
@@ -114,9 +88,10 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 8 bit value to write
         """
-        buff = bytearray(1)
-        buff[0] = data
-        self.bus.writeto_mem(self.bus_addr, reg_addr, buff)
+        #
+        #
+        #
+        self.bus.write_bytes(self.bus_addr, reg_addr, data)
 
     ### 16bit Register ###
 
@@ -131,8 +106,8 @@ class WrapI2C:
         -------
         16 bit value of registry
         """
-        x, y = self.bus.readfrom_mem(self.bus_addr, reg_addr, 2)
-        return (x << 8) | y
+        value = self.read_register_nbyte(reg_addr, 2)
+        return int.from_bytes(value, byteorder='big')
 
     def write_register_16bit(self, reg_addr, data):
         """Write a 16 bit register.  Breaks 16 bit data into list of
@@ -143,14 +118,14 @@ class WrapI2C:
         reg_addr : int, register internal to the worker device
         data : int, 16 bit value to write
         """
-        buff = bytearray(2)
-        buff[0] = data >> 8
-        buff[1] = data & 0xFF
-        self.bus.writeto_mem(self.bus_addr, reg_addr, buff)
+        #
+        #
+        #
+        self.bus.write_bytes(self.bus_addr, reg_addr, data >> 8, data & 0xff)
 
     ### nbit Register ###
 
-    def read_register_nbit(self, reg_addr, n):
+    def read_register_nbyte(self, reg_addr, n):
         """Get the values from one registry
 
         Parameters
@@ -162,6 +137,5 @@ class WrapI2C:
         -------
         n bit values
         """
-
-        self.write_byte(reg_addr)
-        return self.read_n_bytes(n)
+        self.bus.write_bytes(self.bus_addr, reg_addr)
+        return self.bus.get(self.bus_addr, n)[0]
