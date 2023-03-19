@@ -18,7 +18,7 @@ BIT_COMP_QUE  = 3
 
 class ADS1115(object):
     def __init__(self, i2c_bus, bus_addr=0x48, output='csv', name='ADS1115'):
-        """Initialize worker device on i2c bus.
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
