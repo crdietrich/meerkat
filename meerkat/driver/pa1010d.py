@@ -11,7 +11,7 @@ https://www.cdtop-tech.com/products/pa1010d
 
 import re
 
-from meerkat.base import time, I2C
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -27,21 +27,22 @@ def calc_checksum(s):
 
 
 class PA1010D:
-    def __init__(self, bus_n, bus_addr=0x10, output='csv', name='pa1010d'):
+    def __init__(self, i2c_bus, bus_addr=0x10, output='csv', name='pa1010d'):
         """PA1010D GPS module using MTK3333 chipset
         
         Supported NMEA sentences: 'GGA', 'GSA', 'GSV', 'RMC', 'VTG'
         
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
-        bus_addr : int, i2c bus number of this Worker device
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
+        bus_addr : int, i2c bus number of this Target device
         nmea_sentence : str, NMEA sentence type to save for CSV.
             JSON will save
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # maximum data in buffer size
         self._bytes_per_burst = 255
