@@ -48,7 +48,7 @@ elif sys.platform in ['FiPy']:
     def _json_dumps(value):
         return json.dumps(value)
 
-elif sys.platform in ['Espressif']:
+elif sys.platform in ['Espressif', 'RP2040']:
     import json
     import time
     import struct
