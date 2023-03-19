@@ -10,7 +10,7 @@ from meerkat.data import CSVWriter, JSONWriter
 
 class ExampleDevice:
     def __init__(self, bus_n, bus_addr=0x00, output='csv'):
-        """Initialize worker device on i2c bus.
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------

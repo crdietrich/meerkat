@@ -44,7 +44,7 @@ class i2c_msg(Structure):
 
 # I2C Message Flags
 I2C_M_TEN           = 0x0010    # this is a ten bit chip address
-I2C_M_RD            = 0x0001    # read data from worker to controller
+I2C_M_RD            = 0x0001    # read data from Target to controller
 I2C_M_NOSTART       = 0x4000    # if I2C_FUNC_PROTOCOL_MANGLING
 I2C_M_REV_DIR_ADDR  = 0x2000    # if I2C_FUNC_PROTOCOL_MANGLING
 I2C_M_IGNORE_NAK    = 0x1000    # if I2C_FUNC_PROTOCOL_MANGLING
@@ -67,10 +67,10 @@ I2C_FUNC_PROTOCOL_MANGLING  = 0x00000004 # I2C_M_NOSTART etc.
 
 
 # Input Output Controls
-I2C_WORKER   = 0x0703        # Change worker address
+I2C_WORKER   = 0x0703        # Change Target address
 
 # Note: Worker address is 7 or 10 bits
-I2C_WORKER_FORCE = 0x0706    # Change worker address
+I2C_WORKER_FORCE = 0x0706    # Change Target address
 
 # Note: Worker address is 7 or 10 bits
 # This changes the address, even if it is already taken!

@@ -6,13 +6,13 @@ from meerkat import i2c_quickwire
 
 class WrapI2C:
     def __init__(self, bus_n, bus_addr):
-        """Set the I2C communications to the worker device specified by
+        """Set the I2C communications to the Target device specified by
         the address
 
         Parameters
         ----------
-        bus_n : int, i2c bus connected to worker devices
-        bus_addr : hex, address of worker device on i2c bus
+        bus_n : int, i2c bus connected to Target devices
+        bus_addr : hex, address of Target device on i2c bus
         #
         #
         """
@@ -33,7 +33,7 @@ class WrapI2C:
         return ["0x"+a.decode() for a in output.split()[16:] if (b":" not in a) and (a != b"--")]
 
     def read_n_bytes(self, n, flip_MSB=True):
-        """Read bytes (n total) from worker device, handle MSB flip behavior
+        """Read bytes (n total) from Target device, handle MSB flip behavior
         on Raspberry Pi.  Tested on Pi3 B v1.2 and Pi4 4GB.
         Atlas Sci source pointed to this solution.
 
@@ -55,7 +55,7 @@ class WrapI2C:
         #    return values
 
     def write_n_bytes(self, data):
-        """Write bytes (n total) to worker device.
+        """Write bytes (n total) to Target device.
 
         Parameters
         ----------
@@ -70,7 +70,7 @@ class WrapI2C:
 
         Parameters
         ----------
-        reg_addr : int, registry internal to the worker device to read
+        reg_addr : int, registry internal to the Target device to read
 
         Returns
         -------
@@ -85,7 +85,7 @@ class WrapI2C:
 
         Parameters
         ----------
-        reg_addr : int, register internal to the worker device
+        reg_addr : int, register internal to the Target device
         data : int, 8 bit value to write
         """
         #
@@ -100,7 +100,7 @@ class WrapI2C:
 
         Parameters
         ----------
-        reg_addr : int, registry internal to the worker device to read
+        reg_addr : int, registry internal to the Target device to read
 
         Returns
         -------
@@ -115,7 +115,7 @@ class WrapI2C:
 
         Parameters
         ----------
-        reg_addr : int, register internal to the worker device
+        reg_addr : int, register internal to the Target device
         data : int, 16 bit value to write
         """
         #
@@ -130,7 +130,7 @@ class WrapI2C:
 
         Parameters
         ----------
-        reg_addr : int, registry internal to the worker device to read
+        reg_addr : int, registry internal to the Target device to read
         n : int, number of bits to read
 
         Returns
