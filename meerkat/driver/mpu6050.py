@@ -28,7 +28,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from meerkat.base import I2C
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -80,10 +79,18 @@ class mpu6050:
     ACCEL_CONFIG = 0x1C
     GYRO_CONFIG = 0x1B
 
-    def __init__(self, bus_n, bus_addr=0x68, output='csv', name='MPU6050'):
+    def __init__(self, i2c_bus, bus_addr=0x68, output='csv', name='MPU6050'):
+        """Initialize Target device on i2c bus.
+
+        Parameters
+        ----------
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
+        bus_addr : int, i2c bus number of this Target device
+        """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # Wake up the MPU-6050 since it starts in sleep mode
         # by toggling bit6 from 1 to 0, see pg 40 of RM-MPU-6000A-00 v4.2
