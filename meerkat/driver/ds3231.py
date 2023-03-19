@@ -3,7 +3,7 @@ https://datasheets.maximintegrated.com/en/ds/DS3231.pdf
 https://www.adafruit.com/product/3013
 """
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -38,18 +38,19 @@ def dec2bcd(dec):
 
 
 class DS3231:
-    def __init__(self, bus_n, bus_addr=0x68, output='csv', name='DS3231'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x68, output='csv', name='DS3231'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         output : str, output data format, either 'csv' (default) or 'json'
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # information about this device
         self.metadata = Meta(name=name)
@@ -63,7 +64,6 @@ class DS3231:
         self.metadata.accuracy  = [None, 1, '+/- 3.5 ppm', '+/- 3.0'] 
         self.metadata.precision = [None, 1, '1 second', 0.25]
         
-        self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
 
         # python strftime specification for RTC output precision
