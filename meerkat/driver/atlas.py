@@ -30,18 +30,18 @@ class Atlas:
     """Base class for Atlas Scientific sensors"""
 
 
-    def __init__(self, bus_n, bus_addr, output='csv', name='atlas_base'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr, output='csv', name='atlas_base'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
-        bus_addr : int, i2c bus number of this Worker device
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
+        bus_addr : int, i2c bus number of this Target device
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
-
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # time to wait for conversions to finish
         self.short_delay   = 0.3  # seconds for regular commands
