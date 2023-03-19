@@ -1,14 +1,22 @@
 """Grove I2C Motor Controller Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 class GroveMotor:
 
-    def __init__(self, bus_n, bus_addr=0x0F, output='csv', name='Grove Motor Driver'):
+    def __init__(self, i2c_bus, bus_addr=0x0F, output='csv', name='Grove Motor Driver'):
+        """Initialize Target device on i2c bus.
 
+        Parameters
+        ----------
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
+        bus_addr : int, i2c bus number of this Target device
+        """
+        
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # PWM clock frequency
         self.frequency = 31372
