@@ -1,6 +1,14 @@
-"""Basic I2C device classes for Raspberry PI & MicroPython"""
+"""Basic I2C device classes for Raspberry PI & MicroPython
+
+Board Support Lists that sys.platform matches:
+https://docs.circuitpython.org/en/latest/README.html#ports
+
+Default bus is first hardware I2C bus number. Can be overridden
+in driver class attributes.
+"""
 
 import sys
+
 
 if sys.platform == 'linux':
     import json
@@ -14,14 +22,12 @@ if sys.platform == 'linux':
 
     from datetime import datetime  # Python 3.7
 
-
     def _struct_time():
         t = datetime.now()
         return (t.year, t.month, t.day, t.hour,
                 t.minute, t.second, t.microsecond)
 
-
-    def json_dumps(value):
+    def _json_dumps(value):
         return json.dumps(value, default=lambda x: x.class_values())
 
 elif sys.platform in ['FiPy']:
@@ -39,10 +45,27 @@ elif sys.platform in ['FiPy']:
     rtc = machine.RTC()
     _struct_time = rtc.now
 
-
-    def json_dumps(value):
+    def _json_dumps(value):
         return json.dumps(value)
 
+elif sys.platform in ['Espressif']:
+    import json
+    import time
+    import struct
+
+    from meerkat.base import i2c_circuitpython
+
+    I2C = i2c_circuitpython.WrapI2C
+    STEMMA_I2C = i2c_circuitpython.WrapSTEMMA_I2C
+
+    def _struct_time():
+        # Espressif does not support milliseconds
+        t = time.struct_time(time.localtime())
+        return(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour,
+               t.tm_min, t.tm_sec, 0)
+
+    def _json_dumps(value):
+        return json.dumps(value)
 
 elif sys.platform in ['pyboard', 'OpenMV3-M7']:
     import ujson as json
@@ -63,13 +86,11 @@ elif sys.platform in ['pyboard', 'OpenMV3-M7']:
 
     rtc = machine.RTC()
 
-
     def _struct_time():
         t = rtc.datetime()
         return t[0], t[1], t[2], t[4], t[5], t[6], t[7]
 
-
-    def json_dumps(value):
+    def _json_dumps(value):
         return json.dumps(value)
 else:
     print("Error detecting system platform.")
@@ -99,6 +120,9 @@ class Base:
             d[k] = v
         return d
 
+    def json_dumps(self, value):
+        return _json_dumps(value)
+
     def to_json(self, indent=None):
         """Return all class objects from __dict__ except
         those prefixed with underscore ('_')
@@ -108,4 +132,4 @@ class Base:
         -------
         str, JSON formatted (attribute: value) pairs
         """
-        return json_dumps(self.class_values())
+        return _json_dumps(self.class_values())

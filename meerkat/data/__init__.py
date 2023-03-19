@@ -2,8 +2,8 @@
 
 # TODO: perhaps change 'time_source' to 'time_source'
 
-from meerkat.base import Base, json
-from meerkat.timepiece import TimePiece
+from meerkat.base import Base, _json_dumps
+from meerkat.data.timepiece import TimePiece
 
 
 class Meta(Base):
@@ -206,14 +206,12 @@ class JSONWriter(WriterBase):
         data_out['timestamp'] = timestamp
         data_out['time_source'] = self.time_source
 
-        #data_out[self.time_source] = timestamp
-
         if self._metadata_stream_i == self.metadata_interval:
             data_out = self.add_metadata(data_out)
             self._metadata_stream_i = 1
         else:
             self._metadata_stream_i += 1
-        return json.dumps(data_out)
+        return _json_dumps(data_out)
 
     def write(self, data):
         """Write JSON data and metadata at intervals set by
