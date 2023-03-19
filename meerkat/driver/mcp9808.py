@@ -1,6 +1,6 @@
 """MCP9808 Temperature Sensor Driver for Raspberry PI & MicroPython"""
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 # chip register address
@@ -25,17 +25,18 @@ REG_CONFIG_ALERTMODE   = 0x0001
 
 
 class MCP9808(object):
-    def __init__(self, bus_n, bus_addr=0x18, output='csv', name='mcp9808'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x18, output='csv', name='mcp9808'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.addr = bus_addr
 
         # register values and defaults
         # TODO: do the constant values need to be specified?
@@ -93,7 +94,7 @@ class MCP9808(object):
         """
         reg_addr = self.reg_map[reg_name]
 
-        self.bus.write_byte(reg_addr)
+        self.bus.write_n_bytes(reg_addr)
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
