@@ -17,7 +17,7 @@ BIT_COMP_QUE  = 3
 
 
 class ADS1115(object):
-    def __init__(self, bus_n, bus_addr=0x48, output='csv', name='ADS1115'):
+    def __init__(self, i2c_bus, bus_addr=0x48, output='csv', name='ADS1115'):
         """Initialize worker device on i2c bus.
 
         Parameters
@@ -27,7 +27,8 @@ class ADS1115(object):
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # time to wait for conversion to finish
         self.delay = 0.009  # units = seconds
@@ -130,7 +131,7 @@ class ADS1115(object):
         """
         reg_addr = self.reg_map[reg_name]
 
-        self.bus.write_byte(reg_addr)
+        self.bus.write_n_bytes(reg_addr)
 
     def read_register_16bit(self, reg_name):
         """Get the values from one registry
