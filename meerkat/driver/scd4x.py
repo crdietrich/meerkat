@@ -2,7 +2,7 @@
 Chapter references (chr x.x) to Datasheet version '1.1 - April 2021'
 2021 Colin Dietrich"""
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -63,19 +63,20 @@ def CRC_check(data, verbose=False):
 
 
 class SCD4x():
-    def __init__(self, bus_n, bus_addr=0x62, output='csv', sensor_id='SCD4x'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x62, output='csv', sensor_id='SCD4x'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         output : str, writer output format, either 'csv' or 'json'
         sensor_id : str, sensor id, 'BME680' by default
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # information about this device
         self.metadata = Meta(name='SCD4x')
@@ -90,7 +91,6 @@ class SCD4x():
         self.metadata.precision = ['NA',        'NA',        'NA',          'NA',       '+/- 10',      '+/- 0.1',         '+/- 0.4']
         self.metadata.range     = ['NA',        'NA',        'NA',          'NA',       '0-40000',     '-10-60',          '0-100']
 
-        self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
 
         # configuration settings of device
