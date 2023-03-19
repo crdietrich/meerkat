@@ -1,11 +1,12 @@
 """TI INA219 current measurement driver for Raspberry PI & MicroPython"""
 
 from meerkat import base, tools
-from meerkat.data import CSVWriter, JSONWriter
+from meerkat.base import time
+from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 class INA219:
-    def __init__(self, bus_n, bus_addr=0x40, output='csv'):
+    def __init__(self, bus_n, bus_addr=0x40, output='csv', name='ina219'):
         """Initialize worker device on i2c bus.
 
         Parameters
@@ -44,33 +45,37 @@ class INA219:
         # print debug statements
         self.verbose = False
 
+        # data recording information
+        self.sample_id = None
+        
         # information about this device
-        self.device = base.DeviceData('INA219')
-        self.device.description = ('Texas Instruments Bidirectional Current' +
-                                   ' Monitor')
-        self.device.urls = 'www.ti.com/product/ADS1115'
-        self.device.active = None
-        self.device.error = None
-        self.device.bus = repr(self.bus)
-        self.device.manufacturer = 'Texas Instruments'
-        self.device.version_hw = '1.0'
-        self.device.version_sw = '1.0'
-        self.device.accuracy = None
-        self.device.precision = '12bit'
-        self.device.calibration_date = None
+        self.metadata = Meta(name=name)
+        self.metadata.description = 'Texas Instruments Bidirectional Current Monitor'
+        self.metadata.urls = 'www.ti.com/product/ADS1115'
+        self.metadata.manufacturer = 'Adafruit Industries & Texas Instruments'
+        
+        self.metadata.header    = ['description', 'sample_n', 'voltage', 'current']
+        self.metadata.dtype     = ['str', 'int', 'float', 'float']
+        self.metadata.units     = [None, 'count', 'volt', 'amp']
+        self.metadata.accuracy  = [None, 1, '+/-0.2%', '+/-0.2%'] 
+        self.metadata.precision = [None, 1, '4 mV', '10uV accross shunt']
+        self.metadata.accuracy_note = 'values for model INA291A'
+        
+        self.metadata.bus_n = bus_n
+        self.metadata.bus_addr = hex(bus_addr)
 
         # chip defaults on power up or reset command
-        self.device.bus_voltage_range = self.bv_reg_to_bv[1]
-        self.device.gain = self.pga_reg_to_gain[0b11]
-        self.device.gain_string = self.pga_reg_str_range[self.device.gain]
+        self.metadata.bus_voltage_range = self.bv_reg_to_bv[1]
+        self.metadata.gain = self.pga_reg_to_gain[0b11]
+        self.metadata.gain_string = self.pga_reg_str_range[self.metadata.gain]
 
-        self.device.bus_adc_resolution = 12
-        self.device.bus_adc_averaging = None
+        self.metadata.bus_adc_resolution = 12
+        self.metadata.bus_adc_averaging = None
 
-        self.device.shunt_adc_resolution = 12
-        self.device.shunt_adc_averaging = None
+        self.metadata.shunt_adc_resolution = 12
+        self.metadata.shunt_adc_averaging = None
 
-        self.device.mode = 7
+        self.metadata.mode = 7
         self.mode_to_str = {0: "power down",
                             1: "shunt voltage, triggered",
                             2: "bus voltage, triggered",
@@ -79,24 +84,17 @@ class INA219:
                             5: "shunt voltage, continuous",
                             6: "bus voltage, continuous",
                             7: "shunt and bus voltages, continuous"}
-        self.device.mode_description = self.mode_to_str[self.device.mode]
+        self.metadata.mode_description = self.mode_to_str[self.metadata.mode]
 
         # Adafruit INA219 breakout board as a 0.1 ohm 1% 2W resistor
-        self.device.r_shunt = 0.1
-
-        # data recording information
-        self.sample_id = None
+        self.metadata.r_shunt = 0.1
+        
         
         # data recording method
         self.writer_output = output
-        self.csv_writer = CSVWriter("INA219", time_format='std_time_ms')
-        self.csv_writer.device = self.device.__dict__
-        self.csv_writer.header = ['description', 'sample_n', 'voltage', 'current']
+        self.csv_writer = CSVWriter(metadata=self.metadata, time_source='std_time_ms')
+        self.json_writer = JSONWriter(metadata=self.metadata, time_source='std_time_ms')
         
-        self.json_writer = JSONWriter("INA219", time_format='std_time_ms')
-        self.json_writer.device = self.device.__dict__
-        self.json_writer.header = ['description', 'sample_n', 'voltage', 'current']
-
         # intialized configuration values
         self.get_config()
 
@@ -126,14 +124,14 @@ class INA219:
     def get_config(self):
         r = self.read_register('config')
         self.reg_config = r
-        self.device.bus_voltage_range = self.bv_reg_to_bv[(r >> 13) & 0b1]
-        self.device.gain = self.pga_reg_to_gain[(r >> 11) & 0b11]
+        self.metadata.bus_voltage_range = self.bv_reg_to_bv[(r >> 13) & 0b1]
+        self.metadata.gain = self.pga_reg_to_gain[(r >> 11) & 0b11]
         
         if self.verbose:
             print("Bus Voltage Range:", 
-                  self.device.bus_voltage_range, "V")
-            print("PGA Range: {}x or {}".format(self.device.gain, 
-                  self.pga_reg_str_range[self.device.gain]))
+                  self.metadata.bus_voltage_range, "V")
+            print("PGA Range: {}x or {}".format(self.metadata.gain, 
+                  self.pga_reg_str_range[self.metadata.gain]))
             print("Configuration Register:")
             tools.bprint(r)
         return r
@@ -211,7 +209,7 @@ class INA219:
         reg_value = {16: base.bit_clear(13, self.reg_config),
                      32: base.bit_set(13, self.reg_config)}[v]
         self.reg_config = reg_value
-        self.device.bus_voltage_range = v
+        self.metadata.bus_voltage_range = v
         self.write_config(reg_value)
 
     def set_pga_range(self, gain=8):
@@ -221,8 +219,8 @@ class INA219:
                      4:   (self.reg_config & mask) | 0b0001000000000000,
                      8:   (self.reg_config & mask) | 0b0001100000000000}[gain]
         self.reg_config = reg_value
-        self.device.gain = gain
-        self.device.gain_string = self.pga_reg_str_range[self.gain]
+        self.metadata.gain = gain
+        self.metadata.gain_string = self.pga_reg_str_range[self.gain]
         self.write_config(reg_value)
 
     def set_bus_adc_resolution(self, bits=12):
@@ -233,8 +231,8 @@ class INA219:
                      11:  (self.reg_config & mask) | 0b0000000100000000,
                      12:  (self.reg_config & mask) | 0b0000000110000000}[bits]
         self.reg_config = reg_value
-        self.device.bus_adc_resolution = bits
-        self.device.bus_adc_averaging = None
+        self.metadata.bus_adc_resolution = bits
+        self.metadata.bus_adc_averaging = None
         self.write_config(reg_value)
 
     def set_bus_adc_samples(self, n=128):
@@ -248,8 +246,8 @@ class INA219:
                      64:  (self.reg_config & mask) | 0b0000011100000000,
                      128: (self.reg_config & mask) | 0b0000011110000000}[n]
         self.reg_config = reg_value
-        self.device.bus_adc_resolution = None
-        self.device.bus_adc_averaging = n
+        self.metadata.bus_adc_resolution = None
+        self.metadata.bus_adc_averaging = n
         self.write_config(reg_value)
 
     def set_shunt_adc_resolution(self, bits=12):
@@ -260,8 +258,8 @@ class INA219:
                      11:  (self.reg_config & mask) | 0b0000000000010000,
                      12:  (self.reg_config & mask) | 0b0000000000011000}[bits]
         self.reg_config = reg_value
-        self.device.shunt_adc_resolution = bits
-        self.device.shunt_adc_averaging = None
+        self.metadata.shunt_adc_resolution = bits
+        self.metadata.shunt_adc_averaging = None
         self.write_config(reg_value)
 
     def set_shunt_adc_samples(self, n=128):
@@ -274,8 +272,8 @@ class INA219:
                      64:  (self.reg_config & mask) | 0b0000000001110000,
                      128: (self.reg_config & mask) | 0b0000000001111000}[n]
         self.reg_config = reg_value
-        self.device.adc_resolution = None
-        self.device.adc_averaging = n
+        self.metadata.adc_resolution = None
+        self.metadata.adc_averaging = n
         self.write_config(reg_value)
 
     def set_mode(self, n=7):
@@ -288,8 +286,8 @@ class INA219:
                      5:   (self.reg_config & mask) | 0b0000000000000110,
                      6:   (self.reg_config & mask) | 0b0000000000000111}[n]
         self.reg_config = reg_value
-        self.device.mode = n
-        self.device.mode_description = self.mode_to_str[n]
+        self.metadata.mode = n
+        self.metadata.mode_description = self.mode_to_str[n]
         self.write_config(reg_value)
 
     def set_calibration(self, cal_value):
@@ -302,7 +300,7 @@ class INA219:
 
     def get_current_simple(self):
         """Calculate the current from single shot measurements"""
-        return self.get_shunt_voltage() / self.device.r_shunt
+        return self.get_shunt_voltage() / self.metadata.r_shunt
 
     def get(self, description='NA', n=1, delay=None):
         """Get formatted output.

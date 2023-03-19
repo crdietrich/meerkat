@@ -10,7 +10,7 @@ from meerkat.data import CSVWriter, JSONWriter
 
 class ExampleDevice:
     def __init__(self, bus_n, bus_addr=0x00, output='csv'):
-        """Initialize worker device on i2c bus.
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
@@ -43,9 +43,9 @@ class ExampleDevice:
 
         # data recording method
         if output == 'csv':
-            self.writer = CSVWriter('ExampleDevice', time_format='std_time_ms')
+            self.writer = CSVWriter('ExampleDevice', time_source='std_time_ms')
         elif output == 'json':
-            self.writer = JSONWriter('ExampleDevice', time_format='std_time_ms')
+            self.writer = JSONWriter('ExampleDevice', time_source='std_time_ms')
         else: 
             pass  # holder for another writer or change in default  
         # set writer header for device's output format, ADS1115 shown example
