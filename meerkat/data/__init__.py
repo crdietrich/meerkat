@@ -1,6 +1,5 @@
 """CSV and JSON writing and publishing methods"""
 
-# TODO: perhaps change 'time_source' to 'time_source'
 
 from meerkat.base import Base, _json_dumps
 from meerkat.data.timepiece import TimePiece
@@ -45,9 +44,16 @@ class WriterBase(Base):
         TimePiece.file_time() + '_' + self._metadata['name'] + self._metadata['description'] + (file extension)
         where (file extension) is either '.csv' or '.jsontxt'
         if self._metadata['description'] is None, it is omitted from the file name
+    Note 3: Properties hide class attributes from being written as metadata
     """
     def __init__(self, metadata, time_source):
-
+        """
+        Parameters
+        ----------
+        metadata : meerkat.data.Meta class instance
+        time_source : str, meerkat.data.TimePiece class data source. 
+            One of 'local', 'rtc', 'gps', 'external'. Default is 'local'
+        """
         # file information
         self.encoding        = 'utf-8'  # encoding of output. Should stay 'utf-8'!
         self.format          = None     # format of data being written, CSV, JSON, etc
@@ -70,22 +76,34 @@ class WriterBase(Base):
         self.path = None
         self.directory = None
 
-        # timestamp formatter
+        # timestamp information
         self.time_source = time_source
-        self._timepiece  = TimePiece(time_source)
-        self.set_time_source(time_source, external=False)
+        self.time_kind = 'std_time_ms'
+        
+        self._timepiece = TimePiece(source=self.time_source, kind=self.time_kind)
+        #self.set_time_source(self.time_source)
+        #self.set_time_kind(self.time_kind)
 
-    def set_time_source(self, time_source, external=False):
-        """Override default TimePiece format"""
+    def set_time_source(self, time_source):
+        """Override default TimePiece data source
+
+        Parameters
+        ----------
+        time_source : str, meerkat.data.TimePiece class data source. 
+            One of 'local', 'rtc', 'gps', 'external'
+        """
         self.time_source = time_source
-        if external:
-            # report what the time_format will be from the external source
-            self._timepiece.set_format('external')
-            self.time_format   = self._timepiece.formats_available[time_source]
-        else:
-            # set the format for generation of timestamps and formatting
-            self._timepiece.set_format(time_source)
-            self.time_format   = self._timepiece.time_format
+        self._timepiece.source = time_source
+    
+    def set_time_kind(self, time_kind):
+        """Override default TimePiece output kind
+        Parameters
+        ----------
+        time_kind : str, meerkat.data.TimePiece class data output kind.
+            one of 'std_time', std_time_ms', 'iso_time', 'file_time', 'gps_location'
+        """
+        self.time_kind = time_kind
+        self._timepiece.set_kind(time_kind)
 
     def set_time(self, time_str):
         self._timepiece.set_time(time_str)
