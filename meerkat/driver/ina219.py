@@ -1,22 +1,22 @@
 """TI INA219 current measurement driver for Raspberry PI & MicroPython"""
 
-from meerkat import base, tools
-from meerkat.base import time
+from meerkat.base import time, tools
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
 class INA219:
-    def __init__(self, bus_n, bus_addr=0x40, output='csv', name='ina219'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x40, output='csv', name='ina219'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         """
 
         # i2c bus
-        self.bus = base.I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         self.reg_config = None
         self.reg_shunt_voltage = None
