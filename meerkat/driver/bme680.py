@@ -11,7 +11,7 @@ QWIIC pinout version:
 https://www.sparkfun.com/products/14570
 """
 
-from meerkat.base import I2C, time, struct
+from meerkat.base import time, struct
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 
@@ -25,8 +25,8 @@ def _read24(arr):
 
 
 class BME680:
-    def __init__(self, bus_n, bus_addr=0x77, output='csv', sensor_id='BME680'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x77, output='csv', sensor_id='BME680'):
+        """Initialize Target device on i2c bus.
 
         For register memory map, see datasheet pg 28, section 5.2
 
@@ -39,7 +39,8 @@ class BME680:
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus  #I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus.bus_addr = bus_addr
 
         # Default oversampling and filter register values.
         self.refresh_rate        = 1
@@ -129,7 +130,6 @@ class BME680:
         self.metadata.units     = ['NA',        'NA',        'NA',          'count',    'Celcius', 'hectopascals', 'percent',  'ohms',    'NA',   'NA', ]
         self.metadata.accuracy  = ['NA',        'NA',        'NA',          '1',         '+/-1.0',  '+/-0.12',      '+/-3',     '+/-15%', 'NA',   'NA']
         self.metadata.precision = ['NA',        'NA',        'NA',          '1',         '0.1',     '0.18',         '0.008',    '0.08',   'NA',   'NA']
-        self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
 
         # data recording information
