@@ -6,7 +6,7 @@ such as TI ISO1540. Sensor will run on 3.3v but will produce inaccurate data.
 
 2021 Colin Dietrich"""
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 import struct
@@ -82,12 +82,12 @@ def ascii_join(data):
 
 
 class SPS30():
-    def __init__(self, bus_n, bus_addr=0x69, output_format='float', output='csv', sensor_id='SPS30'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x69, output_format='float', output='csv', sensor_id='SPS30'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         output_format : str, what format measurements will be returned in
             either 'float' or 'int'
@@ -98,7 +98,8 @@ class SPS30():
         self.output_format = None
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         # information about this device
         self.metadata = Meta(name='SPS30')
