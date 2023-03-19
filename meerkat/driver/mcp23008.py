@@ -3,25 +3,26 @@ https://jap.hu/electronic/relay_module_i2c.html
 https://www.microchip.com/wwwproducts/en/MCP23008
 """
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 from meerkat import tools
 
 class MCP23008:
     
-    def __init__(self, bus_n, bus_addr=0x20, output='csv'):
-        """Initialize worker device on i2c bus.
+    def __init__(self, i2c_bus, bus_addr=0x20, output='csv'):
+        """Initialize Target device on i2c bus.
 
         Parameters
         ----------
-        bus_n : int, i2c bus number on Controller
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
         bus_addr : int, i2c bus number of this Worker device
         output : str, output data format, either 'csv' (default) or 'json'
         """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
         
         # set direction of I/O to output for all pins
         self.bus.write_register_8bit(reg_addr=0x00, data=0)
