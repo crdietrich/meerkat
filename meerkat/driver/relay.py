@@ -1,14 +1,22 @@
 """Sparkfun Relay for controlling high current devices"""
 
-from meerkat.base import I2C, time
+from meerkat.base import time
 from meerkat.data import Meta, CSVWriter, JSONWriter
 
 class Single:
 
-    def __init__(self, bus_n, bus_addr=0x18, output='csv', name='Qwiic_1xRelay'):
+    def __init__(self, i2c_bus, bus_addr=0x18, output='csv', name='Qwiic_1xRelay'):
+        """Initialize Target device on i2c bus.
+
+        Parameters
+        ----------
+        i2c_bus : meerkat.base.I2C or meerkat.base.STEMMA_I2C instance
+        bus_addr : int, i2c bus number of this Target device
+        """
 
         # i2c bus
-        self.bus = I2C(bus_n=bus_n, bus_addr=bus_addr)
+        self.bus = i2c_bus
+        self.bus.bus_addr = bus_addr
 
         self.state_mapper = {0: "closed", 1: "open"}
         
@@ -24,7 +32,6 @@ class Single:
         self.metadata.accuracy  = None 
         self.metadata.precision = None
         
-        self.metadata.bus_n = bus_n
         self.metadata.bus_addr = hex(bus_addr)
 
         # data recording method
@@ -54,11 +61,11 @@ class Single:
 
     def off(self):
         """Turn the relay off.  State will report 0."""
-        self.bus.write_byte(0x00)
+        self.bus.write_n_bytes(0x00)
 
     def on(self):
         """Turn the relay on.  State will report 1."""
-        self.bus.write_byte(0x01)
+        self.bus.write_n_bytes(0x01)
 
     def toggle(self, verbose=False):
         """Toggle state of relay
